@@ -15,7 +15,7 @@ param appInsightsConnectionString string
 
 var appServicePlanName = '${appName}-plan'
 var webAppName = '${appName}-api'
-var sku = environment == 'prod' ? 'P2v3' : 'B2'
+var sku = environment == 'prod' ? 'P2v3' : 'B1'
 
 resource appServicePlan 'Microsoft.Web/serverfarms@2023-01-01' = {
   name: appServicePlanName

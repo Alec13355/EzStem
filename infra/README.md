@@ -8,7 +8,7 @@ This directory contains Azure infrastructure-as-code (Bicep) and deployment auto
 - **Azure SQL Database**: SQL Server 12.0 with Basic (dev) / Standard S2 (prod) tiers
 - **Key Vault**: Secure storage for connection strings and secrets (RBAC authorization model)
 - **Application Insights**: Monitoring and telemetry with Log Analytics workspace
-- **Container Registry**: Docker images for API deployment (configured in GitHub Actions)
+- **Blob Storage**: Static website hosting for Angular frontend (StorageV2, LRS)
 
 ## Prerequisites
 
@@ -30,20 +30,26 @@ Backend and frontend run on localhost:5000 and localhost:4200 respectively.
 
 ## Deploying to Azure
 
-### 1. Login to Azure
+### Quick Start (OIDC Setup)
+
+For complete step-by-step instructions, see **[AZURE_SETUP.md](./AZURE_SETUP.md)**.
+
+### Manual Deployment
+
+#### 1. Login to Azure
 
 ```bash
 az login
 az account set --subscription <your-subscription-id>
 ```
 
-### 2. Set SQL Admin Password
+#### 2. Set SQL Admin Password
 
 ```bash
 export SQL_ADMIN_PASSWORD='YourSecurePassword123!'
 ```
 
-### 3. Deploy Infrastructure
+#### 3. Deploy Infrastructure
 
 ```bash
 cd infra
@@ -55,78 +61,43 @@ This creates:
 - Resource group: `ezstem-rg-{environment}`
 - All Azure resources defined in `main.bicep`
 
-### 4. Configure GitHub Actions Secrets
-
-After deploying infrastructure, configure GitHub Actions for CI/CD:
-
-#### OIDC Authentication (Recommended)
-
-1. **Create Azure AD App Registration**:
-   ```bash
-   az ad app create --display-name ezstem-github-actions
-   ```
-
-2. **Create Service Principal**:
-   ```bash
-   az ad sp create --id <app-id>
-   ```
-
-3. **Configure Federated Credentials**:
-   ```bash
-   az ad app federated-credential create \
-     --id <app-id> \
-     --parameters '{
-       "name": "ezstem-github-federation",
-       "issuer": "https://token.actions.githubusercontent.com",
-       "subject": "repo:Alec13355/EzStem:ref:refs/heads/main",
-       "audiences": ["api://AzureADTokenExchange"]
-     }'
-   ```
-
-4. **Grant Contributor Role**:
-   ```bash
-   az role assignment create \
-     --assignee <app-id> \
-     --role Contributor \
-     --scope /subscriptions/<subscription-id>
-   ```
-
-5. **Set GitHub Secrets**:
-   - `AZURE_CLIENT_ID`: Application (client) ID
-   - `AZURE_TENANT_ID`: Directory (tenant) ID
-   - `AZURE_SUBSCRIPTION_ID`: Subscription ID
-   - `ACR_LOGIN_SERVER`: `<your-acr-name>.azurecr.io`
-   - `ACR_USERNAME`: ACR admin username
-   - `ACR_PASSWORD`: ACR admin password
-   - `AZURE_WEBAPP_NAME`: `ezstem-{environment}-api`
-   - `AZURE_STORAGE_ACCOUNT`: (optional) Storage account for frontend
-   - `AZURE_CDN_ENDPOINT`: (optional) CDN endpoint name
-
-### 5. Grant App Service Access to Key Vault
-
-After deployment, assign the "Key Vault Secrets User" role to the App Service managed identity:
-
-```bash
-APP_PRINCIPAL_ID=$(az webapp identity show \
-  --name ezstem-dev-api \
-  --resource-group ezstem-rg-dev \
-  --query principalId -o tsv)
-
-KEY_VAULT_ID=$(az keyvault show \
-  --name <key-vault-name> \
-  --resource-group ezstem-rg-dev \
-  --query id -o tsv)
-
-az role assignment create \
-  --assignee $APP_PRINCIPAL_ID \
-  --role "Key Vault Secrets User" \
-  --scope $KEY_VAULT_ID
-```
-
 ## Environment Configuration
 
-- **Dev**: Basic tier SQL, B2 App Service Plan, 30-day log retention
-- **Prod**: Standard S2 SQL, P2v3 App Service Plan, 90-day log retention, Always On enabled
+- **Dev**: Basic SQL (5 DTU, 2GB), B1 App Service Plan, LRS Storage (~$18.54/month)
+- **Prod**: Standard S2 SQL (50 DTU, 250GB), P2v3 App Service Plan, CDN (~$278/month)
+
+## Cost Breakdown (Dev Tier)
+
+| Resource               | SKU/Tier       | Monthly Cost   |
+|------------------------|----------------|----------------|
+| App Service Plan       | B1 (Basic)     | ~$13.14        |
+| Azure SQL Database     | Basic (2GB)    | ~$4.90         |
+| Storage Account (Blob) | Standard LRS   | ~$0.50         |
+| Key Vault              | Standard       | ~$0.00 (ops)   |
+| Application Insights   | Pay-as-you-go  | ~$0.00 (free)  |
+| **TOTAL**              |                | **~$18.54/mo** |
+
+See [AZURE_SETUP.md](./AZURE_SETUP.md) for complete setup instructions.
+
+## GitHub Actions Secrets
+
+After deploying infrastructure, configure GitHub Actions for CI/CD. See **[AZURE_SETUP.md](./AZURE_SETUP.md)** for complete instructions.
+
+Required secrets:
+- `AZURE_CLIENT_ID`: Application (client) ID from app registration
+- `AZURE_TENANT_ID`: Directory (tenant) ID
+- `AZURE_SUBSCRIPTION_ID`: Azure subscription ID
+- `AZURE_RESOURCE_GROUP`: Resource group name (e.g., `ezstem-rg-dev`)
+- `AZURE_WEBAPP_NAME`: Web app name (e.g., `ezstem-dev-api`)
+- `AZURE_STORAGE_ACCOUNT`: Storage account name (e.g., `ezstemdevstorage`)
+
+## Deployment Method
+
+**Dev tier:** Uses **zip deploy** (`dotnet publish` → zip → `az webapp deploy --type zip`)
+- Simpler, faster, cheaper (no Docker/ACR needed)
+- Saves $5/month vs Azure Container Registry
+
+**Prod tier:** Can use Docker/ACR for container-based deployment if needed
 
 ## Files
 
@@ -135,8 +106,10 @@ az role assignment create \
 - `modules/database.bicep`: SQL Server and Database
 - `modules/keyvault.bicep`: Key Vault and secrets
 - `modules/monitoring.bicep`: Application Insights and Log Analytics
+- `modules/storage.bicep`: Blob Storage for frontend static hosting
 - `parameters/dev.bicepparam`: Dev environment parameters (example)
 - `deploy.sh`: Deployment automation script
+- `AZURE_SETUP.md`: Complete OIDC setup guide
 
 ## Security Notes
 
@@ -152,10 +125,14 @@ az role assignment create \
 **Key Vault access denied**:
 - Verify managed identity has "Key Vault Secrets User" role
 - Check Key Vault uses RBAC authorization (not access policies)
+- Run the role assignment commands from the deploy script output
 
-**Docker build fails in CD pipeline**:
-- Verify Dockerfile path: `backend/src/EzStem.API/Dockerfile`
-- Check ACR credentials in GitHub secrets
+**Static website not enabled**:
+- Manually enable: `az storage blob service-properties update --account-name <storage-name> --static-website --index-document index.html --404-document index.html --auth-mode login`
+
+**Zip deploy fails**:
+- Verify App Service Plan is B1 or higher (F1 Free tier not supported)
+- Check deployment logs: `az webapp log tail --name <app-name> --resource-group <rg-name>`
 
 **Health check fails**:
 - Verify `/health` endpoint returns 200 OK
