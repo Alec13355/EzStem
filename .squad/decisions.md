@@ -155,3 +155,70 @@ Angular 17+ standalone components with Material Design, tablet-first responsive 
 - Change control: Team consensus; architectural changes require Danny approval
 - Escalation: Blockers → Reuben (PM) → Alec (Product Owner)
 - Domain validation: Saul reviews cost/pricing logic; Tess reviews UX
+
+---
+
+## P1 Session Decisions (2026-04-14)
+
+### Azure Cost Optimization (Basher — 2026-04-14)
+
+**Context:** Alec requested dev infrastructure under $25/month.
+
+**Decisions:**
+
+1. **App Service Plan: B1 Basic (~$13/month)** — F1 Free tier excluded (no managed identity support). B1 sufficient for dev; prod uses P2v3.
+
+2. **SQL Database: Basic Tier, 2GB (~$5/month)** — 5 DTU handles dev CRUD load; saves ~$50/month vs Standard S0.
+
+3. **Deployment: Zip Deploy (not Docker/ACR)** — Eliminates $5/month ACR cost; faster deploys; no image complexity for dev.
+
+4. **Blob Storage for Frontend: Standard LRS (~$0.50/month)** — Static website hosting for Angular SPA; CDN optional for prod.
+
+5. **Key Vault + App Insights: Free/minimal** — Dev operation counts negligible; App Insights under 5GB free tier.
+
+**Total dev cost: $18.54/month** (target met: under $25 ✅)
+
+**OIDC Federated Credentials** adopted for GitHub Actions → Azure auth (no long-lived secrets, 5-min token expiry).
+
+**Files changed:** `infra/modules/appservice.bicep`, `infra/modules/database.bicep`, `infra/modules/storage.bicep` (new), `infra/main.bicep`, `infra/parameters/dev.bicepparam`, `infra/deploy.sh`, `.github/workflows/cd.yml`, `infra/AZURE_SETUP.md` (new), `infra/DEPLOYMENT_CHECKLIST.md` (new).
+
+---
+
+### P1 Backend Architecture (Linus — 2026-04-14)
+
+1. **EF Core Migration Strategy** — Separate semantically-named migrations (InitialCreate, AddSeasonalItemFields, AddWasteCalculationFields) for cleaner rollback and git history.
+
+2. **Seasonal Month Range Handling** — Integer month fields (1–12), cross-year ranges supported (`start > end` → OR logic). Null = year-round availability.
+
+3. **Waste Category Thresholds** — Low (<10%), Medium (10–20%), High (>20%). Matches Tess's UX color coding. Stored as WastePercentage + WasteCalculationDate on Order entity.
+
+4. **CSV Export Format** — Vendor-grouped, alphabetically sorted; columns: Vendor, Item, BundleSize, BundlesOrdered, TotalStems, UnitCost, TotalCost; TOTAL row at bottom.
+
+5. **Lead Time Warning Logic** — Warn when `daysUntilEvent <= item.LeadTimeDays && daysUntilEvent >= 0`. Inclusive comparison; no warning for past events.
+
+6. **Waste Storage on Order Entity** — No separate WasteTracking table (MVP). Nullable WastePercentage with audit timestamp.
+
+---
+
+### P1 Frontend Architecture (Rusty — 2026-04-14)
+
+1. **CSV Download via Blob API** — Angular HttpClient `responseType: 'blob'` + temporary anchor element. No page disruption; custom filename `order-{id}.csv`. (Rejected: window.location redirect — causes page flicker.)
+
+2. **Inline Waste Result Display** — Show WasteSummary in same card after submit; reload order to switch to readonly view. Follows "show your math" principle.
+
+3. **Seasonal Warning as Single Banner** — Top-of-page banner if any seasonal items out of range. Frontend-only check (data already in event payload). Non-blocking alert.
+
+4. **Waste CSS Classes Separate from Margin Classes** — `.waste-low`, `.waste-medium`, `.waste-high` vs `.margin-*`. Same palette, semantically distinct; thresholds may diverge in future.
+
+5. **HttpClient + ApiService Dual Injection** — OrderService injects both. ApiService handles JSON endpoints; HttpClient used directly for blob CSV export. Pragmatic, not an abstraction violation.
+
+---
+
+### P1 Tech Review (Danny — 2026-04-14)
+
+**Status: APPROVED**
+
+- 18/18 tests passing
+- All clean architecture rules met
+- **Flagged (low risk):** `LeadTimeDays` nullability — spec shows non-null but entity is nullable; acceptable for MVP
+- **Flagged + Fixed:** Missing `actualStemsUsed` guard in waste endpoint (fixed by coordinator)

@@ -36,3 +36,19 @@
 - **Minor Items**: Frontend `Item` interface missing `bundleSize` field (non-blocking).
 - **Build/Test Commands**: `cd backend && dotnet build` (0 errors), `cd backend && dotnet test` (9 passed), `cd frontend && npm run build` (successful).
 
+### P1 Tech Review (2026-04-14)
+
+**Summary:** Reviewed P1 backend (Linus), P1 frontend (Rusty), and P1 infra (Basher). All systems go.
+
+**Findings:**
+- **18/18 backend tests pass** (9 P0 + 9 P1)
+- **All clean architecture rules met** — no layer violations, interfaces respected, DI correct
+- **Frontend production build passing** — budget warning (619KB, target 500KB) is non-blocking
+- **Infra cost target met** — $18.54/month dev (under $25 ✅)
+
+**Flagged issues:**
+1. `LeadTimeDays` nullability: spec implies non-null, entity is nullable — **low risk**, acceptable for MVP; recommend making non-null with default 0 in next sprint
+2. Missing `actualStemsUsed` guard in waste endpoint (could accept negative values) — **fixed by coordinator** before merge
+
+**Sign-off:** APPROVED. P1 ready to ship.
+

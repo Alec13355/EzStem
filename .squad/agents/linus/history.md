@@ -44,3 +44,53 @@
 - Recipe cost calculations (items + labor)
 - Input validation (name required, cost > 0)
 
+### 2026-04-14: P1 Backend Features Implemented
+
+**What was built:**
+- EF Core migrations (InitialCreate + 2 schema updates) — enables Azure SQL deployment
+- Seasonal item tracking: IsSeasonalItem, SeasonalStartMonth/EndMonth, LeadTimeDays fields on Item entity
+- GetSeasonalWarningsAsync service method for event planning (warns about out-of-season items and lead time violations)
+- Waste calculation engine: tracks actual stem usage vs ordered quantities with Low/Medium/High categories
+- CSV export for orders: vendor-grouped purchase orders with bundle details and totals
+- 3 new API endpoints: POST /api/orders/{id}/waste, GET /api/orders/{id}/waste, GET /api/orders/{id}/export/csv
+- Comprehensive test suite: 9 new tests (WasteServiceTests + OrderExportTests), total 18 tests passing
+
+**Migration strategy:**
+- Created initial migration (InitialCreate) capturing full schema with proper decimal(18,4) precision and indexes
+- Separate migrations for semantic changes: AddSeasonalItemFields, AddWasteCalculationFields
+- Migrations ready for `dotnet ef database update` on Azure SQL
+
+**Seasonal item logic:**
+- Supports cross-year ranges (e.g., December-February for winter items)
+- Lead time warnings calculated as days from current date to event date
+- Returns structured warnings (ItemId, ItemName, WarningType, Message) for UI consumption
+
+**Waste calculation:**
+- Percentage-based: (stemsOrdered - stemsUsed) / stemsOrdered * 100
+- Category thresholds: Low (<10%), Medium (10-20%), High (>20%)
+- Stored on Order entity with calculation timestamp for audit trail
+- Matches Tess's UX color coding requirements
+
+**CSV export format:**
+- Vendor-grouped, alphabetically sorted
+- Columns: Vendor, Item, BundleSize, BundlesOrdered, TotalStems, UnitCost, TotalCost
+- TOTAL row with grand total
+- Decimal formatting: $0.00 for consistent florist readability
+
+**Tests added:**
+- Waste calculation: correct percentage, Low/Medium/High categories, boundary cases (10%, 20%)
+- CSV export: headers present, vendor grouping, totals accuracy, decimal formatting
+- All 18 tests pass (9 P0 + 9 P1)
+
+### P1 Session Summary (2026-04-14)
+
+**Interfaces changed:** `IOrderService` — added `CalculateWasteAsync(orderId, actualStemsUsed)`, `GetWasteAsync(orderId)`, `ExportOrderCsvAsync(orderId)`.
+
+**Architecture notes:**
+- Seasonal month logic: cross-year ranges handled with `start > end` → OR condition (`month >= start || month <= end`)
+- Waste stored directly on Order entity (no separate table) — nullable WastePercentage + WasteCalculationDate audit field
+- CSV generation uses StringBuilder; line items sorted by `Vendor?.Name ?? "No Vendor"` alphabetically
+- Lead time warning logic: warn when `daysUntilEvent <= item.LeadTimeDays && daysUntilEvent >= 0`
+
+**Tech review outcome:** 18/18 tests pass. Danny flagged LeadTimeDays nullability (low risk, acceptable for MVP) and missing actualStemsUsed guard (fixed by coordinator).
+
