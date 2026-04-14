@@ -1,21 +1,50 @@
 name: CD Pipeline
 
 on:
-  workflow_run:
-    workflows: ["CI Pipeline"]
-    types:
-      - completed
+  push:
     branches:
       - main
 
 jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+      - run: dotnet restore
+      - run: dotnet build --configuration Release --no-restore
+      - run: dotnet test --configuration Release --no-build
+
+  test-frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npx ng build --configuration production
+
   deploy-backend:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    needs: [test-backend, test-frontend]
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
       
       - name: Azure login (OIDC)
         uses: azure/login@v2
@@ -24,34 +53,36 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       
-      - name: Login to Azure Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ secrets.ACR_LOGIN_SERVER }}
-          username: ${{ secrets.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
-      
-      - name: Build and push Docker image
+      - name: Publish .NET application
         working-directory: ./backend
         run: |
-          docker build -f src/EzStem.API/Dockerfile -t ${{ secrets.ACR_LOGIN_SERVER }}/ezstem-api:${{ github.sha }} -t ${{ secrets.ACR_LOGIN_SERVER }}/ezstem-api:latest .
-          docker push ${{ secrets.ACR_LOGIN_SERVER }}/ezstem-api:${{ github.sha }}
-          docker push ${{ secrets.ACR_LOGIN_SERVER }}/ezstem-api:latest
+          dotnet publish src/EzStem.API/EzStem.API.csproj \
+            --configuration Release \
+            --output ./publish \
+            --runtime linux-x64 \
+            --self-contained false
+      
+      - name: Create deployment package
+        working-directory: ./backend/publish
+        run: zip -r ../deploy.zip .
       
       - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
-          images: ${{ secrets.ACR_LOGIN_SERVER }}/ezstem-api:${{ github.sha }}
+        run: |
+          az webapp deploy \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --name ${{ secrets.AZURE_WEBAPP_NAME }} \
+            --src-path ./backend/deploy.zip \
+            --type zip \
+            --async true
       
       - name: Smoke test
         run: |
-          sleep 30
+          sleep 45
           curl --fail https://${{ secrets.AZURE_WEBAPP_NAME }}.azurewebsites.net/health || exit 1
 
   deploy-frontend:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    needs: [test-backend, test-frontend]
     
     steps:
       - name: Checkout code
@@ -85,12 +116,3 @@ jobs:
             --source ./frontend/dist/ezstem/browser \
             --overwrite true \
             --auth-mode login
-      
-      - name: Purge CDN endpoint
-        if: ${{ secrets.AZURE_CDN_ENDPOINT != '' }}
-        run: |
-          az cdn endpoint purge \
-            --resource-group ezstem-rg-prod \
-            --profile-name ezstem-cdn \
-            --name ${{ secrets.AZURE_CDN_ENDPOINT }} \
-            --content-paths '/*'
