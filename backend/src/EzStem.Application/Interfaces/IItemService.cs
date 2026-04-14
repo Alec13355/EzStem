@@ -9,4 +9,5 @@ public interface IItemService
     Task<ItemResponse> CreateItemAsync(CreateItemRequest request, CancellationToken ct = default);
     Task<ItemResponse?> UpdateItemAsync(Guid id, UpdateItemRequest request, CancellationToken ct = default);
     Task<bool> DeleteItemAsync(Guid id, CancellationToken ct = default);
+    Task<IEnumerable<SeasonalWarning>> GetSeasonalWarningsAsync(DateTime eventDate, CancellationToken ct = default);
 }

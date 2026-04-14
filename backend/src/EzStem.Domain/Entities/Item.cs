@@ -11,6 +11,10 @@ public class Item
     public Guid? VendorId { get; set; }
     public Vendor? Vendor { get; set; }
     public bool IsActive { get; set; } = true;
+    public bool IsSeasonalItem { get; set; } = false;
+    public int? SeasonalStartMonth { get; set; }
+    public int? SeasonalEndMonth { get; set; }
+    public int? LeadTimeDays { get; set; }
     public bool IsDeleted { get; set; } = false;
     public DateTime? DeletedAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

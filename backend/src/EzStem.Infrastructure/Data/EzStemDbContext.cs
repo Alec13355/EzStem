@@ -67,6 +67,7 @@ public class EzStemDbContext : DbContext
         // Order configuration
         modelBuilder.Entity<Order>(entity =>
         {
+            entity.Property(o => o.WastePercentage).HasPrecision(18, 4);
             entity.HasQueryFilter(o => !o.IsDeleted);
             entity.HasIndex(o => o.EventId);
             entity.HasIndex(o => o.IsDeleted);

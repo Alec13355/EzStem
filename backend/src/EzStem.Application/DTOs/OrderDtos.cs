@@ -18,3 +18,14 @@ public record VendorOrderGroup(
     Guid? VendorId, string VendorName,
     IEnumerable<OrderLineItemResponse> Items,
     decimal VendorTotalCost);
+
+public record WasteSummary(
+    decimal TotalStemsOrdered,
+    decimal TotalStemsUsed,
+    decimal WastePercentage,
+    string WasteCategory
+);
+
+public record RecordWasteRequest(
+    decimal ActualStemsUsed
+);

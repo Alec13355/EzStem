@@ -32,6 +32,7 @@ public class ItemService : IItemService
             .Select(i => new ItemResponse(
                 i.Id, i.Name, i.Description, i.CostPerStem, i.BundleSize,
                 i.ImageUrl, i.Notes, i.VendorId, i.Vendor != null ? i.Vendor.Name : null,
+                i.IsSeasonalItem, i.SeasonalStartMonth, i.SeasonalEndMonth, i.LeadTimeDays,
                 i.CreatedAt, i.UpdatedAt))
             .ToListAsync(ct);
 
@@ -46,6 +47,7 @@ public class ItemService : IItemService
         return new ItemResponse(
             item.Id, item.Name, item.Description, item.CostPerStem, item.BundleSize,
             item.ImageUrl, item.Notes, item.VendorId, item.Vendor?.Name,
+            item.IsSeasonalItem, item.SeasonalStartMonth, item.SeasonalEndMonth, item.LeadTimeDays,
             item.CreatedAt, item.UpdatedAt);
     }
 
@@ -70,6 +72,10 @@ public class ItemService : IItemService
             ImageUrl = request.ImageUrl,
             Notes = request.Notes,
             VendorId = request.VendorId,
+            IsSeasonalItem = request.IsSeasonalItem,
+            SeasonalStartMonth = request.SeasonalStartMonth,
+            SeasonalEndMonth = request.SeasonalEndMonth,
+            LeadTimeDays = request.LeadTimeDays,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -82,6 +88,7 @@ public class ItemService : IItemService
         return new ItemResponse(
             item.Id, item.Name, item.Description, item.CostPerStem, item.BundleSize,
             item.ImageUrl, item.Notes, item.VendorId, item.Vendor?.Name,
+            item.IsSeasonalItem, item.SeasonalStartMonth, item.SeasonalEndMonth, item.LeadTimeDays,
             item.CreatedAt, item.UpdatedAt);
     }
 
@@ -107,6 +114,10 @@ public class ItemService : IItemService
         if (request.ImageUrl != null) item.ImageUrl = request.ImageUrl;
         if (request.Notes != null) item.Notes = request.Notes;
         if (request.VendorId.HasValue) item.VendorId = request.VendorId.Value;
+        if (request.IsSeasonalItem.HasValue) item.IsSeasonalItem = request.IsSeasonalItem.Value;
+        if (request.SeasonalStartMonth.HasValue) item.SeasonalStartMonth = request.SeasonalStartMonth.Value;
+        if (request.SeasonalEndMonth.HasValue) item.SeasonalEndMonth = request.SeasonalEndMonth.Value;
+        if (request.LeadTimeDays.HasValue) item.LeadTimeDays = request.LeadTimeDays.Value;
 
         item.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync(ct);
@@ -114,6 +125,7 @@ public class ItemService : IItemService
         return new ItemResponse(
             item.Id, item.Name, item.Description, item.CostPerStem, item.BundleSize,
             item.ImageUrl, item.Notes, item.VendorId, item.Vendor?.Name,
+            item.IsSeasonalItem, item.SeasonalStartMonth, item.SeasonalEndMonth, item.LeadTimeDays,
             item.CreatedAt, item.UpdatedAt);
     }
 
@@ -127,5 +139,57 @@ public class ItemService : IItemService
         await _context.SaveChangesAsync(ct);
 
         return true;
+    }
+
+    public async Task<IEnumerable<SeasonalWarning>> GetSeasonalWarningsAsync(DateTime eventDate, CancellationToken ct = default)
+    {
+        var warnings = new List<SeasonalWarning>();
+        var seasonalItems = await _context.Items
+            .Where(i => i.IsSeasonalItem)
+            .ToListAsync(ct);
+
+        var eventMonth = eventDate.Month;
+        var daysUntilEvent = (eventDate - DateTime.UtcNow).Days;
+
+        foreach (var item in seasonalItems)
+        {
+            // Check seasonal availability
+            if (item.SeasonalStartMonth.HasValue && item.SeasonalEndMonth.HasValue)
+            {
+                bool isInSeason = IsMonthInRange(eventMonth, item.SeasonalStartMonth.Value, item.SeasonalEndMonth.Value);
+                if (!isInSeason)
+                {
+                    warnings.Add(new SeasonalWarning(
+                        item.Id,
+                        item.Name,
+                        "OutOfSeason",
+                        $"{item.Name} is out of season for events in month {eventMonth}. Available months: {item.SeasonalStartMonth}-{item.SeasonalEndMonth}"));
+                }
+            }
+
+            // Check lead time
+            if (item.LeadTimeDays.HasValue && daysUntilEvent <= item.LeadTimeDays.Value && daysUntilEvent >= 0)
+            {
+                warnings.Add(new SeasonalWarning(
+                    item.Id,
+                    item.Name,
+                    "LeadTime",
+                    $"{item.Name} requires {item.LeadTimeDays} days advance notice. Event is in {daysUntilEvent} days."));
+            }
+        }
+
+        return warnings;
+    }
+
+    private bool IsMonthInRange(int month, int startMonth, int endMonth)
+    {
+        if (startMonth <= endMonth)
+        {
+            return month >= startMonth && month <= endMonth;
+        }
+        else
+        {
+            return month >= startMonth || month <= endMonth;
+        }
     }
 }

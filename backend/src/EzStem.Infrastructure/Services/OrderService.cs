@@ -163,4 +163,87 @@ public class OrderService : IOrderService
             order.CreatedAt
         );
     }
+
+    public async Task<WasteSummary> CalculateWasteAsync(Guid orderId, decimal actualStemsUsed, CancellationToken ct = default)
+    {
+        var order = await _context.Orders
+            .Include(o => o.LineItems)
+            .FirstOrDefaultAsync(o => o.Id == orderId, ct);
+
+        if (order == null)
+            throw new ArgumentException("Order not found");
+
+        var totalStemsOrdered = order.LineItems.Sum(li => li.QuantityOrdered);
+        
+        if (totalStemsOrdered == 0)
+            throw new ArgumentException("Cannot calculate waste for order with no items");
+
+        var wastePercentage = (totalStemsOrdered - actualStemsUsed) / totalStemsOrdered * 100;
+
+        order.WastePercentage = wastePercentage;
+        order.WasteCalculationDate = DateTime.UtcNow;
+        await _context.SaveChangesAsync(ct);
+
+        var category = wastePercentage < 10 ? "Low" : wastePercentage <= 20 ? "Medium" : "High";
+
+        return new WasteSummary(totalStemsOrdered, actualStemsUsed, wastePercentage, category);
+    }
+
+    public async Task<WasteSummary?> GetWasteAsync(Guid orderId, CancellationToken ct = default)
+    {
+        var order = await _context.Orders
+            .Include(o => o.LineItems)
+            .FirstOrDefaultAsync(o => o.Id == orderId, ct);
+
+        if (order == null || !order.WastePercentage.HasValue)
+            return null;
+
+        var totalStemsOrdered = order.LineItems.Sum(li => li.QuantityOrdered);
+        var actualStemsUsed = totalStemsOrdered - (totalStemsOrdered * order.WastePercentage.Value / 100);
+        var category = order.WastePercentage.Value < 10 ? "Low" : order.WastePercentage.Value <= 20 ? "Medium" : "High";
+
+        return new WasteSummary(totalStemsOrdered, actualStemsUsed, order.WastePercentage.Value, category);
+    }
+
+    public async Task<string> GenerateOrderCsvAsync(Guid orderId, CancellationToken ct = default)
+    {
+        var order = await _context.Orders
+            .Include(o => o.Event)
+            .Include(o => o.LineItems)
+            .ThenInclude(li => li.Item)
+            .Include(o => o.LineItems)
+            .ThenInclude(li => li.Vendor)
+            .FirstOrDefaultAsync(o => o.Id == orderId, ct);
+
+        if (order == null)
+            throw new ArgumentException("Order not found");
+
+        var csv = new System.Text.StringBuilder();
+        csv.AppendLine("Vendor,Item,BundleSize,BundlesOrdered,TotalStems,UnitCost,TotalCost");
+
+        var lineItems = order.LineItems
+            .OrderBy(li => li.Vendor?.Name ?? "No Vendor")
+            .ThenBy(li => li.Item.Name)
+            .ToList();
+
+        decimal grandTotal = 0;
+
+        foreach (var lineItem in lineItems)
+        {
+            var vendorName = lineItem.Vendor?.Name ?? "No Vendor";
+            var itemName = lineItem.Item.Name;
+            var bundleSize = lineItem.Item.BundleSize;
+            var bundlesOrdered = (int)Math.Ceiling(lineItem.QuantityNeeded / bundleSize);
+            var totalStems = lineItem.QuantityOrdered;
+            var unitCost = lineItem.CostPerUnit;
+            var totalCost = lineItem.QuantityOrdered * lineItem.CostPerUnit;
+            grandTotal += totalCost;
+
+            csv.AppendLine($"\"{vendorName}\",\"{itemName}\",{bundleSize},{bundlesOrdered},{totalStems},${unitCost:F2},${totalCost:F2}");
+        }
+
+        csv.AppendLine($"TOTAL,,,,,,${grandTotal:F2}");
+
+        return csv.ToString();
+    }
 }

@@ -7,7 +7,11 @@ public record CreateItemRequest(
     int BundleSize,
     string? ImageUrl,
     string? Notes,
-    Guid? VendorId
+    Guid? VendorId,
+    bool IsSeasonalItem = false,
+    int? SeasonalStartMonth = null,
+    int? SeasonalEndMonth = null,
+    int? LeadTimeDays = null
 );
 
 public record UpdateItemRequest(
@@ -17,7 +21,11 @@ public record UpdateItemRequest(
     int? BundleSize,
     string? ImageUrl,
     string? Notes,
-    Guid? VendorId
+    Guid? VendorId,
+    bool? IsSeasonalItem = null,
+    int? SeasonalStartMonth = null,
+    int? SeasonalEndMonth = null,
+    int? LeadTimeDays = null
 );
 
 public record ItemResponse(
@@ -30,6 +38,17 @@ public record ItemResponse(
     string? Notes,
     Guid? VendorId,
     string? VendorName,
+    bool IsSeasonalItem,
+    int? SeasonalStartMonth,
+    int? SeasonalEndMonth,
+    int? LeadTimeDays,
     DateTime CreatedAt,
     DateTime UpdatedAt
+);
+
+public record SeasonalWarning(
+    Guid ItemId,
+    string ItemName,
+    string WarningType,
+    string Message
 );
