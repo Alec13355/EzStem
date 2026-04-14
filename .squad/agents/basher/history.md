@@ -88,3 +88,22 @@
 - **Async vs sync deploys:** For smoke tests, synchronous deploys are simpler and more reliable than async + retry logic
 - **OIDC service principal permissions:** Keep OIDC SP permissions minimal — only infra deployment scope, not directory reads
 - **DB naming derivation:** The pattern `DB_NAME="${SQL_SERVER%-sql}-db"` correctly strips `-sql` suffix and adds `-db` (verified against Bicep naming: `${appName}-sql` → `${appName}-db`)
+
+### ODBC Driver Installation for SQL Provisioning (2026-04-14)
+
+**Problem:** CD pipeline failing at "Provision SQL user for App Service MI" step with "ERROR: No SQL Server ODBC driver found" — script uses `pyodbc` which requires the Microsoft ODBC Driver for SQL Server installed at OS level.
+
+**Root cause:** The workflow only installed the Python package (`pip install pyodbc`) but NOT the underlying system-level ODBC driver that pyodbc depends on.
+
+**Solution:** Added "Install MSSQL ODBC driver" step before SQL provisioning that installs `msodbcsql18` on ubuntu-latest runner:
+- Adds Microsoft package signing key
+- Adds Microsoft package repository for Ubuntu 22.04
+- Installs msodbcsql18 (Microsoft ODBC Driver 18 for SQL Server)
+- Uses `ACCEPT_EULA=Y` for non-interactive installation
+
+**Files changed:** `.github/workflows/cd.yml` (inserted new step at line 82 before SQL provisioning)
+
+**Key learnings:**
+- **pyodbc dependencies:** The Python package is just a wrapper — requires system ODBC driver (msodbcsql17/18)
+- **Ubuntu runner version:** ubuntu-latest is currently 22.04 — package repository URL must match
+- **Non-interactive installs:** ACCEPT_EULA=Y environment variable required for automated ODBC driver installation
