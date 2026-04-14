@@ -79,6 +79,26 @@ jobs:
             --parameters aadAdminName="${{ steps.sp.outputs.name }}" \
             --parameters principalType=Application
 
+      - name: Provision SQL user for App Service MI
+        run: |
+          SQL_SERVER=$(az deployment group show \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --name main \
+            --query "properties.outputs.sqlServerName.value" -o tsv)
+          APP_MI_ID=$(az webapp identity show \
+            --name ${{ secrets.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --query principalId -o tsv)
+          APP_MI_NAME=$(az ad sp show --id "$APP_MI_ID" --query displayName -o tsv)
+          ACCESS_TOKEN=$(az account get-access-token \
+            --resource https://database.windows.net/ \
+            --query accessToken -o tsv)
+          DB_NAME="${SQL_SERVER%-sql}-db"
+          pip install pyodbc --quiet
+          SQL_SERVER="$SQL_SERVER" DB_NAME="$DB_NAME" \
+            APP_MI_NAME="$APP_MI_NAME" ACCESS_TOKEN="$ACCESS_TOKEN" \
+            python3 .github/scripts/provision_sql_user.py
+
       - name: Get SWA deployment token
         id: swa-key
         run: |
