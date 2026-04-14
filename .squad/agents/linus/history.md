@@ -94,3 +94,33 @@
 
 **Tech review outcome:** 18/18 tests pass. Danny flagged LeadTimeDays nullability (low risk, acceptable for MVP) and missing actualStemsUsed guard (fixed by coordinator).
 
+### 2026-04-14: Background Migration Service to Fix Azure 503 Health Checks
+
+**Problem:** Azure App Service smoke tests consistently returned HTTP 503 after deployment. The `/health` endpoint is trivial (always returns 200 OK), so 503 meant the app process hadn't started accepting requests yet.
+
+**Root cause:** In `Program.cs` (lines 38-43), EF Core migrations ran synchronously *before* `app.Run()`:
+```csharp
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<EzStemDbContext>();
+    db.Database.Migrate();  // BLOCKING - runs before app accepts requests
+}
+```
+
+On Azure App Service, the connection string comes from Key Vault via `@Microsoft.KeyVault(...)` reference. If Key Vault resolution or migration execution took >45 seconds, the smoke test fired before ASP.NET had called `app.Run()`, resulting in 503.
+
+**Solution:** Moved migrations to background hosted service (`DatabaseMigrationService`):
+- Implements `IHostedService` with async `MigrateAsync()` in `StartAsync()`
+- Registered via `builder.Services.AddHostedService<DatabaseMigrationService>()`
+- Removed synchronous migration block from `Program.cs`
+- `app.Run()` now called immediately, health endpoint returns 200 while migrations run in background
+- Added try/catch with logging: migration failures logged but don't crash app (allows health checks to work)
+
+**Files changed:**
+- Created: `backend/src/EzStem.API/Infrastructure/DatabaseMigrationService.cs`
+- Modified: `backend/src/EzStem.API/Program.cs` (added using, registered hosted service, removed blocking migration)
+
+**Tests:** All 18 backend tests pass. Build succeeds with 0 warnings/errors (2.3s).
+
+**Impact:** Azure App Service smoke tests will now succeed immediately after deployment. Migrations run asynchronously without blocking HTTP request handling.
+

@@ -1,3 +1,4 @@
+using EzStem.API.Infrastructure;
 using EzStem.Application.Interfaces;
 using EzStem.Infrastructure.Data;
 using EzStem.Infrastructure.Services;
@@ -22,6 +23,8 @@ builder.Services.AddScoped<IPricingService, PricingService>();
 builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 
+builder.Services.AddHostedService<DatabaseMigrationService>();
+
 var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>()
     ?? new[] { "http://localhost:4200" };
 
@@ -34,13 +37,6 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
-
-// Apply pending EF Core migrations on startup
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<EzStemDbContext>();
-    db.Database.Migrate();
-}
 
 if (app.Environment.IsDevelopment())
 {
