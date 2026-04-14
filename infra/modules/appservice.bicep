@@ -13,6 +13,9 @@ param keyVaultName string
 @description('Application Insights connection string')
 param appInsightsConnectionString string
 
+@description('Hostname of the Static Web App for CORS (without https://)')
+param swaHostname string = ''
+
 var appServicePlanName = '${appName}-plan'
 var webAppName = '${appName}-api'
 var sku = environment == 'prod' ? 'P2v3' : 'B1'
@@ -53,6 +56,14 @@ resource webApp 'Microsoft.Web/sites@2023-01-01' = {
         {
           name: 'ConnectionStrings__DefaultConnection'
           value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=SqlConnectionString)'
+        }
+        {
+          name: 'AllowedOrigins__0'
+          value: 'http://localhost:4200'
+        }
+        {
+          name: 'AllowedOrigins__1'
+          value: 'https://${swaHostname}'
         }
       ]
     }
