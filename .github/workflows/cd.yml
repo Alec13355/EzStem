@@ -146,9 +146,7 @@ jobs:
         run: |
           dotnet publish src/EzStem.API/EzStem.API.csproj \
             --configuration Release \
-            --output ./publish \
-            --runtime linux-x64 \
-            --self-contained false
+            --output ./publish
       
       - name: Create deployment package
         working-directory: ./backend/publish
@@ -161,6 +159,23 @@ jobs:
             --name ${{ secrets.AZURE_WEBAPP_NAME }} \
             --src-path ./backend/deploy.zip \
             --type zip
+      
+      - name: Capture App Service logs on failure
+        if: failure()
+        run: |
+          echo "=== App Service runtime logs ==="
+          LOG_DIR="./app-logs"
+          mkdir -p "$LOG_DIR"
+          az webapp log download \
+            --name ${{ secrets.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --log-file "$LOG_DIR/app-logs.zip" 2>&1 || true
+          if [ -f "$LOG_DIR/app-logs.zip" ]; then
+            unzip -o "$LOG_DIR/app-logs.zip" -d "$LOG_DIR" 2>/dev/null || true
+            echo "=== Docker/container logs ==="
+            find "$LOG_DIR" -name "*.log" -type f -exec tail -200 {} \; 2>/dev/null || true
+            find "$LOG_DIR" -name "default_docker.log" -exec tail -200 {} \; 2>/dev/null || true
+          fi
       
       - name: Smoke test
         run: |

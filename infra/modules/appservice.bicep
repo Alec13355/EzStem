@@ -65,6 +65,18 @@ resource webApp 'Microsoft.Web/sites@2023-01-01' = {
           name: 'AllowedOrigins__1'
           value: 'https://${swaHostname}'
         }
+        {
+          name: 'ASPNETCORE_URLS'
+          value: 'http://+:8080'
+        }
+        {
+          name: 'SCM_DO_BUILD_DURING_DEPLOYMENT'
+          value: 'false'
+        }
+        {
+          name: 'WEBSITE_STARTUP_FILE'
+          value: 'dotnet EzStem.API.dll'
+        }
       ]
     }
   }
