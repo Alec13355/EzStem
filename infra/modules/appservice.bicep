@@ -50,7 +50,11 @@ resource webApp 'Microsoft.Web/sites@2023-01-01' = {
       appSettings: [
         {
           name: 'ASPNETCORE_ENVIRONMENT'
-          value: environment == 'prod' ? 'Production' : 'Development'
+          value: environment == 'prod' ? 'Production' : 'Staging'
+        }
+        {
+          name: 'WEBSITE_ENABLE_APP_SERVICE_STORAGE'
+          value: 'true'
         }
         {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
@@ -84,3 +88,22 @@ resource webApp 'Microsoft.Web/sites@2023-01-01' = {
 output webAppUrl string = 'https://${webApp.properties.defaultHostName}'
 output webAppName string = webApp.name
 output principalId string = webApp.identity.principalId
+
+resource appLogsConfig 'Microsoft.Web/sites/config@2023-01-01' = {
+  name: 'logs'
+  parent: webApp
+  properties: {
+    applicationLogs: {
+      fileSystem: {
+        level: 'Verbose'
+        retentionInDays: 1
+      }
+    }
+    httpLogs: {
+      fileSystem: {
+        enabled: true
+        retentionInDays: 1
+      }
+    }
+  }
+}

@@ -16,17 +16,27 @@ public class DatabaseMigrationService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Running database migrations...");
         try
         {
+            _logger.LogInformation("DatabaseMigrationService starting...");
             using var scope = _serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<EzStemDbContext>();
-            await db.Database.MigrateAsync(stoppingToken);
-            _logger.LogInformation("Database migrations complete.");
+
+            // Use an independent timeout — never pass stoppingToken to MigrateAsync.
+            // If stoppingToken is cancelled while migration is in-flight, the exception
+            // would escape the catch and trigger BackgroundServiceExceptionBehavior.StopHost,
+            // leading to Environment.FailFast() (SIGABRT / exit 134).
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+            cts.CancelAfter(TimeSpan.FromMinutes(5));
+
+            await db.Database.MigrateAsync(CancellationToken.None);
+            _logger.LogInformation("Database migrations completed successfully.");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Database migration failed. Application will continue but may be unstable.");
+            // Log and swallow — app continues without migrations rather than crashing.
+            try { _logger.LogError(ex, "Database migration failed. App will continue but may be degraded."); }
+            catch { /* logger itself must not throw */ }
         }
     }
 }

@@ -168,11 +168,28 @@ jobs:
 
       - name: Deploy to Azure Web App
         run: |
+          # Stream container logs in background so we capture .NET stdout/stderr in real-time
+          az webapp log tail \
+            --name ${{ secrets.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --timeout 720 > /tmp/streaming-logs.txt 2>&1 &
+          STREAM_PID=$!
+          sleep 3  # brief pause to let streaming connect
+
           az webapp deploy \
             --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
             --name ${{ secrets.AZURE_WEBAPP_NAME }} \
             --src-path ./backend/deploy.zip \
             --type zip
+          DEPLOY_EXIT=$?
+
+          sleep 5
+          kill $STREAM_PID 2>/dev/null || true
+
+          echo "=== Streaming container logs (real-time .NET stdout) ==="
+          cat /tmp/streaming-logs.txt || true
+
+          exit $DEPLOY_EXIT
       
       - name: Capture App Service logs on failure
         if: failure()
@@ -186,10 +203,14 @@ jobs:
             --log-file "$LOG_DIR/app-logs.zip" 2>&1 || true
           if [ -f "$LOG_DIR/app-logs.zip" ]; then
             unzip -o "$LOG_DIR/app-logs.zip" -d "$LOG_DIR" 2>/dev/null || true
-            echo "=== .NET Application logs (stdout/stderr) ==="
-            find "$LOG_DIR" -path "*/Application/*.txt" -type f | sort | tail -3 | xargs -I{} sh -c 'echo "--- {} ---"; tail -300 {}' 2>/dev/null || echo "(no application .txt logs found)"
-            echo "=== Docker container state logs (last 100 lines) ==="
-            find "$LOG_DIR" -name "*docker.log" -type f | sort | tail -1 | xargs -I{} sh -c 'echo "--- {} ---"; tail -100 {}' 2>/dev/null || echo "(no docker.log found)"
+            echo "=== Application logs (stdout/stderr) ==="
+            find "$LOG_DIR" -path "*/Application/*.txt" -type f | sort | tail -3 \
+              | xargs -I{} sh -c 'echo "--- {} ---"; tail -400 {}' 2>/dev/null \
+              || echo "(no Application/*.txt logs found)"
+            echo "=== Docker container state logs ==="
+            find "$LOG_DIR" -name "*docker.log" -type f | sort | tail -2 \
+              | xargs -I{} sh -c 'echo "--- {} ---"; tail -150 {}' 2>/dev/null \
+              || echo "(no docker.log found)"
           fi
       
       - name: Smoke test
