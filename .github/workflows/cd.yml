@@ -82,15 +82,12 @@ jobs:
       - name: Get SWA deployment token
         id: swa-key
         run: |
-          SWA_NAME=$(az staticwebapp list \
+          KEY=$(az deployment group show \
             --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
-            --query "[0].name" -o tsv)
-          KEY=$(az staticwebapp secrets list \
-            --name "$SWA_NAME" \
-            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
-            --query "properties.apiKey" -o tsv)
-          echo "key=$KEY" >> $GITHUB_OUTPUT
+            --name main \
+            --query "properties.outputs.swaApiKey.value" -o tsv)
           echo "::add-mask::$KEY"
+          echo "key=$KEY" >> $GITHUB_OUTPUT
 
   deploy-backend:
     runs-on: ubuntu-latest
