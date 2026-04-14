@@ -178,6 +178,9 @@ public class OrderService : IOrderService
         if (totalStemsOrdered == 0)
             throw new ArgumentException("Cannot calculate waste for order with no items");
 
+        if (actualStemsUsed < 0 || actualStemsUsed > totalStemsOrdered)
+            throw new ArgumentException("actualStemsUsed must be between 0 and total stems ordered");
+
         var wastePercentage = (totalStemsOrdered - actualStemsUsed) / totalStemsOrdered * 100;
 
         order.WastePercentage = wastePercentage;
