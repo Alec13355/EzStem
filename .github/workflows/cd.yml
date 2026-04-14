@@ -90,7 +90,6 @@ jobs:
             --name "$SWA_NAME" \
             --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
             --query "properties.apiKey" -o tsv)
-          echo "::add-mask::$KEY"
           echo "key=$KEY" >> $GITHUB_OUTPUT
 
   deploy-backend:
