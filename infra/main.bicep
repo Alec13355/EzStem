@@ -3,7 +3,7 @@
 param environment string
 
 @description('Azure region for resources')
-param location string = 'eastus2'
+param location string = 'centralus'
 
 @description('Object ID of the AAD admin (deployer user or service principal)')
 param aadAdminObjectId string

@@ -14,7 +14,7 @@ if [[ ! "$ENVIRONMENT" =~ ^(dev|staging|prod)$ ]]; then
 fi
 
 RESOURCE_GROUP="ezstem-rg-${ENVIRONMENT}"
-LOCATION="eastus2"
+LOCATION="centralus"
 APP_NAME="ezstem-${ENVIRONMENT}"
 
 echo "Deploying EzStem infrastructure to ${ENVIRONMENT} environment..."

@@ -11,7 +11,7 @@ param appName string
 @secure()
 param sqlConnectionString string
 
-var keyVaultName = '${appName}-kv-${uniqueString(resourceGroup().id)}'
+var keyVaultName = 'ez-${environment}-kv-${substring(uniqueString(resourceGroup().id), 0, 8)}'
 
 resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: keyVaultName
