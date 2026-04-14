@@ -43,7 +43,10 @@ resource webApp 'Microsoft.Web/sites@2023-01-01' = {
     httpsOnly: true
     siteConfig: {
       linuxFxVersion: 'DOTNETCORE|9.0'
+      appCommandLine: 'dotnet EzStem.API.dll'
       alwaysOn: environment == 'prod' ? true : false
+      httpLoggingEnabled: true
+      detailedErrorLoggingEnabled: true
       appSettings: [
         {
           name: 'ASPNETCORE_ENVIRONMENT'
@@ -72,10 +75,6 @@ resource webApp 'Microsoft.Web/sites@2023-01-01' = {
         {
           name: 'SCM_DO_BUILD_DURING_DEPLOYMENT'
           value: 'false'
-        }
-        {
-          name: 'WEBSITE_STARTUP_FILE'
-          value: 'dotnet EzStem.API.dll'
         }
       ]
     }
