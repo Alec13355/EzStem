@@ -23,7 +23,7 @@ module appService 'modules/appservice.bicep' = {
     environment: environment
     location: location
     appName: appName
-    keyVaultName: keyVault.outputs.keyVaultName
+    sqlConnectionString: database.outputs.connectionString
     appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
     swaHostname: staticWebApp.outputs.swaDefaultHostname
   }

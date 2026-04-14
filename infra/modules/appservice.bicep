@@ -7,8 +7,8 @@ param location string
 @description('Application name')
 param appName string
 
-@description('Key Vault name for secrets')
-param keyVaultName string
+@description('SQL connection string (uses Managed Identity auth, no password)')
+param sqlConnectionString string
 
 @description('Application Insights connection string')
 param appInsightsConnectionString string
@@ -55,7 +55,7 @@ resource webApp 'Microsoft.Web/sites@2023-01-01' = {
         }
         {
           name: 'ConnectionStrings__DefaultConnection'
-          value: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=SqlConnectionString)'
+          value: sqlConnectionString
         }
         {
           name: 'AllowedOrigins__0'
