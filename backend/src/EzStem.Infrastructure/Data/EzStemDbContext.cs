@@ -1,0 +1,91 @@
+using EzStem.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
+
+namespace EzStem.Infrastructure.Data;
+
+public class EzStemDbContext : DbContext
+{
+    public EzStemDbContext(DbContextOptions<EzStemDbContext> options) : base(options) { }
+
+    public DbSet<Item> Items => Set<Item>();
+    public DbSet<Vendor> Vendors => Set<Vendor>();
+    public DbSet<Recipe> Recipes => Set<Recipe>();
+    public DbSet<RecipeItem> RecipeItems => Set<RecipeItem>();
+    public DbSet<FloristEvent> Events => Set<FloristEvent>();
+    public DbSet<EventRecipe> EventRecipes => Set<EventRecipe>();
+    public DbSet<Order> Orders => Set<Order>();
+    public DbSet<OrderLineItem> OrderLineItems => Set<OrderLineItem>();
+    public DbSet<PricingConfig> PricingConfigs => Set<PricingConfig>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        // Item configuration
+        modelBuilder.Entity<Item>(entity =>
+        {
+            entity.Property(i => i.CostPerStem).HasPrecision(18, 4);
+            entity.HasQueryFilter(i => !i.IsDeleted);
+            entity.HasIndex(i => i.Name);
+            entity.HasIndex(i => i.VendorId);
+            entity.HasIndex(i => i.IsDeleted);
+        });
+
+        // Vendor configuration
+        modelBuilder.Entity<Vendor>(entity =>
+        {
+            entity.HasQueryFilter(v => !v.IsDeleted);
+            entity.HasIndex(v => v.Name);
+            entity.HasIndex(v => v.IsDeleted);
+        });
+
+        // Recipe configuration
+        modelBuilder.Entity<Recipe>(entity =>
+        {
+            entity.Property(r => r.LaborCost).HasPrecision(18, 4);
+            entity.HasQueryFilter(r => !r.IsDeleted);
+            entity.HasIndex(r => r.Name);
+            entity.HasIndex(r => r.IsDeleted);
+        });
+
+        // RecipeItem configuration
+        modelBuilder.Entity<RecipeItem>(entity =>
+        {
+            entity.Property(r => r.Quantity).HasPrecision(18, 4);
+            entity.Property(r => r.CostPerStem).HasPrecision(18, 4);
+        });
+
+        // FloristEvent configuration
+        modelBuilder.Entity<FloristEvent>(entity =>
+        {
+            entity.HasQueryFilter(e => !e.IsDeleted);
+            entity.HasIndex(e => e.Name);
+            entity.HasIndex(e => e.EventDate);
+            entity.HasIndex(e => e.IsDeleted);
+        });
+
+        // Order configuration
+        modelBuilder.Entity<Order>(entity =>
+        {
+            entity.HasQueryFilter(o => !o.IsDeleted);
+            entity.HasIndex(o => o.EventId);
+            entity.HasIndex(o => o.IsDeleted);
+        });
+
+        // OrderLineItem configuration
+        modelBuilder.Entity<OrderLineItem>(entity =>
+        {
+            entity.Property(o => o.QuantityNeeded).HasPrecision(18, 4);
+            entity.Property(o => o.QuantityOrdered).HasPrecision(18, 4);
+            entity.Property(o => o.CostPerUnit).HasPrecision(18, 4);
+        });
+
+        // PricingConfig configuration
+        modelBuilder.Entity<PricingConfig>(entity =>
+        {
+            entity.Property(p => p.MarkupFactor).HasPrecision(18, 4);
+            entity.Property(p => p.OverheadPercent).HasPrecision(18, 4);
+            entity.Property(p => p.LaborDefaultCost).HasPrecision(18, 4);
+        });
+    }
+}

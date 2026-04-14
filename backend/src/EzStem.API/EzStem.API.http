@@ -1,0 +1,6 @@
+@EzStem.API_HostAddress = http://localhost:5232
+
+GET {{EzStem.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

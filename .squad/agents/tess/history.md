@@ -7,4 +7,39 @@
 
 ## Learnings
 
-<!-- Append new learnings below. Each entry is something lasting about the project. -->
+### 2026-04-14: P0 UX Specification Complete
+
+**Key UX insights from florist domain (Saul):**
+1. **Tablet is primary.** Florists work on iPad/Android in field, greenhouse, van. Touch-first, landscape-aware, ≥44px tap targets non-negotiable.
+2. **Profit is the mystery.** Florists don't know their margins (often underprice by 20–30%). Real-time profit visibility on every screen is the core aha moment. No hidden calculations.
+3. **Bundle rounding confuses.** Florists order in bunches, not individual stems. If they need 47 roses and roses come in bunches of 25, they pay for 50. Show this math inline — it builds trust.
+4. **Speed matters.** Florists work under event deadlines (bride calls Friday for Saturday event). Data entry must be <5 seconds per action. No modal wizards; flat forms with instant feedback.
+5. **Visual recognition over text.** Florists design with flowers (visual people). Use real flower photos, color-coded profit (green/orange/red), instant visual feedback on every edit.
+
+**Design decisions recorded:**
+- Margin % + $ on every screen, real-time updates (no calculate button)
+- Tablet-first responsive (md=768–1024px primary)
+- Bundle rounding always visible (expandable detail)
+- Searchable picker + instant cost feedback (fast data entry pattern)
+- Status workflow (Draft → Confirmed → Ordered → Completed) with edit warnings
+
+**Component library designed:**
+- CurrencyDisplay: Consistent price formatting
+- MarginBadge: Color-coded profit health (🟢/🟡/🔴)
+- BundleRoundingDisplay: Waste math breakdown
+- StatusBadge: Event progress tracking
+- ConfirmDialog: Safe delete/action confirmations
+- SearchableDropdown: Fast item/recipe picker
+- PagedTable: Filterable, sortable item/recipe/event lists
+- CostSummaryCard: Sticky, real-time P&L card
+
+**Validation needed with Saul:**
+- Bundle rounding logic: Is 25-stem bunch standard for roses? What about other flowers?
+- Lead times: Order deadline logic (if event Saturday, roses need 3-day lead, so order by Wednesday)
+- Seasonal pricing: February red roses 3–5x normal? Valentine's Day spike?
+- Overhead percentage: 25% default reasonable for typical florist (rent, labor, equipment, delivery)?
+
+**To share with team:**
+- Full UX specs: `.squad/decisions/inbox/tess-ux-specs.md` (8 sections, 60k chars)
+- Component notes: `.squad/decisions/inbox/tess-component-notes.md` (for Rusty)
+- Design decisions: `.squad/decisions/inbox/tess-design-decisions.md` (5 key decisions + why)

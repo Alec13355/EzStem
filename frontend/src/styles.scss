@@ -1,0 +1,93 @@
+@use '@angular/material' as mat;
+
+@include mat.core();
+
+$ezstem-primary: mat.m2-define-palette(mat.$m2-green-palette, 600);
+$ezstem-accent: mat.m2-define-palette(mat.$m2-light-green-palette, A200);
+$ezstem-warn: mat.m2-define-palette(mat.$m2-red-palette);
+
+$ezstem-theme: mat.m2-define-light-theme((
+  color: (
+    primary: $ezstem-primary,
+    accent: $ezstem-accent,
+    warn: $ezstem-warn,
+  ),
+  typography: mat.m2-define-typography-config(),
+  density: 0,
+));
+
+@include mat.all-component-themes($ezstem-theme);
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+
+body {
+  margin: 0;
+  background-color: #fafafa;
+}
+
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.currency {
+  font-variant-numeric: tabular-nums;
+  
+  &::before {
+    content: '$';
+  }
+}
+
+.margin-high {
+  color: #2e7d32;
+  font-weight: 500;
+}
+
+.margin-medium {
+  color: #f57c00;
+  font-weight: 500;
+}
+
+.margin-low {
+  color: #c62828;
+  font-weight: 500;
+}
+
+.loading-spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.mt-1 { margin-top: 8px; }
+.mt-2 { margin-top: 16px; }
+.mt-3 { margin-top: 24px; }
+.mb-1 { margin-bottom: 8px; }
+.mb-2 { margin-bottom: 16px; }
+.mb-3 { margin-bottom: 24px; }
+
+@media (max-width: 1024px) {
+  .container {
+    padding: 16px;
+  }
+}

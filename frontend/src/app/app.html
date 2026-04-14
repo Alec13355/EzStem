@@ -1,0 +1,13 @@
+<mat-toolbar color="primary">
+  <span>{{ title }}</span>
+  <span style="flex: 1;"></span>
+  <button mat-button routerLink="/items" routerLinkActive="active">Items</button>
+  <button mat-button routerLink="/recipes" routerLinkActive="active">Recipes</button>
+  <button mat-button routerLink="/events" routerLinkActive="active">Events</button>
+  <button mat-button routerLink="/orders" routerLinkActive="active">Orders</button>
+</mat-toolbar>
+
+<div class="app-content">
+  <router-outlet />
+</div>
+

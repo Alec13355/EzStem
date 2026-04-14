@@ -1,0 +1,27 @@
+version: '3.9'
+
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      SA_PASSWORD: "EzStem_Dev2024!"
+      ACCEPT_EULA: "Y"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqldata:/var/lib/sqlserver/data
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: src/EzStem.API/Dockerfile
+    ports:
+      - "5000:8080"
+    environment:
+      ConnectionStrings__DefaultConnection: "Server=db,1433;Database=EzStem;User Id=sa;Password=EzStem_Dev2024!;TrustServerCertificate=True"
+      ASPNETCORE_ENVIRONMENT: Development
+    depends_on:
+      - db
+
+volumes:
+  sqldata:
