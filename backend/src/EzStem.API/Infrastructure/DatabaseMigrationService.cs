@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EzStem.API.Infrastructure;
 
-public class DatabaseMigrationService : IHostedService
+public class DatabaseMigrationService : BackgroundService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<DatabaseMigrationService> _logger;
@@ -14,22 +14,19 @@ public class DatabaseMigrationService : IHostedService
         _logger = logger;
     }
 
-    public async Task StartAsync(CancellationToken cancellationToken)
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("Running database migrations...");
         try
         {
             using var scope = _serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<EzStemDbContext>();
-            await db.Database.MigrateAsync(cancellationToken);
+            await db.Database.MigrateAsync(stoppingToken);
             _logger.LogInformation("Database migrations complete.");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Database migration failed. Application will continue but may be unstable.");
-            // Don't throw - let the app start so health checks work
         }
     }
-
-    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }
