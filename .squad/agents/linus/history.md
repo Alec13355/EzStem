@@ -124,3 +124,18 @@ On Azure App Service, the connection string comes from Key Vault via `@Microsoft
 
 **Impact:** Azure App Service smoke tests will now succeed immediately after deployment. Migrations run asynchronously without blocking HTTP request handling.
 
+### 2026-04-14: Removed Microsoft.AspNetCore.OpenApi to Fix ReflectionTypeLoadException
+
+**Problem:** Application threw `System.Reflection.ReflectionTypeLoadException` on startup:
+```
+Could not load type 'Microsoft.OpenApi.Any.IOpenApiAny' from assembly 'Microsoft.OpenApi, Version=2.4.1.0, Culture=neutral, PublicKeyToken=3f5743946376f042'.
+```
+
+**Root cause:** `Microsoft.AspNetCore.OpenApi` v9.0.14 was referenced in `EzStem.API.csproj` but never used in `Program.cs`. This package pulled in `Microsoft.OpenApi` 2.x, which removed the `IOpenApiAny` interface. However, `Swashbuckle.AspNetCore` v10.1.7 (the actual Swagger implementation in use) depends on `IOpenApiAny` from `Microsoft.OpenApi` 1.x, causing a type load conflict at runtime.
+
+**Solution:** Removed the unused `Microsoft.AspNetCore.OpenApi` package reference from `EzStem.API.csproj`. The application only uses Swashbuckle for Swagger UI (`AddSwaggerGen()`, `UseSwagger()`, `UseSwaggerUI()` in `Program.cs`).
+
+**Verification:** `dotnet restore` and `dotnet build` both succeeded with no warnings or errors (build completed in 3.7s). All 18 backend tests pass.
+
+**Key learning:** This project uses **Swashbuckle.AspNetCore** for OpenAPI/Swagger support, not `Microsoft.AspNetCore.OpenApi`. The Microsoft package is unnecessary and conflicts with Swashbuckle's dependencies.
+

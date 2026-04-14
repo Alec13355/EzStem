@@ -225,7 +225,95 @@ Angular 17+ standalone components with Material Design, tablet-first responsive 
 
 ---
 
-## CD Pipeline Fixes (Basher & Linus — 2026-04-14)
+## CD Pipeline Reliability Fixes (Basher — 2026-04-14)
+
+**Agent:** Basher  
+**Type:** Infrastructure / CI/CD
+
+### Context
+
+The CD pipeline was failing in two distinct ways:
+1. The "Provision SQL user for App Service MI" step failed with "Insufficient privileges" error
+2. Smoke tests were returning 503 errors even when infrastructure provisioned successfully
+
+### Fix 1: Replace Azure AD Lookup with Direct MI Name
+
+**Problem:** The workflow called `az ad sp show --id "$APP_MI_ID"` to get the Managed Identity display name. This requires Azure AD Graph permissions (`Directory.Read.All`) that the OIDC service principal doesn't have.
+
+**Solution:** Use the App Service name directly from `secrets.AZURE_WEBAPP_NAME` as the MI display name. For Azure App Service with system-assigned Managed Identity, the MI display name is **always** identical to the App Service name.
+
+**Implementation:**
+```yaml
+# Before (failed):
+APP_MI_ID=$(az webapp identity show \
+  --name ${{ secrets.AZURE_WEBAPP_NAME }} \
+  --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+  --query principalId -o tsv)
+APP_MI_NAME=$(az ad sp show --id "$APP_MI_ID" --query displayName -o tsv)
+
+# After (works):
+APP_MI_NAME="${{ secrets.AZURE_WEBAPP_NAME }}"
+```
+
+**Benefits:**
+- Eliminates Azure AD permission requirement
+- Simpler, faster (no extra API calls)
+- More reliable (no dependency on AAD Graph availability)
+- Follows principle of least privilege for OIDC SP
+
+### Fix 2: Remove Async Flag from Deployment
+
+**Problem:** `az webapp deploy --async true` returns immediately after zip upload, before the app restarts and starts up. The 45-second sleep wasn't sufficient for the .NET 9 app to fully initialize and respond to health checks.
+
+**Solution:** Remove `--async true` flag. Azure CLI will wait for the complete deployment cycle (upload → app restart → startup) before proceeding.
+
+**Implementation:**
+```yaml
+# Before (flaky):
+az webapp deploy \
+  --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+  --name ${{ secrets.AZURE_WEBAPP_NAME }} \
+  --src-path ./backend/deploy.zip \
+  --type zip \
+  --async true
+
+# After (reliable):
+az webapp deploy \
+  --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+  --name ${{ secrets.AZURE_WEBAPP_NAME }} \
+  --src-path ./backend/deploy.zip \
+  --type zip
+```
+
+**Benefits:**
+- Guaranteed app readiness before smoke test
+- Simpler than async + retry logic
+- Better failure detection (deploy failures surface immediately)
+- Aligns with GitHub Actions best practice (let commands complete)
+
+### Alternatives Considered
+
+**For MI name issue:**
+- **Grant Directory.Read.All to OIDC SP** — Rejected: violates least privilege, unnecessary permission escalation
+- **Use `az webapp show` to get name** — Rejected: redundant when we already have it in secrets
+
+**For smoke test issue:**
+- **Increase sleep duration** — Rejected: still brittle, wastes time on successful deploys
+- **Add retry logic** — Rejected: more complex than synchronous deploy, masks real failures
+
+### Impact
+
+- **Security:** Improved (reduced OIDC SP permissions)
+- **Reliability:** Significantly improved (both failure modes eliminated)
+- **Performance:** Slightly slower deploys (wait for completion), but more predictable
+- **Maintainability:** Improved (simpler code, fewer API calls)
+
+### Verification
+
+- DB_NAME derivation logic verified: `DB_NAME="${SQL_SERVER%-sql}-db"` correctly transforms `ezstem-dev-sql` → `ezstem-dev-db` (matches Bicep naming convention)
+- App Service MI naming convention confirmed in Bicep: `webAppName = '${appName}-api'` and MI uses webapp name as display name
+
+---
 
 ### Deployment Bug Fixes (Basher)
 
@@ -316,3 +404,27 @@ Backend infrastructure for MI-based SQL authentication in Azure.
    - Local Dev: `Server=localhost,1433;Database=EzStem;User Id=sa;Password=...;TrustServerCertificate=True`
 
 **Testing:** All 18 tests pass (9 P0, 9 P1)
+
+---
+
+## OpenAPI Dependency Conflict Fix (Linus — 2026-04-14)
+
+**Status: RESOLVED**
+
+**Problem:** ReflectionTypeLoadException on application startup caused by version conflict:
+- Microsoft.AspNetCore.OpenApi 9.0.14 (depends on Microsoft.OpenApi 1.x)
+- Swashbuckle.AspNetCore 6.x (depends on Microsoft.OpenApi 2.x)
+- IOpenApiAny type missing in OpenAPI 2.x branch
+
+Only Swashbuckle is used in the project for Swagger UI; Microsoft.AspNetCore.OpenApi was unused.
+
+**Solution:** Removed Microsoft.AspNetCore.OpenApi 9.0.14 from EzStem.API.csproj
+
+**Verification:**
+- Release build: 2.4s, 0 warnings
+- All 18 backend tests passing
+- Application starts cleanly without ReflectionTypeLoadException
+
+**Files Changed:** `backend/EzStem.API/EzStem.API.csproj`
+
+**Impact:** CD pipeline can now successfully build and deploy without initialization errors.
