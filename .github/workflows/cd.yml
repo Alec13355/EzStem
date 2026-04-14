@@ -33,9 +33,59 @@ jobs:
       - run: npm ci
       - run: npx ng build --configuration production
 
-  deploy-backend:
+  infra:
     runs-on: ubuntu-latest
     needs: [test-backend, test-frontend]
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      swa_api_key: ${{ steps.swa-key.outputs.key }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Ensure resource group exists
+        run: |
+          az group create \
+            --name ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --location centralus
+
+      - name: Deploy Bicep infrastructure
+        working-directory: infra
+        run: |
+          az deployment group create \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --template-file main.bicep \
+            --parameters environment=dev \
+            --parameters aadAdminObjectId=${{ secrets.AZURE_ADMIN_OBJECT_ID }} \
+            --parameters aadAdminName="${{ secrets.AZURE_ADMIN_NAME }}" \
+            --parameters principalType=User
+
+      - name: Get SWA deployment token
+        id: swa-key
+        run: |
+          SWA_NAME=$(az staticwebapp list \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --query "[0].name" -o tsv)
+          KEY=$(az staticwebapp secrets list \
+            --name "$SWA_NAME" \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --query "properties.apiKey" -o tsv)
+          echo "::add-mask::$KEY"
+          echo "key=$KEY" >> $GITHUB_OUTPUT
+
+  deploy-backend:
+    runs-on: ubuntu-latest
+    needs: [infra]
     permissions:
       id-token: write
       contents: read
@@ -85,7 +135,7 @@ jobs:
 
   deploy-frontend:
     runs-on: ubuntu-latest
-    needs: [test-backend, test-frontend]
+    needs: [infra]
     permissions:
       id-token: write
       contents: read
@@ -97,9 +147,10 @@ jobs:
       - name: Deploy to Azure Static Web Apps
         uses: Azure/static-web-apps-deploy@v1
         with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          azure_static_web_apps_api_token: ${{ needs.infra.outputs.swa_api_key }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: upload
           app_location: frontend
           output_location: dist/frontend
           app_build_command: npx ng build --configuration production
+
