@@ -66,3 +66,25 @@
 - Zip deploy beats Docker for small .NET apps in dev (faster, cheaper, simpler)
 - OIDC > client secrets (zero rotation, auto-expiry, better audit logs)
 - Static website hosting is criminally cheap ($0.50/month for SPA)
+
+### CD Pipeline Reliability Fixes (2026-04-14)
+
+**Problem:** CD pipeline failing in two ways:
+1. "Provision SQL user for App Service MI" step erroring with "Insufficient privileges" when calling `az ad sp show`
+2. Smoke tests failing with 503 errors even after successful infra provisioning
+
+**Root causes:**
+1. **Azure AD Graph permissions issue:** The OIDC service principal lacked Directory.Read.All permissions needed for `az ad sp show --id "$APP_MI_ID"`. This command was used to get the Managed Identity display name for SQL provisioning.
+2. **Async deployment timing:** `az webapp deploy --async true` returns before app startup completes. The 45-second sleep wasn't sufficient for the app to fully start and respond to health checks.
+
+**Solutions implemented:**
+1. **Direct MI name derivation:** For Azure App Service, the system-assigned Managed Identity display name is **always** the same as the App Service name. Changed workflow to use `secrets.AZURE_WEBAPP_NAME` directly instead of querying Azure AD — eliminates AAD permission requirement entirely.
+2. **Synchronous deployment:** Removed `--async true` flag from `az webapp deploy` command. Azure CLI now waits for the full deployment cycle (upload → restart → startup) to complete before proceeding to smoke test. This ensures the app is ready when curl hits the health endpoint.
+
+**Files changed:** `.github/workflows/cd.yml` (lines 88, 153)
+
+**Key learnings:**
+- **Managed Identity naming convention:** System-assigned MI on App Service always uses the App Service name — no AAD lookup needed
+- **Async vs sync deploys:** For smoke tests, synchronous deploys are simpler and more reliable than async + retry logic
+- **OIDC service principal permissions:** Keep OIDC SP permissions minimal — only infra deployment scope, not directory reads
+- **DB naming derivation:** The pattern `DB_NAME="${SQL_SERVER%-sql}-db"` correctly strips `-sql` suffix and adds `-db` (verified against Bicep naming: `${appName}-sql` → `${appName}-db`)

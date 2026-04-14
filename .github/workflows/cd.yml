@@ -85,11 +85,7 @@ jobs:
             --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
             --name main \
             --query "properties.outputs.sqlServerName.value" -o tsv)
-          APP_MI_ID=$(az webapp identity show \
-            --name ${{ secrets.AZURE_WEBAPP_NAME }} \
-            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
-            --query principalId -o tsv)
-          APP_MI_NAME=$(az ad sp show --id "$APP_MI_ID" --query displayName -o tsv)
+          APP_MI_NAME="${{ secrets.AZURE_WEBAPP_NAME }}"
           ACCESS_TOKEN=$(az account get-access-token \
             --resource https://database.windows.net/ \
             --query accessToken -o tsv)
@@ -154,8 +150,7 @@ jobs:
             --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
             --name ${{ secrets.AZURE_WEBAPP_NAME }} \
             --src-path ./backend/deploy.zip \
-            --type zip \
-            --async true
+            --type zip
       
       - name: Smoke test
         run: |
