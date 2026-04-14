@@ -41,6 +41,17 @@ import { FloristEvent, Recipe, EventSummary } from '../../../shared/models/api.m
         </button>
       </div>
 
+      @if (seasonalWarnings.length > 0) {
+        <mat-card class="warning-card mb-3">
+          <mat-card-content>
+            <div class="warning-content">
+              <mat-icon color="warn">warning</mat-icon>
+              <span>{{ seasonalWarnings.length }} item(s) may not be in season for this event date</span>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      }
+
       <mat-card class="mb-3">
         <mat-card-content>
           <form [formGroup]="eventForm">
@@ -51,7 +62,7 @@ import { FloristEvent, Recipe, EventSummary } from '../../../shared/models/api.m
 
             <mat-form-field class="full-width">
               <mat-label>Event Date</mat-label>
-              <input matInput [matDatepicker]="picker" formControlName="eventDate" required>
+              <input matInput [matDatepicker]="picker" formControlName="eventDate" required (dateChange)="checkSeasonalItems()">
               <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
               <mat-datepicker #picker></mat-datepicker>
             </mat-form-field>
@@ -180,6 +191,18 @@ import { FloristEvent, Recipe, EventSummary } from '../../../shared/models/api.m
       margin-bottom: 24px;
     }
 
+    .warning-card {
+      background-color: #fff3cd;
+      border-left: 4px solid #f57c00;
+    }
+
+    .warning-content {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 500;
+    }
+
     .add-recipe-section {
       display: flex;
       align-items: center;
@@ -215,6 +238,7 @@ export class EventDetailComponent implements OnInit {
   newRecipeQuantity = 1;
   summary: EventSummary | null = null;
   recipeColumns = ['name', 'quantity', 'unitCost', 'totalCost'];
+  seasonalWarnings: string[] = [];
 
   constructor(
     private route: ActivatedRoute,
@@ -253,6 +277,7 @@ export class EventDetailComponent implements OnInit {
           clientName: event.clientName,
           notes: event.notes
         });
+        this.checkSeasonalItems();
       },
       error: (err) => {
         console.error('Error loading event:', err);
@@ -280,6 +305,37 @@ export class EventDetailComponent implements OnInit {
         console.error('Error loading summary:', err);
       }
     });
+  }
+
+  checkSeasonalItems() {
+    this.seasonalWarnings = [];
+    
+    if (!this.event?.eventRecipes || !this.eventForm.value.eventDate) {
+      return;
+    }
+
+    const eventDate = new Date(this.eventForm.value.eventDate);
+    const eventMonth = eventDate.getMonth() + 1;
+
+    this.event.eventRecipes.forEach(er => {
+      er.recipe?.recipeItems.forEach(ri => {
+        const item = ri.item;
+        if (item?.isSeasonalItem && item.seasonalStartMonth && item.seasonalEndMonth) {
+          const isInSeason = this.isMonthInRange(eventMonth, item.seasonalStartMonth, item.seasonalEndMonth);
+          if (!isInSeason) {
+            this.seasonalWarnings.push(item.name);
+          }
+        }
+      });
+    });
+  }
+
+  isMonthInRange(month: number, start: number, end: number): boolean {
+    if (start <= end) {
+      return month >= start && month <= end;
+    } else {
+      return month >= start || month <= end;
+    }
   }
 
   saveEvent() {

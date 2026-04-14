@@ -1,34 +1,40 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { MatCardModule } from '@angular/material/card';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { OrderService } from '../../../core/services/order.service';
-import { Order, VendorOrderGroup } from '../../../shared/models/api.models';
+import { Order, VendorOrderGroup, WasteSummary } from '../../../shared/models/api.models';
 
 @Component({
   selector: 'app-order-detail',
   imports: [
     CommonModule,
+    ReactiveFormsModule,
     MatButtonModule,
     MatIconModule,
     MatTableModule,
-    MatCardModule
+    MatCardModule,
+    MatFormFieldModule,
+    MatInputModule
   ],
   template: `
     <div class="container">
       <div class="header">
         <h1>Order Details</h1>
-        <div>
+        <div class="action-buttons">
           <button mat-button (click)="goBack()">
             <mat-icon>arrow_back</mat-icon>
             Back
           </button>
-          <button mat-raised-button color="primary" (click)="exportOrder()">
+          <button mat-stroked-button (click)="downloadCsv()" class="export-btn">
             <mat-icon>download</mat-icon>
-            Export
+            Download Purchase Order CSV
           </button>
         </div>
       </div>
@@ -47,6 +53,61 @@ import { Order, VendorOrderGroup } from '../../../shared/models/api.models';
             </div>
           </mat-card-content>
         </mat-card>
+
+        @if (order.wastePercentage !== undefined && order.wastePercentage !== null) {
+          <mat-card class="mb-3">
+            <mat-card-header>
+              <mat-card-title>Waste Analysis</mat-card-title>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="waste-display">
+                <span>Waste Percentage:</span>
+                <span [ngClass]="{
+                  'waste-low': order.wastePercentage < 10,
+                  'waste-medium': order.wastePercentage >= 10 && order.wastePercentage <= 20,
+                  'waste-high': order.wastePercentage > 20
+                }">{{ order.wastePercentage | number:'1.1-1' }}%</span>
+              </div>
+              @if (order.wasteCalculationDate) {
+                <div class="waste-date">Calculated: {{ order.wasteCalculationDate | date:'medium' }}</div>
+              }
+            </mat-card-content>
+          </mat-card>
+        } @else {
+          <mat-card class="mb-3">
+            <mat-card-header>
+              <mat-card-title>Record Waste</mat-card-title>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="waste-form">
+                <mat-form-field>
+                  <mat-label>Actual Stems Used</mat-label>
+                  <input matInput type="number" [formControl]="actualStemsUsedControl" min="0" step="1">
+                </mat-form-field>
+                <button mat-raised-button color="primary" (click)="recordWaste()" 
+                  [disabled]="!actualStemsUsedControl.valid || actualStemsUsedControl.value === null">
+                  Submit Waste
+                </button>
+              </div>
+              @if (wasteResult) {
+                <div class="waste-result mt-2">
+                  <div class="waste-stats">
+                    <div><strong>Total Ordered:</strong> {{ wasteResult.totalStemsOrdered }} stems</div>
+                    <div><strong>Total Used:</strong> {{ wasteResult.totalStemsUsed }} stems</div>
+                    <div>
+                      <strong>Waste:</strong>
+                      <span [ngClass]="{
+                        'waste-low': wasteResult.wasteCategory === 'Low',
+                        'waste-medium': wasteResult.wasteCategory === 'Medium',
+                        'waste-high': wasteResult.wasteCategory === 'High'
+                      }">{{ wasteResult.wastePercentage | number:'1.1-1' }}% ({{ wasteResult.wasteCategory }})</span>
+                    </div>
+                  </div>
+                </div>
+              }
+            </mat-card-content>
+          </mat-card>
+        }
 
         @for (vendorGroup of vendorGroups; track vendorGroup.vendorId) {
           <mat-card class="mb-3">
@@ -141,12 +202,46 @@ import { Order, VendorOrderGroup } from '../../../shared/models/api.models';
       font-size: 20px;
       padding: 8px;
     }
+
+    .waste-form {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .waste-display {
+      display: flex;
+      justify-content: space-between;
+      font-size: 18px;
+      padding: 8px;
+    }
+
+    .waste-date {
+      font-size: 12px;
+      color: #666;
+      margin-top: 8px;
+    }
+
+    .waste-stats {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 12px;
+      background: #f5f5f5;
+      border-radius: 4px;
+    }
+
+    .export-btn {
+      margin-left: 8px;
+    }
   `]
 })
 export class OrderDetailComponent implements OnInit {
   order: Order | null = null;
   vendorGroups: VendorOrderGroup[] = [];
   lineItemColumns = ['itemName', 'quantityNeeded', 'bundleInfo', 'quantityOrdered', 'cost'];
+  actualStemsUsedControl = new FormControl<number | null>(null);
+  wasteResult: WasteSummary | null = null;
 
   constructor(
     private route: ActivatedRoute,
@@ -207,8 +302,24 @@ export class OrderDetailComponent implements OnInit {
     return this.vendorGroups.reduce((sum, group) => sum + group.totalCost, 0);
   }
 
-  exportOrder() {
-    window.print();
+  downloadCsv() {
+    if (this.order) {
+      this.orderService.downloadCsv(this.order.id);
+    }
+  }
+
+  recordWaste() {
+    if (this.order && this.actualStemsUsedControl.value !== null) {
+      this.orderService.recordWaste(this.order.id, this.actualStemsUsedControl.value).subscribe({
+        next: (result) => {
+          this.wasteResult = result;
+          this.loadOrder(this.order!.id);
+        },
+        error: (err) => {
+          console.error('Error recording waste:', err);
+        }
+      });
+    }
   }
 
   goBack() {

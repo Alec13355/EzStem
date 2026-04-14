@@ -7,6 +7,10 @@ export interface Item {
   notes?: string;
   vendorId?: string;
   vendor?: Vendor;
+  isSeasonalItem?: boolean;
+  seasonalStartMonth?: number;
+  seasonalEndMonth?: number;
+  leadTimeDays?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -73,6 +77,8 @@ export interface Order {
   eventId: string;
   status: 'Draft' | 'Submitted' | 'Confirmed' | 'Received';
   lineItems: OrderLineItem[];
+  wastePercentage?: number;
+  wasteCalculationDate?: string;
   createdAt: string;
 }
 
@@ -125,4 +131,11 @@ export interface VendorOrderGroup {
   vendorName: string;
   lineItems: OrderLineItem[];
   totalCost: number;
+}
+
+export interface WasteSummary {
+  totalStemsOrdered: number;
+  totalStemsUsed: number;
+  wastePercentage: number;
+  wasteCategory: 'Low' | 'Medium' | 'High';
 }
