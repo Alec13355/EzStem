@@ -59,6 +59,15 @@ jobs:
             --name ${{ secrets.AZURE_RESOURCE_GROUP }} \
             --location centralus
 
+      - name: Get SP identity
+        id: sp
+        run: |
+          APP_ID=$(az account show --query user.name -o tsv)
+          OID=$(az ad sp show --id "$APP_ID" --query id -o tsv)
+          NAME=$(az ad sp show --id "$APP_ID" --query displayName -o tsv)
+          echo "oid=$OID" >> $GITHUB_OUTPUT
+          echo "name=$NAME" >> $GITHUB_OUTPUT
+
       - name: Deploy Bicep infrastructure
         working-directory: infra
         run: |
@@ -66,9 +75,9 @@ jobs:
             --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
             --template-file main.bicep \
             --parameters environment=dev \
-            --parameters aadAdminObjectId=${{ secrets.AZURE_ADMIN_OBJECT_ID }} \
-            --parameters aadAdminName="${{ secrets.AZURE_ADMIN_NAME }}" \
-            --parameters principalType=User
+            --parameters aadAdminObjectId="${{ steps.sp.outputs.oid }}" \
+            --parameters aadAdminName="${{ steps.sp.outputs.name }}" \
+            --parameters principalType=Application
 
       - name: Get SWA deployment token
         id: swa-key
