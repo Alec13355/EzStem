@@ -58,22 +58,10 @@ DEPLOYMENT_OUTPUT=$(az deployment group create \
   --query 'properties.outputs' \
   --output json)
 
-# Extract storage account name from deployment output
+# Extract outputs from deployment
 STORAGE_ACCOUNT_NAME=$(echo "$DEPLOYMENT_OUTPUT" | jq -r '.storageAccountName.value')
-
-if [ -n "$STORAGE_ACCOUNT_NAME" ] && [ "$STORAGE_ACCOUNT_NAME" != "null" ]; then
-  echo "Configuring static website on storage account: ${STORAGE_ACCOUNT_NAME}..."
-  az storage blob service-properties update \
-    --account-name "${STORAGE_ACCOUNT_NAME}" \
-    --static-website \
-    --index-document index.html \
-    --404-document index.html \
-    --auth-mode login
-  
-  echo "Static website configured successfully!"
-else
-  echo "Warning: Could not extract storage account name. Skipping static website configuration."
-fi
+SWA_NAME=$(echo "$DEPLOYMENT_OUTPUT" | jq -r '.swaName.value')
+SWA_API_KEY=$(echo "$DEPLOYMENT_OUTPUT" | jq -r '.swaApiKey.value')
 
 echo "Deployment complete!"
 echo "Frontend URL: $(echo "$DEPLOYMENT_OUTPUT" | jq -r '.frontendUrl.value')"
@@ -86,6 +74,17 @@ SQL_FQDN=$(az sql server show --name "$SQL_SERVER_NAME" --resource-group "$RESOU
 
 echo ""
 echo "=========================================="
+echo "NEXT STEP: Set GitHub secret for SWA deploy"
+echo "=========================================="
+echo "Run this command to set the Static Web App deployment token:"
+echo ""
+echo "  gh secret set AZURE_STATIC_WEB_APPS_API_TOKEN --body '${SWA_API_KEY}' --repo Alec13355/EzStem"
+echo ""
+echo "Or paste this token manually in GitHub → Settings → Secrets:"
+echo "  Name:  AZURE_STATIC_WEB_APPS_API_TOKEN"
+echo "  Value: ${SWA_API_KEY}"
+echo "=========================================="
+echo ""
 echo "NEXT STEP: Grant App Service MI SQL access"
 echo "=========================================="
 echo "Run these SQL commands against ${DB_NAME} while connected as the AAD admin:"

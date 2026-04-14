@@ -68,9 +68,20 @@ module storage 'modules/storage.bicep' = {
   }
 }
 
+module staticWebApp 'modules/staticwebapp.bicep' = {
+  name: 'staticwebapp-deployment'
+  params: {
+    environment: environment
+    location: location
+    appName: appName
+  }
+}
+
 output webAppUrl string = appService.outputs.webAppUrl
 output keyVaultName string = keyVault.outputs.keyVaultName
 output sqlServerName string = database.outputs.sqlServerName
 output appInsightsName string = monitoring.outputs.appInsightsName
 output storageAccountName string = storage.outputs.storageAccountName
-output frontendUrl string = storage.outputs.primaryEndpoint
+output frontendUrl string = 'https://${staticWebApp.outputs.swaDefaultHostname}'
+output swaName string = staticWebApp.outputs.swaName
+output swaApiKey string = staticWebApp.outputs.swaApiKey
