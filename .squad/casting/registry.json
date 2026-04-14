@@ -1,0 +1,14 @@
+{
+  "version": "1.0",
+  "agents": [
+    { "persistent_name": "Danny", "universe": "Ocean's Eleven", "role": "Tech Lead", "created_at": "2026-04-14T04:50:12Z", "legacy_named": false, "status": "active" },
+    { "persistent_name": "Linus", "universe": "Ocean's Eleven", "role": "Backend Dev", "created_at": "2026-04-14T04:50:12Z", "legacy_named": false, "status": "active" },
+    { "persistent_name": "Rusty", "universe": "Ocean's Eleven", "role": "Frontend Dev", "created_at": "2026-04-14T04:50:12Z", "legacy_named": false, "status": "active" },
+    { "persistent_name": "Tess", "universe": "Ocean's Eleven", "role": "UX Designer", "created_at": "2026-04-14T04:50:12Z", "legacy_named": false, "status": "active" },
+    { "persistent_name": "Reuben", "universe": "Ocean's Eleven", "role": "Project Manager", "created_at": "2026-04-14T04:50:12Z", "legacy_named": false, "status": "active" },
+    { "persistent_name": "Basher", "universe": "Ocean's Eleven", "role": "DevOps", "created_at": "2026-04-14T04:50:12Z", "legacy_named": false, "status": "active" },
+    { "persistent_name": "Saul", "universe": "Ocean's Eleven", "role": "Florist Expert", "created_at": "2026-04-14T04:50:12Z", "legacy_named": false, "status": "active" },
+    { "persistent_name": "Scribe", "universe": "exempt", "role": "Session Logger", "created_at": "2026-04-14T04:50:12Z", "legacy_named": false, "status": "active" },
+    { "persistent_name": "Ralph", "universe": "exempt", "role": "Work Monitor", "created_at": "2026-04-14T04:50:12Z", "legacy_named": false, "status": "active" }
+  ]
+}
