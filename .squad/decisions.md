@@ -222,3 +222,97 @@ Angular 17+ standalone components with Material Design, tablet-first responsive 
 - All clean architecture rules met
 - **Flagged (low risk):** `LeadTimeDays` nullability — spec shows non-null but entity is nullable; acceptable for MVP
 - **Flagged + Fixed:** Missing `actualStemsUsed` guard in waste endpoint (fixed by coordinator)
+
+---
+
+## CD Pipeline Fixes (Basher & Linus — 2026-04-14)
+
+### Deployment Bug Fixes (Basher)
+
+**Status: RESOLVED**
+
+Three critical bugs in CD pipeline fixed:
+
+1. **SWA Token Masking Order** (.github/workflows/cd.yml)
+   - Problem: `::add-mask::` was running before `GITHUB_OUTPUT` write, causing token to be substituted with `***`
+   - Fix: Swapped order — write to `GITHUB_OUTPUT` first, then apply mask
+   - Result: SWA deploy receives real token value
+
+2. **Key Vault RBAC for App Service MI** (infra/main.bicep)
+   - Problem: App Service configured with KV reference but MI lacked RBAC role
+   - Fix: Added `Key Vault Secrets User` role assignment (`4633458b-17de-408a-b874-0445c86b69e0`)
+   - Result: Connection string no longer null; app startup succeeds
+
+3. **CORS Configuration for Production** (appservice.bicep + main.bicep)
+   - Problem: Backend CORS hardcoded to `http://localhost:4200`; production frontend blocked
+   - Fix: Added `swaHostname` parameter + `AllowedOrigins__0/1` app settings
+   - Result: Frontend can call API from Azure Static Web Apps domain
+
+**Files Changed:** `.github/workflows/cd.yml`, `infra/main.bicep`, `infra/modules/appservice.bicep`  
+**Commit:** 8bacd73  
+**Impact:** CD pipeline can now successfully deploy to Azure
+
+---
+
+### Azure Entra SQL Authentication + Region (Basher)
+
+**Status: IMPLEMENTED**
+
+1. **Region: eastus → eastus2**
+   - Paired region with better availability zone coverage and capacity
+   - Files: `infra/main.bicep`, `infra/parameters/dev.bicepparam`, `infra/deploy.sh`, `infra/AZURE_SETUP.md`
+
+2. **Entra-Only SQL Auth (no password)**
+   - SQL Server: `azureADOnlyAuthentication: true`
+   - App Service connects via System-Assigned MI with `Authentication=Active Directory Default`
+   - No password ever touches Key Vault, env vars, or deploy scripts
+   - Post-deploy: Manual SQL grants required (`db_datareader`, `db_datawriter`, `db_ddladmin`)
+   - Files: `infra/modules/database.bicep`, `infra/main.bicep`, `infra/parameters/dev.bicepparam`, `infra/deploy.sh`
+
+3. **Principal Type Handling**
+   - `deploy.sh` auto-detects: user (`User`) or service principal (`Application`)
+   - Ensures Bicep `administrators` block correct regardless of deployment context
+
+---
+
+### CORS Configuration Migration (Linus)
+
+**Status: IMPLEMENTED**
+
+Backend migrated from hardcoded CORS origin to configuration-driven approach.
+
+**Changes:**
+- **Program.cs** (lines 25-31): Read `AllowedOrigins` from `IConfiguration` with fallback to localhost
+- **appsettings.json**: Added `AllowedOrigins` array with localhost default
+- **Azure Integration**: Works with `AllowedOrigins__N` environment variables from App Service
+- **Security**: CORS origins are non-secrets (browser-enforced, publicly visible)
+
+**Testing:**
+- ✅ Release build: 2.4s, 0 warnings
+- ✅ All 18 backend tests passing
+
+**Commit:** a4a36e5
+
+---
+
+### Azure Entra Managed Identity SQL Auth Support (Linus)
+
+**Status: IMPLEMENTED**
+
+Backend infrastructure for MI-based SQL authentication in Azure.
+
+**Changes:**
+1. **Azure.Identity 1.13.2** added to EzStem.Infrastructure
+   - Enables `Authentication=Active Directory Default` connection strings
+   - App Service MI auto-picks up credentials via `DefaultAzureCredential`
+
+2. **Startup migration** in Program.cs
+   - `db.Database.Migrate()` runs on app startup in all environments
+   - Azure SQL always has latest schema
+   - Local Docker dev unaffected (password-based auth continues)
+
+3. **Connection string formats documented**
+   - Azure: `Server=tcp:{server}.database.windows.net,1433;Initial Catalog={db};Authentication=Active Directory Default;Encrypt=True;...`
+   - Local Dev: `Server=localhost,1433;Database=EzStem;User Id=sa;Password=...;TrustServerCertificate=True`
+
+**Testing:** All 18 tests pass (9 P0, 9 P1)
