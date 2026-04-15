@@ -14,7 +14,7 @@ export class PricingService {
   }
 
   updatePricingConfig(config: Partial<PricingConfig>): Observable<PricingConfig> {
-    return this.api.put<PricingConfig>('pricing/config', config);
+    return this.api.post<PricingConfig>('pricing/config', config);
   }
 
   calculatePricing(request: any): Observable<PricingResult> {

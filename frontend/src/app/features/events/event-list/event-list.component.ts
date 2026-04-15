@@ -104,8 +104,8 @@ export class EventListComponent implements OnInit {
 
   loadEvents() {
     this.eventService.getEvents().subscribe({
-      next: (events) => {
-        this.events = events;
+      next: (response) => {
+        this.events = response.items ?? [];
       },
       error: (err) => {
         console.error('Error loading events:', err);

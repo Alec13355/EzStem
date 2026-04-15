@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
-import { Order, WasteSummary } from '../../shared/models/api.models';
+import { Order, WasteSummary, PagedResponse } from '../../shared/models/api.models';
 import { environment } from '../../../environments/environment';
 
 @Injectable({
@@ -16,8 +16,8 @@ export class OrderService {
     private http: HttpClient
   ) {}
 
-  getOrders(): Observable<Order[]> {
-    return this.api.get<Order[]>('orders');
+  getOrders(page = 1, pageSize = 100): Observable<PagedResponse<Order>> {
+    return this.api.get<PagedResponse<Order>>('orders', { page, pageSize });
   }
 
   getOrder(id: string): Observable<Order> {

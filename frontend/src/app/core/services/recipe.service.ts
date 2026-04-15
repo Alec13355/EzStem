@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
-import { Recipe } from '../../shared/models/api.models';
+import { Recipe, PagedResponse } from '../../shared/models/api.models';
 
 @Injectable({
   providedIn: 'root'
@@ -9,8 +9,10 @@ import { Recipe } from '../../shared/models/api.models';
 export class RecipeService {
   constructor(private api: ApiService) {}
 
-  getRecipes(): Observable<Recipe[]> {
-    return this.api.get<Recipe[]>('recipes');
+  getRecipes(page = 1, pageSize = 100, search?: string): Observable<PagedResponse<Recipe>> {
+    const params: any = { page, pageSize };
+    if (search) params.search = search;
+    return this.api.get<PagedResponse<Recipe>>('recipes', params);
   }
 
   getRecipe(id: string): Observable<Recipe> {

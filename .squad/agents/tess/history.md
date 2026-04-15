@@ -43,3 +43,38 @@
 - Full UX specs: `.squad/decisions/inbox/tess-ux-specs.md` (8 sections, 60k chars)
 - Component notes: `.squad/decisions/inbox/tess-component-notes.md` (for Rusty)
 - Design decisions: `.squad/decisions/inbox/tess-design-decisions.md` (5 key decisions + why)
+
+---
+
+### 2026-04-14: P0 UX Review — Vendor CRUD + Pricing Settings
+
+**Reviewed:** Rusty's implementation of vendor-list, vendor-form, pricing-settings components
+
+**Vendor CRUD: APPROVED WITH NOTES**
+- ✅ Good: Search debounce, empty states, form validation, modal pattern
+- 🔴 Blocking: Touch targets 40px (need 44px minimum), native confirm() dialog (use Material)
+- 💡 Suggestions: Backend search integration, contact email display ("—" vs "N/A")
+
+**Pricing Settings: REJECTED**
+- ✅ Good: Live markup preview, correct markup→margin color conversion, validation, success feedback
+- 🔴 Blocking issues:
+  1. No context explanation (florists don't know what these settings affect)
+  2. Misleading "Settings" nav (implies broader settings, routes directly to pricing)
+  3. Color coding feels punitive on settings page (red = alarming for user's own defaults)
+  4. Missing first-time setup guidance
+- 💡 Suggestions: Move preview closer to markup field, add labor rate example hint
+
+**Overall: APPROVED WITH NOTES**
+- Rusty followed Material patterns well, real-time feedback implemented correctly
+- Touch target fix is trivial (CSS min-width/height)
+- Pricing settings needs conceptual work: context card, nav structure decision, softer color psychology
+- Quality is high; issues are about florist mental model, not implementation
+
+**Blocking items for merge:**
+1. Vendor icon buttons → 44px touch targets
+2. Vendor delete → Material dialog (not native confirm)
+3. Pricing settings → context explanation card
+4. Pricing settings → resolve Settings nav structure
+5. Pricing settings → soften/remove color coding on settings page
+
+**Review document:** `.squad/decisions/inbox/tess-p0-ux-review.md`

@@ -10,7 +10,7 @@ export class ItemService {
   constructor(private api: ApiService) {}
 
   getItems(page: number = 1, pageSize: number = 10, search?: string): Observable<PagedResponse<Item>> {
-    const params: any = { pageNumber: page, pageSize };
+    const params: any = { page, pageSize };
     if (search) {
       params.search = search;
     }

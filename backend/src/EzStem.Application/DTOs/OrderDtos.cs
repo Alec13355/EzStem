@@ -12,6 +12,8 @@ public record OrderResponse(
     string Status, decimal TotalCost,
     IEnumerable<OrderLineItemResponse> LineItems,
     IEnumerable<VendorOrderGroup> ByVendor,
+    decimal? WastePercentage,
+    DateTime? WasteCalculationDate,
     DateTime CreatedAt);
 
 public record VendorOrderGroup(

@@ -50,6 +50,17 @@ import { Item, Vendor } from '../../../shared/models/api.models';
         </mat-form-field>
 
         <mat-form-field class="full-width">
+          <mat-label>Bundle Size</mat-label>
+          <input matInput type="number" formControlName="bundleSize" required step="1" min="1">
+          @if (form.get('bundleSize')?.hasError('required') && form.get('bundleSize')?.touched) {
+            <mat-error>Bundle size is required</mat-error>
+          }
+          @if (form.get('bundleSize')?.hasError('min')) {
+            <mat-error>Bundle size must be at least 1</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field class="full-width">
           <mat-label>Vendor</mat-label>
           <mat-select formControlName="vendorId">
             <mat-option [value]="null">None</mat-option>
@@ -64,6 +75,13 @@ import { Item, Vendor } from '../../../shared/models/api.models';
           <input matInput formControlName="imageUrl">
         </mat-form-field>
 
+        @if (form.get('imageUrl')?.value) {
+          <div class="image-preview">
+            <img [src]="form.get('imageUrl')?.value" alt="Preview" class="preview-img"
+                 (error)="onImageError($event)">
+          </div>
+        }
+
         <mat-form-field class="full-width">
           <mat-label>Notes</mat-label>
           <textarea matInput formControlName="notes" rows="2"></textarea>
@@ -72,8 +90,13 @@ import { Item, Vendor } from '../../../shared/models/api.models';
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button (click)="onCancel()">Cancel</button>
+      @if (!isEdit) {
+        <button mat-stroked-button color="accent" (click)="onSaveAndAddMore()" [disabled]="!form.valid">
+          Add & Add More
+        </button>
+      }
       <button mat-raised-button color="primary" (click)="onSave()" [disabled]="!form.valid">
-        {{ isEdit ? 'Update' : 'Create' }}
+        {{ isEdit ? 'Update' : 'Save' }}
       </button>
     </mat-dialog-actions>
   `,
@@ -81,12 +104,24 @@ import { Item, Vendor } from '../../../shared/models/api.models';
     mat-form-field {
       margin-bottom: 16px;
     }
+    .image-preview {
+      margin-bottom: 16px;
+      text-align: center;
+    }
+    .preview-img {
+      max-width: 200px;
+      max-height: 150px;
+      object-fit: contain;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+    }
   `]
 })
 export class ItemFormComponent implements OnInit {
   form: FormGroup;
   isEdit = false;
   vendors: Vendor[] = [];
+  hasAddedItems = false;
 
   constructor(
     private fb: FormBuilder,
@@ -100,6 +135,7 @@ export class ItemFormComponent implements OnInit {
       name: [data?.name || '', Validators.required],
       description: [data?.description || ''],
       costPerStem: [data?.costPerStem || 0, [Validators.required, Validators.min(0.01)]],
+      bundleSize: [data?.bundleSize || 1, [Validators.required, Validators.min(1)]],
       vendorId: [data?.vendorId || null],
       imageUrl: [data?.imageUrl || ''],
       notes: [data?.notes || '']
@@ -140,6 +176,37 @@ export class ItemFormComponent implements OnInit {
   }
 
   onCancel() {
-    this.dialogRef.close(false);
+    this.dialogRef.close(this.hasAddedItems);
+  }
+
+  onSaveAndAddMore() {
+    if (this.form.valid) {
+      const itemData = this.form.value;
+      this.itemService.createItem(itemData).subscribe({
+        next: () => {
+          // Reset form but keep dialog open
+          this.form.reset({
+            name: '',
+            description: '',
+            costPerStem: 0,
+            bundleSize: 1,
+            vendorId: null,
+            imageUrl: '',
+            notes: ''
+          });
+          this.form.markAsPristine();
+          this.form.markAsUntouched();
+          // Signal to the list that at least one item was added (so it refreshes on dialog close)
+          this.hasAddedItems = true;
+        },
+        error: (err) => {
+          console.error('Error saving item:', err);
+        }
+      });
+    }
+  }
+
+  onImageError(event: any) {
+    event.target.style.display = 'none';
   }
 }

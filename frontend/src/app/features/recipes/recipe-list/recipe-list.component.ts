@@ -97,8 +97,8 @@ export class RecipeListComponent implements OnInit {
 
   loadRecipes() {
     this.recipeService.getRecipes().subscribe({
-      next: (recipes) => {
-        this.recipes = recipes;
+      next: (response) => {
+        this.recipes = response.items ?? [];
       },
       error: (err) => {
         console.error('Error loading recipes:', err);

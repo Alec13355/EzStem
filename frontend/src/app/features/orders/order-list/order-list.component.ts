@@ -94,8 +94,8 @@ export class OrderListComponent implements OnInit {
 
   loadOrders() {
     this.orderService.getOrders().subscribe({
-      next: (orders) => {
-        this.orders = orders;
+      next: (response) => {
+        this.orders = response.items ?? [];
       },
       error: (err) => {
         console.error('Error loading orders:', err);
@@ -104,6 +104,7 @@ export class OrderListComponent implements OnInit {
   }
 
   calculateOrderTotal(order: Order): number {
+    if (order.totalCost !== undefined) return order.totalCost;
     if (!order.lineItems) return 0;
     return order.lineItems.reduce((sum, item) => sum + (item.quantityOrdered * item.costPerUnit), 0);
   }

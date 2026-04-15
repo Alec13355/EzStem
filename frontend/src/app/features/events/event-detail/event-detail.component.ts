@@ -114,7 +114,7 @@ import { FloristEvent, Recipe, EventSummary } from '../../../shared/models/api.m
             <table mat-table [dataSource]="event.eventRecipes || []" class="mat-elevation-z2">
               <ng-container matColumnDef="name">
                 <th mat-header-cell *matHeaderCellDef>Recipe Name</th>
-                <td mat-cell *matCellDef="let er">{{ er.recipe?.name }}</td>
+                <td mat-cell *matCellDef="let er">{{ er.recipeName || er.recipe?.name }}</td>
               </ng-container>
 
               <ng-container matColumnDef="quantity">
@@ -125,14 +125,14 @@ import { FloristEvent, Recipe, EventSummary } from '../../../shared/models/api.m
               <ng-container matColumnDef="unitCost">
                 <th mat-header-cell *matHeaderCellDef>Unit Cost</th>
                 <td mat-cell *matCellDef="let er">
-                  <span class="currency">{{ er.recipe?.totalCost || 0 | number:'1.2-2' }}</span>
+                  <span class="currency">{{ er.unitCost || er.recipe?.totalCost || 0 | number:'1.2-2' }}</span>
                 </td>
               </ng-container>
 
               <ng-container matColumnDef="totalCost">
                 <th mat-header-cell *matHeaderCellDef>Total Cost</th>
                 <td mat-cell *matCellDef="let er">
-                  <span class="currency">{{ (er.quantity * (er.recipe?.totalCost || 0)) | number:'1.2-2' }}</span>
+                  <span class="currency">{{ er.totalCost || (er.quantity * (er.unitCost || er.recipe?.totalCost || 0)) | number:'1.2-2' }}</span>
                 </td>
               </ng-container>
 
@@ -287,8 +287,8 @@ export class EventDetailComponent implements OnInit {
 
   loadRecipes() {
     this.recipeService.getRecipes().subscribe({
-      next: (recipes) => {
-        this.availableRecipes = recipes;
+      next: (response) => {
+        this.availableRecipes = response.items ?? [];
       },
       error: (err) => {
         console.error('Error loading recipes:', err);

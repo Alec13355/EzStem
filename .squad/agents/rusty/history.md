@@ -167,4 +167,106 @@
 
 **Build status:** ✅ Production build passing (1.4s, 0 errors, 0 warnings except budget).
 
+### 2026-04-15: Pricing Settings UI
+
+**Feature:** Standalone pricing configuration page at `/settings/pricing` route.
+
+**Component Created:** `pricing-settings.component.ts` (inline template + styles)
+- Page title: "Pricing Settings"
+- MatCard with reactive form containing:
+  - `defaultMarkupPercentage`: number input (0-500%), required, step 0.1
+  - `defaultLaborRate`: number input (min 0), required, step 0.01
+- Real-time markup preview: "At 35% markup, a $10 arrangement sells for $13.50"
+- Color-coded profit indicator:
+  - Green (profit-high): margin >= 40%
+  - Orange (profit-medium): margin 25-40%
+  - Red (profit-low): margin < 25%
+- Formula used: `margin = markup / (100 + markup) * 100`
+- MatSnackBar feedback for save success/error
+- Loading spinner while fetching initial config
+- Save button disabled when form invalid or saving
+
+**Service Integration:**
+- Uses existing `PricingService.getPricingConfig()` → `GET /api/pricing/config`
+- Uses existing `PricingService.updatePricingConfig()` → `PUT /api/pricing/config`
+- PricingConfig interface already existed in `api.models.ts`
+
+**Routing:**
+- Added route: `settings/pricing` with `authGuard`, lazy-loaded component
+- Inserted before catch-all `**` route in `app.routes.ts`
+
+**Navigation:**
+- Added "Settings" button to main toolbar (after Orders, before logout)
+- Links to `/settings/pricing` route
+
+**UX Pattern:**
+- Tablet-first centered layout (max-width 800px)
+- Follows existing Angular 17+ patterns: standalone, `@if/@for`, inline template
+- Material color palette: primary button, validation errors, snackbar notifications
+- Consistent with other list/detail pages (spinner, card layout, form validation)
+
+**Build Output:**
+- Production build successful: `chunk-U54GRSHD.js` (pricing-settings-component) at 21.66 kB
+- Total bundle: 869.91 kB initial (budget warning expected, non-blocking)
+- 0 compilation errors
+
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
+
+### 2026-04-15: Vendor CRUD UI Implementation
+
+**Features Implemented:**
+- Full CRUD functionality for Vendor Management UI matching item-list pattern
+- `VendorFormComponent` — inline dialog for create/edit with fields: name (required), contactEmail (optional email validation), notes (optional textarea)
+- `VendorListComponent` — updated with Add button, search field (200ms debounce), edit/delete action buttons, pagination, loading/empty states
+
+**Component Patterns:**
+- Dialog-based form matching ItemFormComponent structure (MatDialog, MAT_DIALOG_DATA, ReactiveFormsModule)
+- Debounced search with 200ms delay (consistent with items at 300ms but faster for smaller vendor dataset)
+- Action column with primary-colored edit button and warn-colored delete button
+- Loading spinner and empty state messaging ("No vendors yet. Add your first vendor to get started!")
+- Confirmation dialog on delete: `confirm()` with vendor name display
+
+**Form Validation:**
+- Name field: required validator
+- Contact Email: optional but validates email format when provided
+- Notes: optional textarea (3 rows)
+- Save button disabled while form invalid or loading
+
+**Service Integration:**
+- Uses existing VendorService methods: createVendor, updateVendor, deleteVendor
+- Extracts `response.items` from PagedResponse (matching backend contract)
+- Reloads vendor list after create/edit/delete operations
+
+**UI/UX Details:**
+- "Add Vendor" button in header (mat-raised-button, color="primary")
+- Search field with mat-icon suffix (search icon)
+- Mat-paginator with [10, 25, 50] page size options
+- Displayed columns: name, contactEmail, notes, actions
+- 600px dialog width matching item form
+
+**Build Status:** ✅ Production build passing (1.6s, 0 errors, budget warning only).
+
+### 2026-04-15: Vendor UX Fixes (Post-Review)
+
+**UX Issues Fixed:**
+1. **Touch Target Compliance** — Increased action button size from 40px to 44px per WCAG 2.5.5 minimum
+   - Added `.action-btn` CSS class with explicit 44px width/height/line-height
+   - Applied class to both edit and delete `mat-icon-button` elements
+   - Added `.action-buttons` flex container with 8px gap for proper spacing
+
+2. **MatDialog Confirmation** — Replaced native `confirm()` with proper Material dialog pattern
+   - Created `ConfirmDeleteDialogComponent` as inline standalone component
+   - Template includes mat-dialog-title, mat-dialog-content, mat-dialog-actions with Cancel/Delete buttons
+   - Delete button uses warn color with `[mat-dialog-close]="true"` return value
+   - `deleteVendor()` method now opens dialog, subscribes to `afterClosed()`, proceeds only if confirmed
+   - Added `Inject` and `MAT_DIALOG_DATA` to imports for data injection
+
+**Component Pattern:**
+- Two standalone components in single file: `VendorListComponent` (main) + `ConfirmDeleteDialogComponent` (dialog)
+- Dialog uses minimal imports: MatButtonModule, MatDialogModule
+- Follows Angular 17+ inline template pattern consistent with existing codebase
+
+**Build Status:** ✅ Production build passing (1.4s, 0 errors, budget warning only).
+
+**Approval:** APPROVED WITH NOTES (issues resolved) — Tess's UX review requirements met.
+

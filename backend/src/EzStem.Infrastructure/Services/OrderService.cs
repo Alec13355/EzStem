@@ -160,6 +160,8 @@ public class OrderService : IOrderService
             totalCost,
             lineItems,
             byVendor,
+            order.WastePercentage,
+            order.WasteCalculationDate,
             order.CreatedAt
         );
     }

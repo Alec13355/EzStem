@@ -115,10 +115,10 @@ import { Order, VendorOrderGroup, WasteSummary } from '../../../shared/models/ap
               <mat-card-title>{{ vendorGroup.vendorName }}</mat-card-title>
             </mat-card-header>
             <mat-card-content>
-              <table mat-table [dataSource]="vendorGroup.lineItems" class="mat-elevation-z2">
+              <table mat-table [dataSource]="vendorGroup.items ?? vendorGroup.lineItems ?? []" class="mat-elevation-z2">
                 <ng-container matColumnDef="itemName">
                   <th mat-header-cell *matHeaderCellDef>Item</th>
-                  <td mat-cell *matCellDef="let item">{{ item.item?.name }}</td>
+                  <td mat-cell *matCellDef="let item">{{ item.itemName || item.item?.name }}</td>
                 </ng-container>
 
                 <ng-container matColumnDef="quantityNeeded">
@@ -151,7 +151,7 @@ import { Order, VendorOrderGroup, WasteSummary } from '../../../shared/models/ap
 
               <div class="vendor-total">
                 <strong>Vendor Total:</strong>
-                <strong class="currency">{{ vendorGroup.totalCost | number:'1.2-2' }}</strong>
+                <strong class="currency">{{ vendorGroup.vendorTotalCost ?? vendorGroup.totalCost ?? 0 | number:'1.2-2' }}</strong>
               </div>
             </mat-card-content>
           </mat-card>
@@ -269,26 +269,45 @@ export class OrderDetailComponent implements OnInit {
   }
 
   groupByVendor() {
+    if (!this.order) return;
+    
+    if (this.order.byVendor && this.order.byVendor.length > 0) {
+      this.vendorGroups = this.order.byVendor.map(vg => ({
+        vendorId: vg.vendorId,
+        vendorName: vg.vendorName,
+        items: vg.items ?? vg.lineItems ?? [],
+        lineItems: vg.items ?? vg.lineItems ?? [],
+        vendorTotalCost: vg.vendorTotalCost ?? vg.totalCost ?? 0,
+        totalCost: vg.vendorTotalCost ?? vg.totalCost ?? 0
+      }));
+      return;
+    }
+    
     if (!this.order?.lineItems) return;
 
     const vendorMap = new Map<string, VendorOrderGroup>();
 
     this.order.lineItems.forEach(item => {
       const vendorId = item.vendorId || 'no-vendor';
-      const vendorName = item.vendor?.name || 'No Vendor';
+      const vendorName = item.vendorName ?? item.vendor?.name ?? 'No Vendor';
 
       if (!vendorMap.has(vendorId)) {
         vendorMap.set(vendorId, {
           vendorId,
           vendorName,
+          items: [],
           lineItems: [],
+          vendorTotalCost: 0,
           totalCost: 0
         });
       }
 
       const group = vendorMap.get(vendorId)!;
-      group.lineItems.push(item);
-      group.totalCost += item.quantityOrdered * item.costPerUnit;
+      group.lineItems!.push(item);
+      group.items!.push(item);
+      const cost = item.lineTotalCost ?? (item.quantityOrdered * item.costPerUnit);
+      group.totalCost = (group.totalCost ?? 0) + cost;
+      group.vendorTotalCost = group.totalCost;
     });
 
     this.vendorGroups = Array.from(vendorMap.values());
@@ -299,7 +318,8 @@ export class OrderDetailComponent implements OnInit {
   }
 
   calculateGrandTotal(): number {
-    return this.vendorGroups.reduce((sum, group) => sum + group.totalCost, 0);
+    if (this.order?.totalCost !== undefined) return this.order.totalCost;
+    return this.vendorGroups.reduce((sum, group) => sum + (group.vendorTotalCost ?? group.totalCost ?? 0), 0);
   }
 
   downloadCsv() {

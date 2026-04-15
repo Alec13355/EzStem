@@ -10,7 +10,7 @@ export class VendorService {
   constructor(private api: ApiService) {}
 
   getVendors(page: number = 1, pageSize: number = 100): Observable<PagedResponse<Vendor>> {
-    return this.api.get<PagedResponse<Vendor>>('vendors', { pageNumber: page, pageSize });
+    return this.api.get<PagedResponse<Vendor>>('vendors', { page, pageSize });
   }
 
   createVendor(data: Partial<Vendor>): Observable<Vendor> {

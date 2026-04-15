@@ -3,9 +3,11 @@ export interface Item {
   name: string;
   description?: string;
   costPerStem: number;
+  bundleSize: number;
   imageUrl?: string;
   notes?: string;
   vendorId?: string;
+  vendorName?: string;
   vendor?: Vendor;
   isSeasonalItem?: boolean;
   seasonalStartMonth?: number;
@@ -24,11 +26,13 @@ export interface Vendor {
 
 export interface RecipeItem {
   id: string;
-  recipeId: string;
+  recipeId?: string;
   itemId: string;
+  itemName?: string;
   item?: Item;
   quantity: number;
   costPerStem: number;
+  lineTotal?: number;
 }
 
 export interface Recipe {
@@ -54,29 +58,40 @@ export interface FloristEvent {
 
 export interface EventRecipe {
   id: string;
-  eventId: string;
+  eventId?: string;
   recipeId: string;
+  recipeName?: string;
   recipe?: Recipe;
   quantity: number;
+  unitCost?: number;
+  totalCost?: number;
 }
 
 export interface OrderLineItem {
   id: string;
-  orderId: string;
+  orderId?: string;
   itemId: string;
+  itemName?: string;
   item?: Item;
   vendorId?: string;
+  vendorName?: string;
   vendor?: Vendor;
   quantityNeeded: number;
   quantityOrdered: number;
+  bundleSize?: number;
+  bundlesNeeded?: number;
   costPerUnit: number;
+  lineTotalCost?: number;
 }
 
 export interface Order {
   id: string;
   eventId: string;
+  eventName?: string;
   status: 'Draft' | 'Submitted' | 'Confirmed' | 'Received';
+  totalCost?: number;
   lineItems: OrderLineItem[];
+  byVendor?: VendorOrderGroup[];
   wastePercentage?: number;
   wasteCalculationDate?: string;
   createdAt: string;
@@ -129,8 +144,10 @@ export interface EventSummary {
 export interface VendorOrderGroup {
   vendorId: string;
   vendorName: string;
-  lineItems: OrderLineItem[];
-  totalCost: number;
+  items?: OrderLineItem[];
+  lineItems?: OrderLineItem[];
+  vendorTotalCost?: number;
+  totalCost?: number;
 }
 
 export interface WasteSummary {

@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
-import { FloristEvent, EventSummary, Order } from '../../shared/models/api.models';
+import { FloristEvent, EventSummary, Order, PagedResponse } from '../../shared/models/api.models';
 
 @Injectable({
   providedIn: 'root'
@@ -9,8 +9,10 @@ import { FloristEvent, EventSummary, Order } from '../../shared/models/api.model
 export class EventService {
   constructor(private api: ApiService) {}
 
-  getEvents(): Observable<FloristEvent[]> {
-    return this.api.get<FloristEvent[]>('events');
+  getEvents(page = 1, pageSize = 100, search?: string): Observable<PagedResponse<FloristEvent>> {
+    const params: any = { page, pageSize };
+    if (search) params.search = search;
+    return this.api.get<PagedResponse<FloristEvent>>('events', params);
   }
 
   getEvent(id: string): Observable<FloristEvent> {

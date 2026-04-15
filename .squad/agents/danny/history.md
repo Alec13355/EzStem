@@ -52,3 +52,23 @@
 
 **Sign-off:** APPROVED. P1 ready to ship.
 
+### P0 Final Gate Review (2026-04-15)
+
+**Summary:** QA gate review of Rusty's P0 implementation — Vendor CRUD UI and Pricing Config UI.
+
+**Findings:**
+- **18/18 backend tests pass** ✅
+- **Frontend production build clean** ✅ (budget warning pre-existing)
+- **Vendor CRUD UI**: APPROVED — all checklist items pass
+- **Pricing Config UI**: REJECTED — HTTP method mismatch bug
+
+**Blocking Bug Found:**
+- `frontend/src/app/core/services/pricing.service.ts` line 17 uses `PUT` but `PricingController.cs` expects `POST`
+- Will cause 405 Method Not Allowed when saving pricing settings
+
+**Action Required:**
+- Linus (not Rusty per review policy) must fix: change `api.put` → `api.post` in pricing.service.ts
+- Re-review after fix
+
+**Sign-off:** REJECTED. Fix required before merge.
+

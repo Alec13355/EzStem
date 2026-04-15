@@ -48,6 +48,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/orders/order-detail/order-detail.component').then(m => m.OrderDetailComponent)
   },
   {
+    path: 'settings/pricing',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/pricing/pricing-settings/pricing-settings.component').then(m => m.PricingSettingsComponent)
+  },
+  {
     path: '**',
     redirectTo: ''
   }

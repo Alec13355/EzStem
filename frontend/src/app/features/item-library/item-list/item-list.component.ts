@@ -75,7 +75,7 @@ import { ItemFormComponent } from '../item-form/item-form.component';
 
           <ng-container matColumnDef="vendor">
             <th mat-header-cell *matHeaderCellDef>Vendor</th>
-            <td mat-cell *matCellDef="let item">{{ item.vendor?.name || 'N/A' }}</td>
+            <td mat-cell *matCellDef="let item">{{ item.vendorName || 'N/A' }}</td>
           </ng-container>
 
           <ng-container matColumnDef="actions">

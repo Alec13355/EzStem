@@ -157,3 +157,26 @@ Could not load type 'Microsoft.OpenApi.Any.IOpenApiAny' from assembly 'Microsoft
 
 **Verification:** Build succeeded with 0 warnings/errors (1.32s). All existing API endpoints now return waste data when available.
 
+### 2026-04-15: Fixed Rejected Pricing Feature (HTTP Method Bug + UX Issues)
+
+**Context:** Danny (Tech Lead) and Tess (UX Designer) rejected the Pricing Config UI. Rusty (original author) was locked out. Fixed 3 critical issues.
+
+**Fix 1 — HTTP Method Mismatch (Danny's rejection):**
+- **Problem:** `frontend/src/app/core/services/pricing.service.ts` called `api.put(...)` for config updates
+- **Root cause:** Backend `PricingController.cs` line 27 has `[HttpPost]` attribute — expects POST, not PUT
+- **Solution:** Changed `this.api.put` → `this.api.post` in `updatePricingConfig()` method
+- **Impact:** Config updates now use correct HTTP method, matching backend contract
+
+**Fix 2 — UX Issues (Tess's rejection):**
+- **A. Added context explanation card:** Inserted `mat-card` with class `info-card` above the form. Content: "💡 These are your default values for new recipes. You can override them per-recipe when needed." Styled with light blue background (#e3f2fd) and left border (#1976d2).
+- **B. Fixed red color on settings page:** Changed low margin preview from alarming red (#c62828, #ffebee bg) to neutral grey (#616161, #f5f5f5 bg). Added soft hint text "(consider increasing markup)" for <25% margin. Green (≥40%) and orange (25-40%) unchanged. Red on a *settings defaults page* felt like an error state — this is user's chosen default, not a validation error.
+- **C. Fixed navigation label:** Changed `app.html` nav button from "Settings" to "Pricing Settings". Original label implied broader settings menu, causing confusion.
+
+**Files changed:**
+- `frontend/src/app/core/services/pricing.service.ts` — line 17: PUT → POST
+- `frontend/src/app/features/pricing/pricing-settings/pricing-settings.component.ts` — added info card, changed red to grey, added hint text
+- `frontend/src/app/app.html` — line 10: "Settings" → "Pricing Settings"
+
+**Verification:** Production build succeeded with 0 errors (1.38s). Only budget warning (acceptable).
+
+**Key learning:** On settings/configuration pages showing user's chosen defaults, avoid error-state colors (red). Use neutral tones with informational hints instead. Error colors imply validation failure, not user preference.
