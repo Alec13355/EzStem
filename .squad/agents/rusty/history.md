@@ -93,4 +93,78 @@
 
 **Build status:** Production build passing. Budget warning on initial bundle (619KB vs 500KB target) — non-blocking.
 
+### 2026-04-14: Item Form Enhancements
+
+**Features Added:**
+- `bundleSize` field — required number field with min value of 1, default 1 (matches backend CreateItemRequest requirement)
+- Image preview — displays image below URL field when imageUrl control has a value; hides automatically on image load errors via onImageError handler
+- "Add & Add More" button — create-mode only button that saves item, resets form to defaults, and keeps dialog open for rapid item entry
+
+**Form Flow Pattern:**
+- `hasAddedItems` property tracks whether any items were added via "Add & Add More"
+- `onCancel()` now closes with `this.hasAddedItems` value (not boolean false) so parent list refreshes if items were added
+- `onSaveAndAddMore()` calls createItem, then resets form with `form.reset({...defaults})`, marks form pristine/untouched, sets `hasAddedItems = true`
+
+**Template Pattern:**
+- Conditional button rendering: `@if (!isEdit)` wraps "Add & Add More" button
+- Image preview conditional: `@if (form.get('imageUrl')?.value)` controls preview div visibility
+- Mat-stroked-button with accent color for secondary action ("Add & Add More")
+
+**CSS:**
+- `.image-preview` with center alignment, 16px bottom margin
+- `.preview-img` with max-width 200px, max-height 150px, object-fit contain, 1px border with 4px border-radius
+
+**Validation Messages:**
+- Bundle size: "Bundle size is required" and "Bundle size must be at least 1"
+- Matches backend validation: `BundleSize > 0`
+
+### 2026-04-15: Frontend Model & Service Fixes
+
+**Root Causes Identified:**
+- Services sent wrong query param names (`pageNumber` → should be `page`)
+- Services returned wrong types (`Recipe[]` → should be `PagedResponse<Recipe>`)
+- Frontend models missing flat denormalized fields that backend returns (e.g., `vendorName`, `itemName`, `recipeName`)
+- Components manually grouped/calculated data that backend already provides (e.g., `order.byVendor`, `order.totalCost`)
+
+**Interfaces Updated (api.models.ts):**
+- `Item`: Added `bundleSize` (missing), `vendorName?: string` (backend returns flat vendor name)
+- `RecipeItem`: Added `itemName?: string`, `lineTotal?: number`, made `recipeId` optional
+- `EventRecipe`: Added `recipeName?: string`, `unitCost?: number`, `totalCost?: number`, made `eventId` optional
+- `OrderLineItem`: Added `itemName`, `vendorName`, `bundleSize`, `bundlesNeeded`, `lineTotalCost`, made `orderId` optional
+- `VendorOrderGroup`: Added `items?: OrderLineItem[]` (backend sends `items`), `vendorTotalCost?: number` (backend field name); kept legacy `lineItems`/`totalCost` for backward compat
+- `Order`: Added `eventName`, `totalCost`, `byVendor?: VendorOrderGroup[]` (backend pre-groups by vendor)
+
+**Service Parameter Fixes:**
+- `ItemService.getItems()`: Fixed `pageNumber: page` → `page: page` (or just `page`)
+- `VendorService.getVendors()`: Fixed `pageNumber: page` → `page`
+- `RecipeService.getRecipes()`: Changed return type `Observable<Recipe[]>` → `Observable<PagedResponse<Recipe>>`, added pagination params
+- `EventService.getEvents()`: Changed return type to `PagedResponse<FloristEvent>`, added pagination params
+- `OrderService.getOrders()`: Changed return type to `PagedResponse<Order>`, added pagination params
+
+**Component Fixes:**
+- `item-list`: Changed `item.vendor?.name` → `item.vendorName`
+- `event-list`: Extract `response.items` from paged response
+- `recipe-list`: Extract `response.items` from paged response
+- `order-list`: Extract `response.items`, use `order.totalCost` if available before manual calculation
+- `order-detail`: 
+  - Use pre-grouped `order.byVendor` if available (fallback to manual grouping)
+  - Changed `item.item?.name` → `item.itemName || item.item?.name`
+  - Changed `item.vendor?.name` → `item.vendorName || item.vendor?.name`
+  - Use `group.items ?? group.lineItems` (backend sends `items`)
+  - Use `group.vendorTotalCost ?? group.totalCost` (backend field name)
+  - Use `order.totalCost` for grand total if available
+- `event-detail`:
+  - Extract `response.items` when loading recipes
+  - Use `er.recipeName || er.recipe?.name` for recipe name
+  - Use `er.unitCost` and `er.totalCost` if available (backend provides computed values)
+
+**Backward Compatibility:**
+- Kept legacy property names (`lineItems`, `totalCost`, nested `item`, `vendor`, `recipe`) as optional fallbacks
+- Components check new fields first, fall back to old patterns
+- Ensures graceful degradation if backend response is missing new fields
+
+**Pattern:** Backend denormalizes common fields to avoid N+1 queries on frontend (e.g., `vendorName` instead of requiring `vendor.name` navigation). Frontend models now match backend response shape while maintaining compatibility.
+
+**Build status:** ✅ Production build passing (1.4s, 0 errors, 0 warnings except budget).
+
 <!-- Append new learnings below. Each entry is something lasting about the project. -->

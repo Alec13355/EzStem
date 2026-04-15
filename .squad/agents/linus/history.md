@@ -139,3 +139,21 @@ Could not load type 'Microsoft.OpenApi.Any.IOpenApiAny' from assembly 'Microsoft
 
 **Key learning:** This project uses **Swashbuckle.AspNetCore** for OpenAPI/Swagger support, not `Microsoft.AspNetCore.OpenApi`. The Microsoft package is unnecessary and conflicts with Swashbuckle's dependencies.
 
+### 2026-04-14: Added Waste Fields to OrderResponse DTO
+
+**What changed:**
+- Added `WastePercentage` (decimal?) and `WasteCalculationDate` (DateTime?) parameters to `OrderResponse` record in `OrderDtos.cs`
+- Updated `MapToOrderResponse` method in `OrderService.cs` to map these fields from the `Order` entity
+- Frontend component `order-detail` was displaying waste fields that weren't present in the DTO — now aligned
+
+**Key details:**
+- Fields are nullable to support orders that don't have waste data calculated yet
+- `Order` entity already had these fields from P1 waste calculation feature (lines 186-188 in OrderService.cs)
+- Fields populate when waste is calculated via POST `/api/orders/{id}/waste` endpoint
+
+**Files changed:**
+- `backend/src/EzStem.Application/DTOs/OrderDtos.cs` — Added 2 parameters to OrderResponse record
+- `backend/src/EzStem.Infrastructure/Services/OrderService.cs` — Updated MapToOrderResponse method (lines 155-165)
+
+**Verification:** Build succeeded with 0 warnings/errors (1.32s). All existing API endpoints now return waste data when available.
+

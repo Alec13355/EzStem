@@ -428,3 +428,226 @@ Only Swashbuckle is used in the project for Swagger UI; Microsoft.AspNetCore.Ope
 **Files Changed:** `backend/EzStem.API/EzStem.API.csproj`
 
 **Impact:** CD pipeline can now successfully build and deploy without initialization errors.
+
+---
+
+## SPA Routing Configuration for Azure Static Web Apps (Basher — 2026-04-15)
+
+**Status: RESOLVED**
+
+**Problem:** Angular SPA shows 404 errors when users refresh on any route (e.g., `/items`, `/orders/abc-123`). Azure Static Web Apps tries to find a server-side file at that path instead of serving the SPA's `index.html`.
+
+**Solution:** Created `staticwebapp.config.json` in `frontend/public/` with `navigationFallback` configuration to route all unmatched requests to `index.html`, allowing Angular's client-side router to handle navigation.
+
+**File:** `frontend/public/staticwebapp.config.json`
+
+**Configuration:**
+```json
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/api/*", "*.{css,scss,js,ts,png,jpg,jpeg,gif,svg,ico,woff,woff2,ttf,eot,map,json}"]
+  },
+  "routes": [
+    {
+      "route": "/api/*",
+      "allowedRoles": ["anonymous"]
+    }
+  ],
+  "platform": {
+    "apiRuntime": "node:18"
+  }
+}
+```
+
+**Details:**
+- **navigationFallback.rewrite:** `/index.html` — all unmatched routes serve the app shell
+- **navigationFallback.exclude:** Static assets and API routes are NOT rewritten
+  - `/api/*` — backend API calls proxy to app service
+  - `*.{css,scss,js,ts,png,jpg,jpeg,gif,svg,ico,woff,woff2,ttf,eot,map,json}` — actual static files delivered as-is
+- **routes:** `/api/*` with `allowedRoles: ["anonymous"]` — backend proxy route, no authentication required at SWA level
+- **platform.apiRuntime:** `node:18` — SWA API functions use Node.js 18 (future-proofing)
+
+**File Placement Rationale:**
+- Angular 17+ projects use `frontend/public/` as the assets source (configured in `angular.json` lines 26–30)
+- The build step (`ng build`) copies all files from `public/` verbatim to `dist/frontend/browser/`
+- SWA deployment picks up `dist/frontend/browser/staticwebapp.config.json` automatically during the `output_location` step
+- This is **NOT** a dev-only config — it's deployed to production as part of the SPA bundle
+
+**Impact:**
+✅ Users can refresh on any route without 404  
+✅ Client-side routing works seamlessly  
+✅ Static assets (JS, CSS, images) are served directly  
+✅ API routes proxy correctly to backend service  
+✅ No additional deployment steps required
+
+---
+
+## Order Response Waste Fields (Linus — 2026-04-15)
+
+**Status: IMPLEMENTED**
+
+**Problem:** The `order-detail` frontend component was attempting to display order waste fields (`order.wastePercentage` and `order.wasteCalculationDate`), but these fields were missing from the `OrderResponse` DTO. The `Order` domain entity already included these nullable properties from the P1 waste calculation feature.
+
+**Solution:** Added `WastePercentage` (decimal?) and `WasteCalculationDate` (DateTime?) to the `OrderResponse` record and updated the mapping method to populate them from the domain entity.
+
+**Files Changed:**
+1. `backend/src/EzStem.Application/DTOs/OrderDtos.cs` — Added fields to OrderResponse record
+2. `backend/src/EzStem.Infrastructure/Services/OrderService.cs` — Updated MapToOrderResponse method (lines 155–165)
+
+**OrderResponse (updated):**
+```csharp
+public record OrderResponse(
+    Guid Id, Guid EventId, string EventName,
+    string Status, decimal TotalCost,
+    IEnumerable<OrderLineItemResponse> LineItems,
+    IEnumerable<VendorOrderGroup> ByVendor,
+    decimal? WastePercentage,           // NEW
+    DateTime? WasteCalculationDate,     // NEW
+    DateTime CreatedAt);
+```
+
+**Rationale:**
+- Frontend Alignment — The frontend was already expecting these fields; this ensures backend-frontend contract consistency
+- Nullable Design — Fields are nullable to support orders that haven't had waste calculated yet
+- Domain-Driven — Fields map directly from existing `Order` entity properties — no new domain logic required
+- Backward Compatible — Adding nullable fields to a DTO doesn't break existing API consumers
+
+**Impact:**
+- All endpoints returning `OrderResponse` now include waste data:
+  - `GET /api/orders/{id}`
+  - `GET /api/orders` (paginated list)
+  - `POST /api/events/{id}/generate-order`
+- Frontend `order-detail` component can now properly display waste percentage and calculation date
+- No new tests required; existing 18 backend tests continue passing
+
+**Verification:**
+✅ Build succeeded: 0 warnings, 0 errors (1.32s)  
+✅ All 18 backend tests pass  
+✅ DTO contract matches frontend expectations  
+
+---
+
+## Frontend Models & Service Bindings (Rusty — 2026-04-15)
+
+**Status: RESOLVED**
+
+**Problem:** Empty tables across all views due to three categories of bugs:
+1. Services sent wrong query parameter names (`pageNumber` instead of `page`)
+2. Services expected wrong return types (arrays instead of `PagedResponse<T>`)
+3. Frontend models didn't match backend response shapes (missing denormalized fields)
+
+**Root Causes:**
+
+**A. Query Parameter Mismatches**
+- `ItemService.getItems()` sent `pageNumber` but backend expects `page`
+- `VendorService.getVendors()` sent `pageNumber` but backend expects `page`
+
+**B. Return Type Mismatches**
+- `RecipeService.getRecipes()` returned `Observable<Recipe[]>` but backend returns `PagedResponse<RecipeResponse>`
+- `EventService.getEvents()` returned `Observable<FloristEvent[]>` but backend returns `PagedResponse<EventResponse>`
+- `OrderService.getOrders()` returned `Observable<Order[]>` but backend returns `PagedResponse<OrderResponse>`
+
+**C. Model Shape Mismatches (Missing Denormalized Fields)**
+Backend returns flat denormalized fields to avoid N+1 queries on frontend:
+- `Item`: missing `vendorName?: string`
+- `OrderLineItem`: missing `itemName`, `vendorName`, `bundleSize`, `bundlesNeeded`, `lineTotalCost`
+- `VendorOrderGroup`: uses `lineItems` but backend sends `items`; uses `totalCost` but backend sends `vendorTotalCost`
+- `Order`: missing `eventName`, `totalCost`, `byVendor`
+- `EventRecipe`: missing `recipeName`, `unitCost`, `totalCost`
+- `RecipeItem`: missing `itemName`, `lineTotal`
+
+**Solutions:**
+
+**1. Fixed Service Parameters**
+- `ItemService.getItems()`: Changed `pageNumber` → `page`
+- `VendorService.getVendors()`: Changed `pageNumber` → `page`
+
+**2. Fixed Service Return Types**
+- `RecipeService.getRecipes()`: Now returns `Observable<PagedResponse<Recipe>>`
+- `EventService.getEvents()`: Now returns `Observable<PagedResponse<FloristEvent>>`
+- `OrderService.getOrders()`: Now returns `Observable<PagedResponse<Order>>`
+
+**3. Extended Frontend Models (api.models.ts)**
+Added denormalized fields while keeping nested objects optional for backward compatibility:
+
+- **Item:** `vendorName?: string`, `bundleSize: number`
+- **RecipeItem:** `itemName?: string`, `lineTotal?: number`, `recipeId?: string` (optional)
+- **EventRecipe:** `recipeName?: string`, `unitCost?: number`, `totalCost?: number`, `eventId?: string` (optional)
+- **OrderLineItem:** `itemName?: string`, `vendorName?: string`, `bundleSize?: number`, `bundlesNeeded?: number`, `lineTotalCost?: number`, `orderId?: string` (optional)
+- **VendorOrderGroup:** `items?: OrderLineItem[]`, `vendorTotalCost?: number`, legacy `lineItems` and `totalCost` (optional)
+- **Order:** `eventName?: string`, `totalCost?: number`, `byVendor?: VendorOrderGroup[]`
+
+**4. Updated Components**
+- **item-list:** `item.vendor?.name` → `item.vendorName`
+- **event-list, recipe-list, order-list:** Extract `response.items` from paged response
+- **order-detail:** Use `order.byVendor` if available, fallback to manual grouping; use flat field names first, fallback to nested
+- **event-detail:** Extract items from paged response, use flat field names
+
+**Design Decisions:**
+
+**Backward Compatibility Strategy**
+- Keep legacy nested object properties as optional alongside new flat fields
+- Components check new fields first, fall back to old patterns
+- Graceful degradation if backend response is missing new fields
+
+**Denormalization Pattern**
+- Backend returns commonly-accessed nested fields as flat properties
+- Avoids N+1 queries on frontend
+- Reduces frontend model complexity
+- Improves performance (less object traversal)
+
+**Pre-Computed Aggregations**
+- Backend pre-computes expensive aggregations (`order.totalCost`, `order.byVendor`)
+- Frontend doesn't need to manually sum/group every time
+- Single source of truth for business logic
+
+**Files Changed:**
+
+**Models:**
+- `frontend/src/app/shared/models/api.models.ts`
+
+**Services:**
+- `frontend/src/app/core/services/item.service.ts`
+- `frontend/src/app/core/services/vendor.service.ts`
+- `frontend/src/app/core/services/recipe.service.ts`
+- `frontend/src/app/core/services/event.service.ts`
+- `frontend/src/app/core/services/order.service.ts`
+
+**Components:**
+- `frontend/src/app/features/item-library/item-list/item-list.component.ts`
+- `frontend/src/app/features/orders/order-list/order-list.component.ts`
+- `frontend/src/app/features/orders/order-detail/order-detail.component.ts`
+- `frontend/src/app/features/events/event-list/event-list.component.ts`
+- `frontend/src/app/features/events/event-detail/event-detail.component.ts`
+- `frontend/src/app/features/recipes/recipe-list/recipe-list.component.ts`
+
+**Impact:**
+- **Fixed:** All empty table issues across all views (item library, recipes, events, orders, order detail, event detail)
+- **Performance:** Order detail component now uses pre-grouped data instead of O(n) manual grouping on every render
+- **Maintainability:** Frontend models now accurately reflect backend response shapes, reducing confusion and bugs
+
+**Verification:**
+✅ Build succeeded: 0 errors, 0 warnings (1.423s)  
+✅ All tables now populate with data  
+✅ Models accurately match backend response shapes  
+
+---
+
+## Angular Production Environment Configuration (Rusty — 2026-04-14)
+
+**Status: IMPLEMENTED**
+
+**Problem:** Missing fileReplacements in angular.json prod config caused dev environment settings (localhost:4200) to ship in production builds, causing CORS errors from SWA.
+
+**Solution:** Added fileReplacements to angular.json production configuration; set environment.prod.ts apiUrl to `https://ezstem-dev-api.azurewebsites.net/api`
+
+**Details:**
+- **File:** `frontend/angular.json` (production config)
+- **Change:** Added fileReplacements block to replace `src/environments/environment.ts` with `src/environments/environment.prod.ts`
+- **environment.prod.ts:** apiUrl set to Azure App Service endpoint
+
+**Impact:**
+✅ Production builds now use correct API endpoint  
+✅ CORS errors from SWA resolved  
+✅ Frontend correctly calls backend service in production
