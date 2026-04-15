@@ -130,4 +130,26 @@
 - **OIDC service principal permissions:** Keep OIDC SP permissions minimal — only infra deployment scope, not directory reads
 - **DB naming derivation:** The pattern `DB_NAME="${SQL_SERVER%-sql}-db"` correctly strips `-sql` suffix and adds `-db` (verified against Bicep naming: `${appName}-sql` → `${appName}-db`)
 
+### Azure Static Web Apps SPA Routing Configuration (2026-04-15)
+
+**Problem:** Angular SPA shows 404 errors when users refresh on any route (e.g., `/items`, `/orders/abc-123`). Azure Static Web Apps tries to find a server-side file at that path instead of serving the SPA's `index.html`.
+
+**Solution:** Created `staticwebapp.config.json` in `frontend/public/` with `navigationFallback` configuration.
+
+**Key configuration:**
+- **Location:** `frontend/public/staticwebapp.config.json` (automatically copied to build output by Angular 17+ build)
+- **navigationFallback:** Rewrites all unmatched routes to `/index.html` (Angular router handles client-side navigation)
+- **Exclusions:** Static files (JS, CSS, images, fonts) and `/api/*` routes bypass rewrite (actual files + backend APIs)
+- **Routes:** `/api/*` explicitly allowed for anonymous access (SWA proxy routes to backend)
+
+**Why this location:**
+- Angular 17+ uses `frontend/public/` as the assets source (configured in `angular.json` lines 26-30)
+- The build step `ng build` copies all `public/**/*` files verbatim to `dist/frontend/browser/`
+- SWA deployment picks up `dist/frontend/browser/staticwebapp.config.json` automatically
+
+**Key learnings:**
+- **Static file exclusion pattern:** `*.{css,scss,js,ts,png,jpg,jpeg,gif,svg,ico,woff,woff2,ttf,eot,map,json}` prevents asset files from being rewritten
+- **Modern Angular projects:** Use `public/` folder for static assets; older projects used `src/assets/`
+- **SWA routing:** Must be at output root; checked before `navigationFallback`
+
 
