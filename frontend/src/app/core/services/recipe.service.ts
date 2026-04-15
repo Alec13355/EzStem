@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
-import { Recipe, PagedResponse } from '../../shared/models/api.models';
+import { Recipe, PagedResponse, ScaleRecipeResponse, RecipeCostResponse } from '../../shared/models/api.models';
 
 @Injectable({
   providedIn: 'root'
@@ -10,7 +10,7 @@ export class RecipeService {
   constructor(private api: ApiService) {}
 
   getRecipes(page = 1, pageSize = 100, search?: string): Observable<PagedResponse<Recipe>> {
-    const params: any = { page, pageSize };
+    const params: { page: number; pageSize: number; search?: string } = { page, pageSize };
     if (search) params.search = search;
     return this.api.get<PagedResponse<Recipe>>('recipes', params);
   }
@@ -43,11 +43,15 @@ export class RecipeService {
     return this.api.get<{ totalCost: number }>(`recipes/${recipeId}/cost`);
   }
 
-  getRecipePricing(recipeId: string): Observable<any> {
-    return this.api.get<any>(`recipes/${recipeId}/pricing`);
+  getRecipePricing(recipeId: string): Observable<RecipeCostResponse> {
+    return this.api.get<RecipeCostResponse>(`recipes/${recipeId}/pricing`);
   }
 
-  scaleRecipe(recipeId: string, factor: number): Observable<Recipe> {
-    return this.api.post<Recipe>(`recipes/${recipeId}/scale`, { factor });
+  scaleRecipe(recipeId: string, factor: number): Observable<ScaleRecipeResponse> {
+    return this.api.get<ScaleRecipeResponse>(`recipes/${recipeId}/scale`, { factor });
+  }
+
+  duplicateRecipe(recipeId: string): Observable<Recipe> {
+    return this.api.post<Recipe>(`recipes/${recipeId}/duplicate`, {});
   }
 }

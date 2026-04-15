@@ -98,6 +98,14 @@ public class RecipesController : ControllerBase
         return Ok(scaled);
     }
 
+    [HttpPost("{id}/duplicate")]
+    public async Task<ActionResult<RecipeResponse>> DuplicateRecipe(Guid id, CancellationToken ct = default)
+    {
+        var recipe = await _recipeService.DuplicateRecipeAsync(id, ct);
+        if (recipe == null) return NotFound();
+        return CreatedAtAction(nameof(GetRecipe), new { id = recipe.Id }, recipe);
+    }
+
     [HttpPost("{id}/items")]
     public async Task<ActionResult<RecipeItemResponse>> AddItemToRecipe(
         Guid id,

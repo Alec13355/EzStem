@@ -14,4 +14,5 @@ public interface IRecipeService
     Task<RecipeItemResponse?> AddItemToRecipeAsync(Guid recipeId, AddRecipeItemRequest request, CancellationToken ct = default);
     Task<RecipeItemResponse?> UpdateRecipeItemAsync(Guid recipeId, Guid itemId, UpdateRecipeItemRequest request, CancellationToken ct = default);
     Task<bool> RemoveItemFromRecipeAsync(Guid recipeId, Guid itemId, CancellationToken ct = default);
+    Task<RecipeResponse?> DuplicateRecipeAsync(Guid id, CancellationToken ct = default);
 }

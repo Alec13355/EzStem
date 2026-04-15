@@ -80,4 +80,61 @@ public class RecipeServiceTests
         Assert.Equal(60m, result.ScaledItems.First().Quantity); // 12 * 5 = 60
         Assert.Equal(30.0m, result.TotalItemsCost); // 60 * 0.5 = 30
     }
+
+    [Fact]
+    public async Task DuplicateRecipe_HappyPath_CreatesCopyWithClonedItems()
+    {
+        using var context = CreateInMemoryContext();
+        var service = new RecipeService(context);
+
+        var item = new Item { Id = Guid.NewGuid(), Name = "Rose", CostPerStem = 0.5m, BundleSize = 25 };
+        context.Items.Add(item);
+
+        var original = new Recipe
+        {
+            Id = Guid.NewGuid(),
+            Name = "Bridal Bouquet",
+            Description = "Classic bridal",
+            LaborCost = 15.0m,
+            CreatedAt = DateTime.UtcNow
+        };
+        context.Recipes.Add(original);
+
+        context.RecipeItems.Add(new RecipeItem
+        {
+            Id = Guid.NewGuid(),
+            RecipeId = original.Id,
+            ItemId = item.Id,
+            Quantity = 10,
+            CostPerStem = 0.5m
+        });
+
+        await context.SaveChangesAsync();
+
+        var result = await service.DuplicateRecipeAsync(original.Id);
+
+        Assert.NotNull(result);
+        Assert.Equal("Copy of Bridal Bouquet", result.Name);
+        Assert.Equal(15.0m, result.LaborCost);
+        Assert.NotEqual(original.Id, result.Id);
+        Assert.Single(result.RecipeItems);
+        Assert.Equal(10, result.RecipeItems.First().Quantity);
+        Assert.Equal(0.5m, result.RecipeItems.First().CostPerStem);
+
+        // Original is unchanged
+        var reloaded = await context.Recipes.FindAsync(original.Id);
+        Assert.NotNull(reloaded);
+        Assert.Equal("Bridal Bouquet", reloaded!.Name);
+    }
+
+    [Fact]
+    public async Task DuplicateRecipe_NotFound_ReturnsNull()
+    {
+        using var context = CreateInMemoryContext();
+        var service = new RecipeService(context);
+
+        var result = await service.DuplicateRecipeAsync(Guid.NewGuid());
+
+        Assert.Null(result);
+    }
 }

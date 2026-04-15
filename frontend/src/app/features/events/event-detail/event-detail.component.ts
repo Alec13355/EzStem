@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, CanDeactivateFn } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -70,6 +70,16 @@ import { FloristEvent, Recipe, EventSummary } from '../../../shared/models/api.m
             <mat-form-field class="full-width">
               <mat-label>Client Name</mat-label>
               <input matInput formControlName="clientName">
+            </mat-form-field>
+
+            <mat-form-field class="full-width">
+              <mat-label>Status</mat-label>
+              <mat-select formControlName="status">
+                <mat-option value="Draft">Draft</mat-option>
+                <mat-option value="Confirmed">Confirmed</mat-option>
+                <mat-option value="Ordered">Ordered</mat-option>
+                <mat-option value="Completed">Completed</mat-option>
+              </mat-select>
             </mat-form-field>
 
             <mat-form-field class="full-width">
@@ -251,6 +261,7 @@ export class EventDetailComponent implements OnInit {
       name: ['', Validators.required],
       eventDate: ['', Validators.required],
       clientName: [''],
+      status: ['Draft', Validators.required],
       notes: ['']
     });
   }
@@ -275,8 +286,10 @@ export class EventDetailComponent implements OnInit {
           name: event.name,
           eventDate: event.eventDate,
           clientName: event.clientName,
+          status: event.status,
           notes: event.notes
         });
+        this.eventForm.markAsPristine();
         this.checkSeasonalItems();
       },
       error: (err) => {
@@ -347,6 +360,7 @@ export class EventDetailComponent implements OnInit {
 
       request.subscribe({
         next: (event) => {
+          this.eventForm.markAsPristine();
           if (this.isNew) {
             this.router.navigate(['/events', event.id]);
           } else {
@@ -392,4 +406,15 @@ export class EventDetailComponent implements OnInit {
   goBack() {
     this.router.navigate(['/events']);
   }
+
+  hasUnsavedChanges(): boolean {
+    return this.eventForm.dirty;
+  }
 }
+
+export const eventDetailCanDeactivate: CanDeactivateFn<EventDetailComponent> = (component) => {
+  if (component.hasUnsavedChanges()) {
+    return confirm('You have unsaved changes. Leave anyway?');
+  }
+  return true;
+};

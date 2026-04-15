@@ -31,7 +31,8 @@
             ],
             "styles": [
               "src/styles.scss"
-            ]
+            ],
+            "allowedCommonJsDependencies": ["jspdf", "html2canvas", "canvg", "canvg/lib/index.es.js", "core-js"]
           },
           "configurations": {
             "production": {
@@ -39,7 +40,7 @@
                 {
                   "type": "initial",
                   "maximumWarning": "500kB",
-                  "maximumError": "1MB"
+                  "maximumError": "2mb"
                 },
                 {
                   "type": "anyComponentStyle",

@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 import { LandingComponent } from './features/landing/landing.component';
+import { eventDetailCanDeactivate } from './features/events/event-detail/event-detail.component';
 
 export const routes: Routes = [
   {
@@ -35,6 +36,7 @@ export const routes: Routes = [
   {
     path: 'events/:id',
     canActivate: [authGuard],
+    canDeactivate: [eventDetailCanDeactivate],
     loadComponent: () => import('./features/events/event-detail/event-detail.component').then(m => m.EventDetailComponent)
   },
   {

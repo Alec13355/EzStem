@@ -45,6 +45,14 @@ export interface Recipe {
   totalCost?: number;
 }
 
+export interface ScaleRecipeResponse {
+  scaleFactor: number;
+  totalItemsCost: number;
+  laborCost: number;
+  totalCost: number;
+  scaledItems: RecipeItem[];
+}
+
 export interface FloristEvent {
   id: string;
   name: string;
@@ -148,6 +156,12 @@ export interface VendorOrderGroup {
   lineItems?: OrderLineItem[];
   vendorTotalCost?: number;
   totalCost?: number;
+}
+
+export interface RecipeCostResponse {
+  itemsCost: number;
+  laborCost: number;
+  totalCost: number;
 }
 
 export interface WasteSummary {

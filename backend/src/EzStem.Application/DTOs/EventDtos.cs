@@ -1,7 +1,7 @@
 namespace EzStem.Application.DTOs;
 
 public record CreateEventRequest(string Name, DateTime EventDate, string? ClientName, string? Notes);
-public record UpdateEventRequest(string? Name, DateTime? EventDate, string? ClientName, string? Notes);
+public record UpdateEventRequest(string? Name, DateTime? EventDate, string? ClientName, string? Notes, string? Status);
 public record AddEventRecipeRequest(Guid RecipeId, int Quantity);
 public record UpdateEventRecipeRequest(int Quantity);
 

@@ -1,10 +1,12 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, Inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatDialog, MatDialogModule, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { EventService } from '../../../core/services/event.service';
 import { FloristEvent } from '../../../shared/models/api.models';
 
@@ -15,7 +17,9 @@ import { FloristEvent } from '../../../shared/models/api.models';
     MatTableModule,
     MatButtonModule,
     MatIconModule,
-    MatChipsModule
+    MatChipsModule,
+    MatDialogModule,
+    MatSnackBarModule
   ],
   template: `
     <div class="container">
@@ -56,10 +60,10 @@ import { FloristEvent } from '../../../shared/models/api.models';
           <th mat-header-cell *matHeaderCellDef>Actions</th>
           <td mat-cell *matCellDef="let event">
             <div class="action-buttons">
-              <button mat-icon-button color="primary" (click)="viewEvent(event.id)">
-                <mat-icon>visibility</mat-icon>
+              <button mat-icon-button color="accent" class="action-btn" (click)="editEvent(event.id)" aria-label="Edit event">
+                <mat-icon>edit</mat-icon>
               </button>
-              <button mat-icon-button color="warn" (click)="deleteEvent(event)">
+              <button mat-icon-button color="warn" class="action-btn" (click)="deleteEvent(event)" aria-label="Delete event">
                 <mat-icon>delete</mat-icon>
               </button>
             </div>
@@ -83,6 +87,16 @@ import { FloristEvent } from '../../../shared/models/api.models';
       width: 100%;
     }
 
+    .action-buttons {
+      display: flex;
+      gap: 4px;
+    }
+
+    .action-btn {
+      width: 44px !important;
+      height: 44px !important;
+    }
+
     .status-draft { background-color: #e0e0e0; }
     .status-confirmed { background-color: #81c784; }
     .status-ordered { background-color: #64b5f6; }
@@ -95,7 +109,9 @@ export class EventListComponent implements OnInit {
 
   constructor(
     private eventService: EventService,
-    private router: Router
+    private router: Router,
+    private dialog: MatDialog,
+    private snackBar: MatSnackBar
   ) {}
 
   ngOnInit() {
@@ -117,20 +133,44 @@ export class EventListComponent implements OnInit {
     this.router.navigate(['/events', 'new']);
   }
 
-  viewEvent(id: string) {
+  editEvent(id: string) {
     this.router.navigate(['/events', id]);
   }
 
   deleteEvent(event: FloristEvent) {
-    if (confirm(`Are you sure you want to delete "${event.name}"?`)) {
-      this.eventService.deleteEvent(event.id).subscribe({
-        next: () => {
-          this.loadEvents();
-        },
-        error: (err) => {
-          console.error('Error deleting event:', err);
-        }
-      });
-    }
+    const dialogRef = this.dialog.open(ConfirmDeleteEventDialogComponent, {
+      data: { message: `Delete event "${event.name}"? This action cannot be undone.` }
+    });
+
+    dialogRef.afterClosed().subscribe(confirmed => {
+      if (confirmed) {
+        this.eventService.deleteEvent(event.id).subscribe({
+          next: () => {
+            this.loadEvents();
+          },
+          error: (err) => {
+            console.error('Error deleting event:', err);
+            this.snackBar.open('Failed to delete event. Please try again.', 'Dismiss', { duration: 4000 });
+          }
+        });
+      }
+    });
   }
+}
+
+@Component({
+  selector: 'app-confirm-delete-event-dialog',
+  standalone: true,
+  imports: [MatButtonModule, MatDialogModule],
+  template: `
+    <h2 mat-dialog-title>Delete Event</h2>
+    <mat-dialog-content>{{ data.message }}</mat-dialog-content>
+    <mat-dialog-actions align="end">
+      <button mat-button mat-dialog-close>Cancel</button>
+      <button mat-raised-button color="warn" [mat-dialog-close]="true">Delete</button>
+    </mat-dialog-actions>
+  `
+})
+export class ConfirmDeleteEventDialogComponent {
+  constructor(@Inject(MAT_DIALOG_DATA) public data: { message: string }) {}
 }

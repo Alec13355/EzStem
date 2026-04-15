@@ -200,6 +200,49 @@ public class RecipeService : IRecipeService
         return true;
     }
 
+    public async Task<RecipeResponse?> DuplicateRecipeAsync(Guid id, CancellationToken ct = default)
+    {
+        var original = await _context.Recipes
+            .Include(r => r.RecipeItems)
+            .ThenInclude(ri => ri.Item)
+            .FirstOrDefaultAsync(r => r.Id == id, ct);
+
+        if (original == null) return null;
+
+        var duplicate = new Recipe
+        {
+            Id = Guid.NewGuid(),
+            Name = $"Copy of {original.Name}",
+            Description = original.Description,
+            LaborCost = original.LaborCost,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.Recipes.Add(duplicate);
+
+        foreach (var ri in original.RecipeItems)
+        {
+            _context.RecipeItems.Add(new RecipeItem
+            {
+                Id = Guid.NewGuid(),
+                RecipeId = duplicate.Id,
+                ItemId = ri.ItemId,
+                Quantity = ri.Quantity,
+                CostPerStem = ri.CostPerStem
+            });
+        }
+
+        await _context.SaveChangesAsync(ct);
+
+        await _context.Entry(duplicate)
+            .Collection(r => r.RecipeItems)
+            .Query()
+            .Include(ri => ri.Item)
+            .LoadAsync(ct);
+
+        return MapToRecipeResponse(duplicate);
+    }
+
     private RecipeResponse MapToRecipeResponse(Recipe recipe)
     {
         var recipeItems = recipe.RecipeItems.Select(ri => new RecipeItemResponse(

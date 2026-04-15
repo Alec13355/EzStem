@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
@@ -9,9 +9,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { MatSelectModule } from '@angular/material/select';
 import { MatCardModule } from '@angular/material/card';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { RecipeService } from '../../../core/services/recipe.service';
 import { ItemService } from '../../../core/services/item.service';
-import { Recipe, Item } from '../../../shared/models/api.models';
+import { Recipe, Item, RecipeItem, ScaleRecipeResponse } from '../../../shared/models/api.models';
 
 @Component({
   selector: 'app-recipe-detail',
@@ -25,7 +26,8 @@ import { Recipe, Item } from '../../../shared/models/api.models';
     MatIconModule,
     MatTableModule,
     MatSelectModule,
-    MatCardModule
+    MatCardModule,
+    MatSnackBarModule
   ],
   template: `
     <div class="container">
@@ -92,7 +94,7 @@ import { Recipe, Item } from '../../../shared/models/api.models';
             <table mat-table [dataSource]="recipe.recipeItems || []" class="mat-elevation-z2">
               <ng-container matColumnDef="name">
                 <th mat-header-cell *matHeaderCellDef>Item Name</th>
-                <td mat-cell *matCellDef="let item">{{ item.item?.name }}</td>
+                <td mat-cell *matCellDef="let item">{{ item.itemName || item.item?.name }}</td>
               </ng-container>
 
               <ng-container matColumnDef="quantity">
@@ -152,14 +154,65 @@ import { Recipe, Item } from '../../../shared/models/api.models';
             <div class="scale-section mt-2">
               <mat-form-field style="width: 150px; margin-right: 16px;">
                 <mat-label>Scale Factor</mat-label>
-                <input matInput type="number" [(ngModel)]="scaleFactor" min="0.1" step="0.1" value="1">
+                <input matInput type="number" [(ngModel)]="scaleFactor" min="1" step="1" value="1">
               </mat-form-field>
-              <button mat-raised-button (click)="scaleRecipe()">
+              <button mat-raised-button (click)="scaleRecipe()" [disabled]="isScaling()">
                 Scale Recipe
               </button>
             </div>
           </mat-card-content>
         </mat-card>
+
+        @if (scaledPreview()) {
+          <mat-card class="mt-3">
+            <mat-card-header>
+              <mat-card-title>Scaled Preview (×{{ scaledPreview()!.scaleFactor }})</mat-card-title>
+            </mat-card-header>
+            <mat-card-content>
+              <table mat-table [dataSource]="scaledPreview()!.scaledItems" class="mat-elevation-z2 mb-3">
+                <ng-container matColumnDef="name">
+                  <th mat-header-cell *matHeaderCellDef>Item Name</th>
+                  <td mat-cell *matCellDef="let item">{{ item.itemName || item.item?.name }}</td>
+                </ng-container>
+
+                <ng-container matColumnDef="quantity">
+                  <th mat-header-cell *matHeaderCellDef>Scaled Qty</th>
+                  <td mat-cell *matCellDef="let item">{{ item.quantity | number:'1.1-2' }}</td>
+                </ng-container>
+
+                <ng-container matColumnDef="lineTotal">
+                  <th mat-header-cell *matHeaderCellDef>Line Total</th>
+                  <td mat-cell *matCellDef="let item">
+                    <span class="currency">{{ (item.lineTotal ?? (item.quantity * item.costPerStem)) | number:'1.2-2' }}</span>
+                  </td>
+                </ng-container>
+
+                <tr mat-header-row *matHeaderRowDef="scaledItemColumns"></tr>
+                <tr mat-row *matRowDef="let row; columns: scaledItemColumns;"></tr>
+              </table>
+
+              <div class="cost-summary">
+                <div class="cost-row">
+                  <span>Items Cost:</span>
+                  <span class="currency">{{ scaledPreview()!.totalItemsCost | number:'1.2-2' }}</span>
+                </div>
+                <div class="cost-row">
+                  <span>Labor Cost:</span>
+                  <span class="currency">{{ scaledPreview()!.laborCost | number:'1.2-2' }}</span>
+                </div>
+                <div class="cost-row total">
+                  <strong>Total Cost:</strong>
+                  <strong class="currency">{{ scaledPreview()!.totalCost | number:'1.2-2' }}</strong>
+                </div>
+              </div>
+
+              <button mat-stroked-button (click)="clearPreview()" class="mt-2">
+                <mat-icon>clear</mat-icon>
+                Clear Preview
+              </button>
+            </mat-card-content>
+          </mat-card>
+        }
       }
     </div>
   `,
@@ -208,6 +261,8 @@ import { Recipe, Item } from '../../../shared/models/api.models';
 })
 export class RecipeDetailComponent implements OnInit {
   recipe: Recipe | null = null;
+  scaledPreview = signal<ScaleRecipeResponse | null>(null);
+  isScaling = signal(false);
   recipeForm: FormGroup;
   isNew = false;
   availableItems: Item[] = [];
@@ -215,13 +270,15 @@ export class RecipeDetailComponent implements OnInit {
   newItemQuantity = 1;
   scaleFactor = 1;
   itemColumns = ['name', 'quantity', 'costPerStem', 'lineTotal', 'actions'];
+  scaledItemColumns = ['name', 'quantity', 'lineTotal'];
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private fb: FormBuilder,
     private recipeService: RecipeService,
-    private itemService: ItemService
+    private itemService: ItemService,
+    private snackBar: MatSnackBar
   ) {
     this.recipeForm = this.fb.group({
       name: ['', Validators.required],
@@ -305,7 +362,7 @@ export class RecipeDetailComponent implements OnInit {
     }
   }
 
-  removeItem(item: any) {
+  removeItem(item: RecipeItem) {
     if (this.recipe) {
       this.recipeService.removeItemFromRecipe(this.recipe.id, item.itemId).subscribe({
         next: () => {
@@ -328,17 +385,29 @@ export class RecipeDetailComponent implements OnInit {
   }
 
   scaleRecipe() {
-    if (this.recipe && this.scaleFactor > 0) {
-      this.recipeService.scaleRecipe(this.recipe.id, this.scaleFactor).subscribe({
-        next: () => {
-          this.loadRecipe(this.recipe!.id);
-          this.scaleFactor = 1;
+    if (!this.recipe || !this.scaleFactor) {
+      this.scaledPreview.set(null);
+      return;
+    }
+    if (this.scaleFactor > 0) {
+      this.isScaling.set(true);
+      this.recipeService.scaleRecipe(this.recipe.id, Math.floor(this.scaleFactor)).subscribe({
+        next: (preview) => {
+          this.scaledPreview.set(preview);
+          this.isScaling.set(false);
         },
         error: (err) => {
           console.error('Error scaling recipe:', err);
+          this.isScaling.set(false);
+          this.snackBar.open('Failed to scale recipe. Please try again.', 'Dismiss', { duration: 4000 });
         }
       });
     }
+  }
+
+  clearPreview() {
+    this.scaledPreview.set(null);
+    this.scaleFactor = 1;
   }
 
   goBack() {

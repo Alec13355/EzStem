@@ -8,8 +8,9 @@ import { MatTableModule } from '@angular/material/table';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { OrderService } from '../../../core/services/order.service';
-import { Order, VendorOrderGroup, WasteSummary } from '../../../shared/models/api.models';
+import { Order, OrderLineItem, VendorOrderGroup, WasteSummary } from '../../../shared/models/api.models';
 
 @Component({
   selector: 'app-order-detail',
@@ -21,7 +22,8 @@ import { Order, VendorOrderGroup, WasteSummary } from '../../../shared/models/ap
     MatTableModule,
     MatCardModule,
     MatFormFieldModule,
-    MatInputModule
+    MatInputModule,
+    MatSnackBarModule
   ],
   template: `
     <div class="container">
@@ -35,6 +37,14 @@ import { Order, VendorOrderGroup, WasteSummary } from '../../../shared/models/ap
           <button mat-stroked-button (click)="downloadCsv()" class="export-btn">
             <mat-icon>download</mat-icon>
             Download Purchase Order CSV
+          </button>
+          <button mat-stroked-button (click)="downloadPdf()" class="export-btn" [disabled]="isPdfGenerating">
+            @if (isPdfGenerating) {
+              <mat-icon>hourglass_empty</mat-icon>
+            } @else {
+              <mat-icon>picture_as_pdf</mat-icon>
+            }
+            Download Purchase Order PDF
           </button>
         </div>
       </div>
@@ -242,11 +252,13 @@ export class OrderDetailComponent implements OnInit {
   lineItemColumns = ['itemName', 'quantityNeeded', 'bundleInfo', 'quantityOrdered', 'cost'];
   actualStemsUsedControl = new FormControl<number | null>(null);
   wasteResult: WasteSummary | null = null;
+  isPdfGenerating = false;
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private orderService: OrderService
+    private orderService: OrderService,
+    private snackBar: MatSnackBar
   ) {}
 
   ngOnInit() {
@@ -313,8 +325,9 @@ export class OrderDetailComponent implements OnInit {
     this.vendorGroups = Array.from(vendorMap.values());
   }
 
-  getBundleDisplay(item: any): string {
-    return `${item.quantityNeeded} stems`;
+  getBundleDisplay(item: OrderLineItem): string {
+    const qty = item.quantityOrdered ?? 0;
+    return `${qty > 0 ? Math.ceil(qty / 10) : 0} bundles`;
   }
 
   calculateGrandTotal(): number {
@@ -325,6 +338,83 @@ export class OrderDetailComponent implements OnInit {
   downloadCsv() {
     if (this.order) {
       this.orderService.downloadCsv(this.order.id);
+    }
+  }
+
+  async downloadPdf() {
+    if (!this.order) return;
+    this.isPdfGenerating = true;
+    try {
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF();
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 14;
+      let y = 20;
+
+      doc.setFontSize(16);
+      doc.text(`Order: ${this.order.id}`, margin, y);
+      y += 8;
+      doc.setFontSize(11);
+      doc.text(`Status: ${this.order.status}   Created: ${new Date(this.order.createdAt).toLocaleDateString()}`, margin, y);
+      y += 10;
+
+      const col = { item: margin, qty: 100, bundles: 125, cost: 160 };
+      const lineHeight = 7;
+
+      for (const group of this.vendorGroups) {
+        if (y > 260) { doc.addPage(); y = 20; }
+
+        doc.setFontSize(13);
+        doc.setFont('helvetica', 'bold');
+        doc.text(group.vendorName, margin, y);
+        y += 7;
+
+        doc.setFontSize(10);
+        doc.text('Item Name', col.item, y);
+        doc.text('Qty', col.qty, y);
+        doc.text('Bundles', col.bundles, y);
+        doc.text('Cost', col.cost, y);
+        y += 2;
+        doc.line(margin, y, pageWidth - margin, y);
+        y += lineHeight;
+
+        doc.setFont('helvetica', 'normal');
+        const items = group.items ?? group.lineItems ?? [];
+        for (const item of items) {
+          if (y > 270) { doc.addPage(); y = 20; }
+          const qty = item.quantityOrdered ?? 0;
+          const bundles = qty > 0 ? Math.ceil(qty / 10) : 0;
+          const cost = item.lineTotalCost ?? (qty * (item.costPerUnit ?? 0));
+          doc.text(String(item.itemName || item.item?.name || ''), col.item, y);
+          doc.text(String(qty), col.qty, y);
+          doc.text(String(bundles), col.bundles, y);
+          doc.text(`$${cost.toFixed(2)}`, col.cost, y);
+          y += lineHeight;
+        }
+
+        doc.line(margin, y, pageWidth - margin, y);
+        y += lineHeight;
+        doc.setFont('helvetica', 'bold');
+        const vendorTotal = group.vendorTotalCost ?? group.totalCost ?? 0;
+        doc.text('TOTAL', col.bundles, y);
+        doc.text(`$${vendorTotal.toFixed(2)}`, col.cost, y);
+        doc.setFont('helvetica', 'normal');
+        y += lineHeight + 4;
+      }
+
+      if (y > 260) { doc.addPage(); y = 20; }
+      doc.setFontSize(13);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Grand Total: $${this.calculateGrandTotal().toFixed(2)}`, margin, y);
+
+      const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      doc.save(`order_${this.order.id}_${date}.pdf`);
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      this.snackBar.open('Failed to generate PDF. Please try again.', 'Dismiss', { duration: 4000 });
+    } finally {
+      this.isPdfGenerating = false;
     }
   }
 

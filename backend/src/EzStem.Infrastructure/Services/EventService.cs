@@ -86,6 +86,8 @@ public class EventService : IEventService
         if (request.EventDate.HasValue) evt.EventDate = request.EventDate.Value;
         if (request.ClientName != null) evt.ClientName = request.ClientName;
         if (request.Notes != null) evt.Notes = request.Notes;
+        if (request.Status != null && Enum.TryParse<EventStatus>(request.Status, true, out var newStatus))
+            evt.Status = newStatus;
 
         await _context.SaveChangesAsync(ct);
 
