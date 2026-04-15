@@ -85,14 +85,12 @@ resource webApp 'Microsoft.Web/sites@2023-01-01' = {
           value: '1'
         }
         {
-          // TODO: Replace with your Entra External ID (CIAM) authority after tenant setup
           name: 'AzureAd__Authority'
-          value: 'https://YOUR_TENANT_NAME.ciamlogin.com/YOUR_TENANT_ID'
+          value: 'https://ezstem.ciamlogin.com/fdd626a3-0e01-441d-a864-4415ad287675'
         }
         {
-          // TODO: Replace with your API app registration Client ID
           name: 'AzureAd__ClientId'
-          value: 'YOUR_API_CLIENT_ID'
+          value: '97f156cd-f562-42e1-8de6-6e82c543fa86'
         }
         {
           name: 'AzureAd__Scopes'
