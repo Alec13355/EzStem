@@ -16,12 +16,10 @@ export class AuthService {
         clientId: environment.msalConfig.auth.clientId,
         authority: environment.msalConfig.auth.authority,
         redirectUri: environment.msalConfig.auth.redirectUri,
-        postLogoutRedirectUri: environment.msalConfig.auth.postLogoutRedirectUri,
-        navigateToLoginRequestUrl: false
+        postLogoutRedirectUri: environment.msalConfig.auth.postLogoutRedirectUri
       },
       cache: {
-        cacheLocation: 'sessionStorage',
-        storeAuthStateInCookie: false
+        cacheLocation: 'sessionStorage'
       }
     });
   }

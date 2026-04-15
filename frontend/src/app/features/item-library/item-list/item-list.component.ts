@@ -34,7 +34,7 @@ import { ItemFormComponent } from '../item-form/item-form.component';
         <h1>Item Library</h1>
         <button mat-raised-button color="primary" (click)="addItem()">
           <mat-icon>add</mat-icon>
-          Add Item
+          <span>Add Item</span>
         </button>
       </div>
 
@@ -69,7 +69,7 @@ import { ItemFormComponent } from '../item-form/item-form.component';
           <ng-container matColumnDef="costPerStem">
             <th mat-header-cell *matHeaderCellDef>Cost/Stem</th>
             <td mat-cell *matCellDef="let item">
-              <span class="currency">{{ item.costPerStem | number:'1.2-2' }}</span>
+              <span class="currency">{{ item.costPerStem | currency }}</span>
             </td>
           </ng-container>
 
@@ -102,6 +102,13 @@ import { ItemFormComponent } from '../item-form/item-form.component';
           [pageSizeOptions]="[10, 25, 50]"
           (page)="onPageChange($event)">
         </mat-paginator>
+
+        @if (!loading && items.length === 0) {
+          <div class="empty-state">
+            <mat-icon>search_off</mat-icon>
+            <p>{{ searchTerm ? 'No items match your search.' : 'No items yet. Add your first item to get started!' }}</p>
+          </div>
+        }
       }
     </div>
   `,
@@ -131,6 +138,30 @@ import { ItemFormComponent } from '../item-form/item-form.component';
     table {
       width: 100%;
       margin-bottom: 16px;
+    }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 24px;
+      color: #9e9e9e;
+      gap: 12px;
+
+      mat-icon {
+        font-size: 48px;
+        width: 48px;
+        height: 48px;
+      }
+
+      p {
+        font-size: 1rem;
+        margin: 0;
+      }
+    }
+
+    button mat-icon {
+      margin-right: 4px;
     }
   `]
 })
