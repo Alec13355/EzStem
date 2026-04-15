@@ -23,7 +23,6 @@ import { AuthService } from './core/services/auth.service';
   styleUrl: './app.scss'
 })
 export class App {
-  title = 'EzStem';
   readonly authService = inject(AuthService);
 
   signOut() {

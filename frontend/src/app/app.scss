@@ -10,3 +10,15 @@
 mat-toolbar button.active {
   background-color: rgba(255, 255, 255, 0.1);
 }
+
+.brand-icon {
+  font-size: 1.4rem;
+  margin-right: 8px;
+  line-height: 1;
+}
+
+.brand-name {
+  font-weight: 700;
+  font-size: 1.2rem;
+  letter-spacing: -0.5px;
+}

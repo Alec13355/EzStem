@@ -1,6 +1,6 @@
 <mat-toolbar color="primary">
-  <mat-icon style="margin-right: 8px">local_florist</mat-icon>
-  <span>{{ title }}</span>
+  <span class="brand-icon" aria-hidden="true">🌿</span>
+  <span class="brand-name">EzStem</span>
   <span style="flex: 1;"></span>
   @if (authService.isAuthenticated()) {
     <button mat-button routerLink="/items" routerLinkActive="active">Items</button>
