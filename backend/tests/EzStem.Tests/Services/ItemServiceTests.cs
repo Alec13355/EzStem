@@ -16,6 +16,8 @@ public class ItemServiceTests
         return new EzStemDbContext(options);
     }
 
+    private const string TestOwnerId = "test-user-001";
+
     [Fact]
     public async Task GetItems_ReturnsPagedResults()
     {
@@ -26,12 +28,12 @@ public class ItemServiceTests
         context.Vendors.Add(vendor);
 
         context.Items.AddRange(
-            new Item { Id = Guid.NewGuid(), Name = "Rose", CostPerStem = 0.5m, BundleSize = 25, VendorId = vendor.Id },
-            new Item { Id = Guid.NewGuid(), Name = "Tulip", CostPerStem = 0.3m, BundleSize = 10 }
+            new Item { Id = Guid.NewGuid(), Name = "Rose", CostPerStem = 0.5m, BundleSize = 25, VendorId = vendor.Id, OwnerId = TestOwnerId },
+            new Item { Id = Guid.NewGuid(), Name = "Tulip", CostPerStem = 0.3m, BundleSize = 10, OwnerId = TestOwnerId }
         );
         await context.SaveChangesAsync();
 
-        var result = await service.GetItemsAsync(1, 10, null);
+        var result = await service.GetItemsAsync(1, 10, null, TestOwnerId);
 
         Assert.Equal(2, result.Total);
         Assert.Equal(2, result.Items.Count());
@@ -46,7 +48,7 @@ public class ItemServiceTests
         var request = new CreateItemRequest("", null, 0.5m, 25, null, null, null);
 
         await Assert.ThrowsAsync<ArgumentException>(async () =>
-            await service.CreateItemAsync(request));
+            await service.CreateItemAsync(request, TestOwnerId));
     }
 
     [Fact]
@@ -58,7 +60,7 @@ public class ItemServiceTests
         var request = new CreateItemRequest("Rose", null, 0m, 25, null, null, null);
 
         await Assert.ThrowsAsync<ArgumentException>(async () =>
-            await service.CreateItemAsync(request));
+            await service.CreateItemAsync(request, TestOwnerId));
     }
 
     [Fact]
@@ -67,11 +69,11 @@ public class ItemServiceTests
         using var context = CreateInMemoryContext();
         var service = new ItemService(context);
 
-        var item = new Item { Id = Guid.NewGuid(), Name = "Rose", CostPerStem = 0.5m, BundleSize = 25 };
+        var item = new Item { Id = Guid.NewGuid(), Name = "Rose", CostPerStem = 0.5m, BundleSize = 25, OwnerId = TestOwnerId };
         context.Items.Add(item);
         await context.SaveChangesAsync();
 
-        var deleted = await service.DeleteItemAsync(item.Id);
+        var deleted = await service.DeleteItemAsync(item.Id, TestOwnerId);
 
         Assert.True(deleted);
 
@@ -89,12 +91,12 @@ public class ItemServiceTests
         var service = new ItemService(context);
 
         context.Items.AddRange(
-            new Item { Id = Guid.NewGuid(), Name = "Rose", CostPerStem = 0.5m, BundleSize = 25, IsDeleted = false },
-            new Item { Id = Guid.NewGuid(), Name = "Tulip", CostPerStem = 0.3m, BundleSize = 10, IsDeleted = true, DeletedAt = DateTime.UtcNow }
+            new Item { Id = Guid.NewGuid(), Name = "Rose", CostPerStem = 0.5m, BundleSize = 25, IsDeleted = false, OwnerId = TestOwnerId },
+            new Item { Id = Guid.NewGuid(), Name = "Tulip", CostPerStem = 0.3m, BundleSize = 10, IsDeleted = true, DeletedAt = DateTime.UtcNow, OwnerId = TestOwnerId }
         );
         await context.SaveChangesAsync();
 
-        var result = await service.GetItemsAsync(1, 10, null);
+        var result = await service.GetItemsAsync(1, 10, null, TestOwnerId);
 
         Assert.Equal(1, result.Total);
         Assert.Single(result.Items);

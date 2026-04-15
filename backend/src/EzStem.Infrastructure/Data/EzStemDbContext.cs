@@ -29,6 +29,7 @@ public class EzStemDbContext : DbContext
             entity.HasIndex(i => i.Name);
             entity.HasIndex(i => i.VendorId);
             entity.HasIndex(i => i.IsDeleted);
+            entity.HasIndex(i => i.OwnerId);
         });
 
         // Vendor configuration

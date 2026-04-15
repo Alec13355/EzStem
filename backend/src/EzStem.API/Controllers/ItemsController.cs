@@ -1,11 +1,14 @@
 using EzStem.Application.DTOs;
 using EzStem.Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace EzStem.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class ItemsController : ControllerBase
 {
     private readonly IItemService _itemService;
@@ -15,6 +18,12 @@ public class ItemsController : ControllerBase
         _itemService = itemService;
     }
 
+    private string GetUserId() =>
+        User.FindFirstValue("oid")
+        ?? User.FindFirstValue("http://schemas.microsoft.com/identity/claims/objectidentifier")
+        ?? User.FindFirstValue(ClaimTypes.NameIdentifier)
+        ?? throw new UnauthorizedAccessException("User identifier not found in token");
+
     [HttpGet]
     public async Task<ActionResult<PagedResponse<ItemResponse>>> GetItems(
         [FromQuery] int page = 1,
@@ -22,14 +31,14 @@ public class ItemsController : ControllerBase
         [FromQuery] string? search = null,
         CancellationToken ct = default)
     {
-        var result = await _itemService.GetItemsAsync(page, pageSize, search, ct);
+        var result = await _itemService.GetItemsAsync(page, pageSize, search, GetUserId(), ct);
         return Ok(result);
     }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<ItemResponse>> GetItem(Guid id, CancellationToken ct = default)
     {
-        var item = await _itemService.GetItemByIdAsync(id, ct);
+        var item = await _itemService.GetItemByIdAsync(id, GetUserId(), ct);
         if (item == null) return NotFound();
         return Ok(item);
     }
@@ -41,7 +50,7 @@ public class ItemsController : ControllerBase
     {
         try
         {
-            var item = await _itemService.CreateItemAsync(request, ct);
+            var item = await _itemService.CreateItemAsync(request, GetUserId(), ct);
             return CreatedAtAction(nameof(GetItem), new { id = item.Id }, item);
         }
         catch (ArgumentException ex)
@@ -58,7 +67,7 @@ public class ItemsController : ControllerBase
     {
         try
         {
-            var item = await _itemService.UpdateItemAsync(id, request, ct);
+            var item = await _itemService.UpdateItemAsync(id, request, GetUserId(), ct);
             if (item == null) return NotFound();
             return Ok(item);
         }
@@ -71,7 +80,7 @@ public class ItemsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteItem(Guid id, CancellationToken ct = default)
     {
-        var deleted = await _itemService.DeleteItemAsync(id, ct);
+        var deleted = await _itemService.DeleteItemAsync(id, GetUserId(), ct);
         if (!deleted) return NotFound();
         return NoContent();
     }

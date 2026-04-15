@@ -15,9 +15,9 @@ public class ItemService : IItemService
         _context = context;
     }
 
-    public async Task<PagedResponse<ItemResponse>> GetItemsAsync(int page, int pageSize, string? search, CancellationToken ct = default)
+    public async Task<PagedResponse<ItemResponse>> GetItemsAsync(int page, int pageSize, string? search, string ownerId, CancellationToken ct = default)
     {
-        var query = _context.Items.Include(i => i.Vendor).AsQueryable();
+        var query = _context.Items.Include(i => i.Vendor).Where(i => i.OwnerId == ownerId).AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -39,9 +39,9 @@ public class ItemService : IItemService
         return new PagedResponse<ItemResponse>(items, total, page, pageSize);
     }
 
-    public async Task<ItemResponse?> GetItemByIdAsync(Guid id, CancellationToken ct = default)
+    public async Task<ItemResponse?> GetItemByIdAsync(Guid id, string ownerId, CancellationToken ct = default)
     {
-        var item = await _context.Items.Include(i => i.Vendor).FirstOrDefaultAsync(i => i.Id == id, ct);
+        var item = await _context.Items.Include(i => i.Vendor).FirstOrDefaultAsync(i => i.Id == id && i.OwnerId == ownerId, ct);
         if (item == null) return null;
 
         return new ItemResponse(
@@ -51,7 +51,7 @@ public class ItemService : IItemService
             item.CreatedAt, item.UpdatedAt);
     }
 
-    public async Task<ItemResponse> CreateItemAsync(CreateItemRequest request, CancellationToken ct = default)
+    public async Task<ItemResponse> CreateItemAsync(CreateItemRequest request, string ownerId, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
             throw new ArgumentException("Name is required", nameof(request.Name));
@@ -76,6 +76,7 @@ public class ItemService : IItemService
             SeasonalStartMonth = request.SeasonalStartMonth,
             SeasonalEndMonth = request.SeasonalEndMonth,
             LeadTimeDays = request.LeadTimeDays,
+            OwnerId = ownerId,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -92,9 +93,9 @@ public class ItemService : IItemService
             item.CreatedAt, item.UpdatedAt);
     }
 
-    public async Task<ItemResponse?> UpdateItemAsync(Guid id, UpdateItemRequest request, CancellationToken ct = default)
+    public async Task<ItemResponse?> UpdateItemAsync(Guid id, UpdateItemRequest request, string ownerId, CancellationToken ct = default)
     {
-        var item = await _context.Items.Include(i => i.Vendor).FirstOrDefaultAsync(i => i.Id == id, ct);
+        var item = await _context.Items.Include(i => i.Vendor).FirstOrDefaultAsync(i => i.Id == id && i.OwnerId == ownerId, ct);
         if (item == null) return null;
 
         if (request.Name != null) item.Name = request.Name;
@@ -129,9 +130,9 @@ public class ItemService : IItemService
             item.CreatedAt, item.UpdatedAt);
     }
 
-    public async Task<bool> DeleteItemAsync(Guid id, CancellationToken ct = default)
+    public async Task<bool> DeleteItemAsync(Guid id, string ownerId, CancellationToken ct = default)
     {
-        var item = await _context.Items.FirstOrDefaultAsync(i => i.Id == id, ct);
+        var item = await _context.Items.FirstOrDefaultAsync(i => i.Id == id && i.OwnerId == ownerId, ct);
         if (item == null) return false;
 
         item.IsDeleted = true;

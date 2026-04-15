@@ -1,11 +1,13 @@
 using EzStem.Application.DTOs;
 using EzStem.Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EzStem.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class RecipesController : ControllerBase
 {
     private readonly IRecipeService _recipeService;

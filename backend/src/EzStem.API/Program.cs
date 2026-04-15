@@ -3,6 +3,7 @@ using EzStem.Application.Interfaces;
 using EzStem.Infrastructure.Data;
 using EzStem.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Identity.Web;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,9 +24,12 @@ builder.Services.AddScoped<IPricingService, PricingService>();
 builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 
+builder.Services.AddAuthentication()
+    .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"));
+
 builder.Services.AddHostedService<DatabaseMigrationService>();
 
-var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>()
+var allowedOrigins= builder.Configuration.GetSection("AllowedOrigins").Get<string[]>()
     ?? new[] { "http://localhost:4200" };
 
 builder.Services.AddCors(options =>
@@ -45,6 +49,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("AllowAngular");
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
