@@ -15,8 +15,8 @@ export class AuthService {
       auth: {
         clientId: environment.msalConfig.auth.clientId,
         authority: environment.msalConfig.auth.authority,
-        redirectUri: environment.msalConfig.auth.redirectUri,
-        postLogoutRedirectUri: environment.msalConfig.auth.postLogoutRedirectUri
+        redirectUri: window.location.origin,
+        postLogoutRedirectUri: window.location.origin
       },
       cache: {
         cacheLocation: 'sessionStorage'
