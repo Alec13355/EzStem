@@ -78,3 +78,44 @@
 5. Pricing settings → soften/remove color coding on settings page
 
 **Review document:** `.squad/decisions/inbox/tess-p0-ux-review.md`
+
+---
+
+### 2026-04-14: Final UX Re-Review — All Blocking Issues RESOLVED ✅
+
+**Re-reviewed:** Rusty's fixes for vendor CRUD + Linus's fixes for pricing settings
+
+**All 5 blocking issues verified as RESOLVED:**
+
+1. **Vendor touch targets (44px)** — ✅ RESOLVED
+   - `.action-btn` class properly sets 44×44px on edit/delete buttons
+   - Meets WCAG AAA accessibility standard
+   - Implementation: Lines 143-147 with !important declarations
+
+2. **Vendor delete confirmation** — ✅ RESOLVED
+   - `ConfirmDeleteDialogComponent` replaces native confirm()
+   - Material Dialog with proper visual hierarchy
+   - Contextual message includes vendor name
+   - Prevents accidental deletion through fat-finger tap
+
+3. **Pricing context card** — ✅ RESOLVED
+   - Info card added: "These are your default values for new recipes. You can override them per-recipe when needed."
+   - Light blue background with icon, positioned above settings form
+   - Reduces anxiety about changing defaults
+
+4. **Low margin color fix** — ✅ RESOLVED
+   - Changed from alarming red to neutral grey (#616161)
+   - Added hint text "(consider increasing markup)" for margins <25%
+   - No longer anxiety-inducing, provides gentle guidance
+
+5. **Nav label specificity** — ✅ RESOLVED
+   - "Settings" → "Pricing Settings" in app.html
+   - Clear destination, no ambiguity
+
+**Verdict:** APPROVED FOR MERGE
+
+All fixes properly address florist workflow concerns. Touch targets meet accessibility standards, delete confirmation prevents accidents, context reduces anxiety, color psychology is neutral and professional, navigation is clear.
+
+**To Danny:** Merge-ready. All blocking UX issues resolved correctly.
+
+**Review document:** `.squad/decisions/inbox/tess-final-ux-review.md`

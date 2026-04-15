@@ -72,3 +72,29 @@
 
 **Sign-off:** REJECTED. Fix required before merge.
 
+### P0 Final Review — Re-Review (2026-04-15)
+
+**Summary:** Final verification after Linus fixed HTTP method bug.
+
+**Verified:**
+- `pricing.service.ts` now uses `api.post` (not `api.put`) — Linus fix confirmed ✅
+- 18/18 backend tests pass ✅
+- Frontend production build passes (budget warning pre-existing) ✅
+- Linus UX fixes: context card, grey (not red) low-margin colour, "Pricing Settings" nav label ✅
+- Rusty vendor fixes: 44px touch targets, MatDialog confirmation ✅
+
+**Sign-off:** APPROVED. Merged to main as commit `84f318a`.
+
+**Commit message:**
+```
+feat: complete P0 vendor CRUD UI and pricing settings
+
+- Add VendorFormComponent dialog for create/edit vendors
+- Update VendorListComponent with full CRUD (add/edit/delete/search)
+- Add 44px touch targets and MatDialog confirmation on vendor CRUD
+- Add PricingSettingsComponent at /settings/pricing
+- Add context card, fix colour coding, update nav label (Pricing Settings)
+- Fix pricing service HTTP method: PUT -> POST
+- All 18 backend tests passing, frontend build clean
+```
+
