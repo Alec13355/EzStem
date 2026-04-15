@@ -31,7 +31,6 @@ import { AuthService } from '../../core/services/auth.service';
           <button class="cta-btn" (click)="signIn()">
             Get started &nbsp;→
           </button>
-          <p class="social-note">Sign in with Microsoft, Google, or Facebook</p>
         </div>
       </section>
 
@@ -88,13 +87,13 @@ import { AuthService } from '../../core/services/auth.service';
     /* ── Hero ── */
     .hero {
       position: relative;
-      min-height: 100vh;
+      min-height: 88vh;
       display: flex;
       align-items: center;
       justify-content: center;
       background: linear-gradient(150deg, #fff9f4 0%, #fde8f0 42%, #edf7ed 100%);
       overflow: hidden;
-      padding: 80px 24px 48px;
+      padding: 60px 24px 40px;
       text-align: center;
     }
 
