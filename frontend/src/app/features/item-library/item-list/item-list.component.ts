@@ -9,7 +9,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
+import { Subject, debounceTime, distinctUntilChanged, finalize } from 'rxjs';
 import { ItemService } from '../../../core/services/item.service';
 import { Item } from '../../../shared/models/api.models';
 import { ItemFormComponent } from '../item-form/item-form.component';
@@ -196,17 +196,17 @@ export class ItemListComponent implements OnInit {
 
   loadItems() {
     this.loading = true;
-    this.itemService.getItems(this.pageNumber, this.pageSize, this.searchTerm).subscribe({
-      next: (response) => {
-        this.items = response.items;
-        this.totalCount = response.totalCount;
-        this.loading = false;
-      },
-      error: (err) => {
-        console.error('Error loading items:', err);
-        this.loading = false;
-      }
-    });
+    this.itemService.getItems(this.pageNumber, this.pageSize, this.searchTerm)
+      .pipe(finalize(() => this.loading = false))
+      .subscribe({
+        next: (response) => {
+          this.items = response.items ?? [];
+          this.totalCount = response.totalCount;
+        },
+        error: (err) => {
+          console.error('Error loading items:', err);
+        }
+      });
   }
 
   onSearchChange() {
