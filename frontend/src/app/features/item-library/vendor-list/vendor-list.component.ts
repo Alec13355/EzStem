@@ -13,6 +13,7 @@ import { Subject, debounceTime, distinctUntilChanged, finalize } from 'rxjs';
 import { VendorService } from '../../../core/services/vendor.service';
 import { Vendor } from '../../../shared/models/api.models';
 import { VendorFormComponent } from '../vendor-form/vendor-form.component';
+import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 
 @Component({
   selector: 'app-vendor-list',
@@ -26,7 +27,8 @@ import { VendorFormComponent } from '../vendor-form/vendor-form.component';
     MatInputModule,
     MatFormFieldModule,
     MatDialogModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
+    EmptyStateComponent
   ],
   template: `
     <div class="container">
@@ -49,6 +51,7 @@ import { VendorFormComponent } from '../vendor-form/vendor-form.component';
           <mat-spinner></mat-spinner>
         </div>
       } @else {
+        @if (vendors.length > 0) {
         <table mat-table [dataSource]="vendors" class="mat-elevation-z2">
           <ng-container matColumnDef="name">
             <th mat-header-cell *matHeaderCellDef>Name</th>
@@ -90,11 +93,14 @@ import { VendorFormComponent } from '../vendor-form/vendor-form.component';
           (page)="onPageChange($event)">
         </mat-paginator>
 
-        @if (!loading && vendors.length === 0) {
-          <div class="empty-state">
-            <mat-icon>search_off</mat-icon>
-            <p>{{ searchTerm ? 'No vendors match your search.' : 'No vendors yet. Add your first vendor to get started!' }}</p>
-          </div>
+        } @else {
+          <app-empty-state
+            [icon]="'🏪'"
+            [title]="'No vendors yet'"
+            [message]="'Add your wholesale vendors.'"
+            [actionLabel]="'Add Vendor'"
+            [actionCallback]="openAddVendorDialog">
+          </app-empty-state>
         }
       }
     </div>
@@ -116,26 +122,6 @@ import { VendorFormComponent } from '../vendor-form/vendor-form.component';
       margin-bottom: 16px;
     }
 
-    .empty-state {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 48px 24px;
-      color: #9e9e9e;
-      gap: 12px;
-
-      mat-icon {
-        font-size: 48px;
-        width: 48px;
-        height: 48px;
-      }
-
-      p {
-        font-size: 1rem;
-        margin: 0;
-      }
-    }
-
     button mat-icon {
       margin-right: 4px;
     }
@@ -154,6 +140,7 @@ import { VendorFormComponent } from '../vendor-form/vendor-form.component';
 })
 export class VendorListComponent implements OnInit {
   vendors: Vendor[] = [];
+  openAddVendorDialog = () => this.addVendor();
   displayedColumns = ['name', 'contactEmail', 'notes', 'actions'];
   loading = false;
   totalCount = 0;

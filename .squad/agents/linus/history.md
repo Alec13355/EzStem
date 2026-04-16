@@ -9,6 +9,32 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-04-15: Item Image Upload Endpoint
+
+**What was built:**
+- `POST /api/items/upload-image` — multipart/form-data, field name `file`, returns `{ url: string }`
+- `IImageStorageService` interface in `EzStem.Application/Interfaces/`
+- `AzureImageStorageService` in `EzStem.Infrastructure/Services/` — wraps `Azure.Storage.Blobs` SDK
+- `UploadImageResponse(string Url)` DTO added to `ItemDtos.cs`
+- `IImageStorageService` injected into `ItemsController` constructor
+- `AzureBlobStorage:ConnectionString` config key added to `appsettings.json` with `"UseDevelopmentStorage=true"` for local dev (Azurite)
+- 5 new tests in `ImageUploadTests.cs` — all using fakes (no real Blob Storage needed)
+- `Azure.Storage.Blobs 12.27.0` package added to `EzStem.Infrastructure.csproj`
+
+**Key decisions:**
+- Blob name format: `{Guid}/{originalFileName}` — collision-safe, original extension preserved
+- Container `item-images` created with `PublicAccessType.Blob` on first upload (no manual setup needed)
+- `[RequestSizeLimit(5 * 1024 * 1024)]` attribute + explicit length check (belt-and-suspenders; `RequestSizeLimit` alone doesn't return a clean 400)
+- Production connection string goes into Key Vault (same pattern as `DefaultConnection`) — never in config files
+- Tests use hand-rolled fakes (no Moq) — consistent with existing test patterns in this project
+
+**Test coverage (5 new tests, 37 total passing):**
+- Null/empty file → 400
+- Invalid content type (image/gif) → 400
+- Oversized file (6MB) → 400
+- Valid JPEG → 200 with `UploadImageResponse`, service was called
+- Valid PNG → 200
+
 ### 2026-04-15: Flex Mode — Direct Stem Items on Events
 
 **What was built:**

@@ -359,3 +359,28 @@
 - `loadFlexItems()` is safe to call on every `loadEvent()` success (also fires on save) — harmless refresh
 - `MatSnackBar` and `MatSnackBarModule` were already present in event-detail from a prior session
 - `ItemService` and `FlexItemService` are both `providedIn: 'root'` — no additional DI setup needed
+
+### 2026-04-16: Item Image Upload UI (Issue #11)
+
+**Files changed:**
+- `frontend/src/app/shared/models/api.models.ts` — `imageUrl?: string` → `imageUrl?: string | null`
+- `frontend/src/app/core/services/item.service.ts` — added `uploadImage(file: File)` using `this.api.post` with `FormData`
+- `frontend/src/app/features/item-library/item-form/item-form.component.ts` — replaced plain imageUrl text field with drag-and-drop upload zone
+- `frontend/src/app/features/item-library/item-list/item-list.component.ts` — updated placeholder from `mat-icon` to 🌸 emoji
+
+**Key decisions:**
+- `ApiService.post` does NOT set `Content-Type: application/json` explicitly — Angular HttpClient auto-sets `multipart/form-data` with boundary when body is `FormData`, so `this.api.post` works directly for file uploads
+- Local `FileReader` preview fires immediately; real URL is patched after backend responds
+- `imagePreviewUrl` is set on `ngOnInit` from form value (covers edit mode where existing image should pre-populate)
+- `onSaveAndAddMore` resets `imagePreviewUrl` to `null` along with the form reset
+
+**Build:** ✅ 0 errors. Pre-existing bundle budget and CommonJS warnings unchanged.
+
+### P1 UX Wave 1 (Issues #10, #12, #9, #7)
+- EmptyStateComponent pattern: reusable @Input-driven component, bound actionCallback via arrow function to preserve `this`
+- Items/Vendors use dialog creation (no /new routes) — bind actionCallback to dialog opener methods
+- Season chips: client-side isInSeason() helper with year-boundary support (Nov-Feb wrapping)
+- Filters: client-side applyFilters() called after API load + on every FormControl change
+- URL query params: `queryParamsHandling: 'merge'` preserves other params on navigation
+- Item swap: firstValueFrom(dialog.afterClosed()) for clean async/await pattern
+- ItemPickerDialogComponent: MAT_DIALOG_DATA injection pattern for passing items list

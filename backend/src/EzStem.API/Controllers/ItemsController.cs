@@ -12,10 +12,12 @@ namespace EzStem.API.Controllers;
 public class ItemsController : ControllerBase
 {
     private readonly IItemService _itemService;
+    private readonly IImageStorageService _imageStorageService;
 
-    public ItemsController(IItemService itemService)
+    public ItemsController(IItemService itemService, IImageStorageService imageStorageService)
     {
         _itemService = itemService;
+        _imageStorageService = imageStorageService;
     }
 
     private string GetUserId() =>
@@ -83,5 +85,24 @@ public class ItemsController : ControllerBase
         var deleted = await _itemService.DeleteItemAsync(id, GetUserId(), ct);
         if (!deleted) return NotFound();
         return NoContent();
+    }
+
+    [HttpPost("upload-image")]
+    [RequestSizeLimit(5 * 1024 * 1024)]
+    public async Task<IActionResult> UploadImage(IFormFile file, CancellationToken ct)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest("No file uploaded.");
+
+        var allowedTypes = new[] { "image/jpeg", "image/png", "image/webp" };
+        if (!allowedTypes.Contains(file.ContentType.ToLowerInvariant()))
+            return BadRequest("Only JPG, PNG, and WebP images are allowed.");
+
+        if (file.Length > 5 * 1024 * 1024)
+            return BadRequest("File size must be 5MB or less.");
+
+        await using var stream = file.OpenReadStream();
+        var url = await _imageStorageService.UploadImageAsync(stream, file.FileName, file.ContentType, ct);
+        return Ok(new UploadImageResponse(url));
     }
 }

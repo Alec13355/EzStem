@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.42.1.51946",
-      "templateHash": "10656658051022984643"
+      "templateHash": "2201749487030577248"
     }
   },
   "parameters": {
@@ -71,14 +71,17 @@
           "appName": {
             "value": "[variables('appName')]"
           },
-          "keyVaultName": {
-            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'keyvault-deployment'), '2025-04-01').outputs.keyVaultName.value]"
+          "sqlConnectionString": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'database-deployment'), '2025-04-01').outputs.connectionString.value]"
           },
           "appInsightsConnectionString": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring-deployment'), '2025-04-01').outputs.appInsightsConnectionString.value]"
           },
           "swaHostname": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'staticwebapp-deployment'), '2025-04-01').outputs.swaDefaultHostname.value]"
+          },
+          "blobStorageConnectionString": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'storage-deployment'), '2025-04-01').outputs.connectionString.value]"
           }
         },
         "template": {
@@ -88,7 +91,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.42.1.51946",
-              "templateHash": "5293028872872743740"
+              "templateHash": "10244342729318330046"
             }
           },
           "parameters": {
@@ -110,10 +113,10 @@
                 "description": "Application name"
               }
             },
-            "keyVaultName": {
+            "sqlConnectionString": {
               "type": "string",
               "metadata": {
-                "description": "Key Vault name for secrets"
+                "description": "SQL connection string (uses Managed Identity auth, no password)"
               }
             },
             "appInsightsConnectionString": {
@@ -127,6 +130,12 @@
               "defaultValue": "",
               "metadata": {
                 "description": "Hostname of the Static Web App for CORS (without https://)"
+              }
+            },
+            "blobStorageConnectionString": {
+              "type": "string",
+              "metadata": {
+                "description": "Blob storage connection string for image uploads"
               }
             }
           },
@@ -162,11 +171,18 @@
                 "httpsOnly": true,
                 "siteConfig": {
                   "linuxFxVersion": "DOTNETCORE|9.0",
+                  "appCommandLine": "dotnet EzStem.API.dll",
                   "alwaysOn": "[if(equals(parameters('environment'), 'prod'), true(), false())]",
+                  "httpLoggingEnabled": true,
+                  "detailedErrorLoggingEnabled": true,
                   "appSettings": [
                     {
                       "name": "ASPNETCORE_ENVIRONMENT",
-                      "value": "[if(equals(parameters('environment'), 'prod'), 'Production', 'Development')]"
+                      "value": "[if(equals(parameters('environment'), 'prod'), 'Production', 'Staging')]"
+                    },
+                    {
+                      "name": "WEBSITE_ENABLE_APP_SERVICE_STORAGE",
+                      "value": "true"
                     },
                     {
                       "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
@@ -174,7 +190,7 @@
                     },
                     {
                       "name": "ConnectionStrings__DefaultConnection",
-                      "value": "[format('@Microsoft.KeyVault(VaultName={0};SecretName=SqlConnectionString)', parameters('keyVaultName'))]"
+                      "value": "[parameters('sqlConnectionString')]"
                     },
                     {
                       "name": "AllowedOrigins__0",
@@ -183,12 +199,62 @@
                     {
                       "name": "AllowedOrigins__1",
                       "value": "[format('https://{0}', parameters('swaHostname'))]"
+                    },
+                    {
+                      "name": "ASPNETCORE_URLS",
+                      "value": "http://+:8080"
+                    },
+                    {
+                      "name": "AzureBlobStorage__ConnectionString",
+                      "value": "[parameters('blobStorageConnectionString')]"
+                    },
+                    {
+                      "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
+                      "value": "false"
+                    },
+                    {
+                      "name": "WEBSITE_RUN_FROM_PACKAGE",
+                      "value": "1"
+                    },
+                    {
+                      "name": "AzureAd__Authority",
+                      "value": "https://ezstem.ciamlogin.com/fdd626a3-0e01-441d-a864-4415ad287675"
+                    },
+                    {
+                      "name": "AzureAd__ClientId",
+                      "value": "97f156cd-f562-42e1-8de6-6e82c543fa86"
+                    },
+                    {
+                      "name": "AzureAd__Scopes",
+                      "value": "access_as_user"
                     }
                   ]
                 }
               },
               "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Web/sites/config",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}/{1}', variables('webAppName'), 'logs')]",
+              "properties": {
+                "applicationLogs": {
+                  "fileSystem": {
+                    "level": "Verbose",
+                    "retentionInDays": 1
+                  }
+                },
+                "httpLogs": {
+                  "fileSystem": {
+                    "enabled": true,
+                    "retentionInDays": 1
+                  }
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', variables('webAppName'))]"
               ]
             }
           ],
@@ -209,9 +275,10 @@
         }
       },
       "dependsOn": [
-        "[resourceId('Microsoft.Resources/deployments', 'keyvault-deployment')]",
+        "[resourceId('Microsoft.Resources/deployments', 'database-deployment')]",
         "[resourceId('Microsoft.Resources/deployments', 'monitoring-deployment')]",
-        "[resourceId('Microsoft.Resources/deployments', 'staticwebapp-deployment')]"
+        "[resourceId('Microsoft.Resources/deployments', 'staticwebapp-deployment')]",
+        "[resourceId('Microsoft.Resources/deployments', 'storage-deployment')]"
       ]
     },
     {
@@ -384,6 +451,9 @@
           },
           "sqlConnectionString": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'database-deployment'), '2025-04-01').outputs.connectionString.value]"
+          },
+          "blobStorageConnectionString": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'storage-deployment'), '2025-04-01').outputs.connectionString.value]"
           }
         },
         "template": {
@@ -393,7 +463,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.42.1.51946",
-              "templateHash": "4506449176461462779"
+              "templateHash": "16124491179987098114"
             }
           },
           "parameters": {
@@ -419,6 +489,12 @@
               "type": "securestring",
               "metadata": {
                 "description": "SQL connection string to store"
+              }
+            },
+            "blobStorageConnectionString": {
+              "type": "securestring",
+              "metadata": {
+                "description": "Blob storage connection string to store"
               }
             }
           },
@@ -453,6 +529,17 @@
               "dependsOn": [
                 "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
               ]
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', variables('keyVaultName'), 'AzureBlobStorageConnectionString')]",
+              "properties": {
+                "value": "[parameters('blobStorageConnectionString')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
+              ]
             }
           ],
           "outputs": {
@@ -468,7 +555,8 @@
         }
       },
       "dependsOn": [
-        "[resourceId('Microsoft.Resources/deployments', 'database-deployment')]"
+        "[resourceId('Microsoft.Resources/deployments', 'database-deployment')]",
+        "[resourceId('Microsoft.Resources/deployments', 'storage-deployment')]"
       ]
     },
     {
@@ -601,7 +689,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.42.1.51946",
-              "templateHash": "17574632031253677190"
+              "templateHash": "15763261991214575680"
             }
           },
           "parameters": {
@@ -625,8 +713,7 @@
             }
           },
           "variables": {
-            "storageAccountName": "[replace(format('{0}storage', parameters('appName')), '-', '')]",
-            "storageSku": "Standard_LRS"
+            "storageAccountName": "[replace(format('{0}storage', parameters('appName')), '-', '')]"
           },
           "resources": [
             {
@@ -636,7 +723,7 @@
               "location": "[parameters('location')]",
               "kind": "StorageV2",
               "sku": {
-                "name": "[variables('storageSku')]"
+                "name": "Standard_LRS"
               },
               "properties": {
                 "accessTier": "Hot",
@@ -644,11 +731,62 @@
                 "supportsHttpsTrafficOnly": true,
                 "minimumTlsVersion": "TLS1_2"
               }
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/blobServices",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}/{1}', variables('storageAccountName'), 'default')]",
+              "properties": {
+                "cors": {
+                  "corsRules": [
+                    {
+                      "allowedOrigins": [
+                        "*"
+                      ],
+                      "allowedMethods": [
+                        "GET",
+                        "HEAD"
+                      ],
+                      "allowedHeaders": [
+                        "*"
+                      ],
+                      "exposedHeaders": [
+                        "*"
+                      ],
+                      "maxAgeInSeconds": 3600
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}/{1}/{2}', variables('storageAccountName'), 'default', 'item-images')]",
+              "properties": {
+                "publicAccess": "Blob"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/blobServices', variables('storageAccountName'), 'default')]"
+              ]
             }
           ],
           "outputs": {
+            "connectionString": {
+              "type": "string",
+              "metadata": {
+                "description": "Storage account connection string"
+              },
+              "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};AccountKey={1};EndpointSuffix={2}', variables('storageAccountName'), listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2023-01-01').keys[0].value, environment().suffixes.storage)]"
+            },
             "storageAccountName": {
               "type": "string",
+              "metadata": {
+                "description": "Storage account name"
+              },
               "value": "[variables('storageAccountName')]"
             },
             "storageAccountId": {
@@ -773,7 +911,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.42.1.51946",
-              "templateHash": "3303269142346981401"
+              "templateHash": "18061398400195447205"
             }
           },
           "parameters": {
@@ -791,7 +929,7 @@
             }
           },
           "variables": {
-            "kvSecretsUserRoleId": "4633458b-17de-408a-b874-0445c86b69e0"
+            "kvSecretsUserRoleId": "4633458b-17de-408a-b874-0445c86b69e6"
           },
           "resources": [
             {
@@ -801,7 +939,7 @@
               "name": "[guid(parameters('keyVaultName'), parameters('principalId'), variables('kvSecretsUserRoleId'))]",
               "properties": {
                 "principalId": "[parameters('principalId')]",
-                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('kvSecretsUserRoleId'))]",
+                "roleDefinitionId": "[format('/subscriptions/{0}/providers/Microsoft.Authorization/roleDefinitions/{1}', subscription().subscriptionId, variables('kvSecretsUserRoleId'))]",
                 "principalType": "ServicePrincipal"
               }
             }

@@ -4,7 +4,7 @@ export interface Item {
   description?: string;
   costPerStem: number;
   bundleSize: number;
-  imageUrl?: string;
+  imageUrl?: string | null;
   notes?: string;
   vendorId?: string;
   vendorName?: string;
@@ -13,6 +13,7 @@ export interface Item {
   seasonalStartMonth?: number;
   seasonalEndMonth?: number;
   leadTimeDays?: number;
+  isActive?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -208,4 +209,10 @@ export interface FlexItem {
   costPerStem: number;
   lineTotalCost: number;
   createdAt: string;
+}
+
+export interface UpdateRecipeItemRequest {
+  itemId?: string;
+  quantity?: number;
+  costPerStem?: number;
 }

@@ -6,6 +6,10 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
+import { MatIconModule } from '@angular/material/icon';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { ItemService } from '../../../core/services/item.service';
 import { VendorService } from '../../../core/services/vendor.service';
 import { Item, Vendor } from '../../../shared/models/api.models';
@@ -19,7 +23,11 @@ import { Item, Vendor } from '../../../shared/models/api.models';
     MatButtonModule,
     MatInputModule,
     MatFormFieldModule,
-    MatSelectModule
+    MatSelectModule,
+    MatIconModule,
+    MatProgressBarModule,
+    MatTooltipModule,
+    MatCheckboxModule
   ],
   template: `
     <h2 mat-dialog-title>{{ isEdit ? 'Edit Item' : 'Add Item' }}</h2>
@@ -70,22 +78,70 @@ import { Item, Vendor } from '../../../shared/models/api.models';
           </mat-select>
         </mat-form-field>
 
-        <mat-form-field class="full-width">
-          <mat-label>Image URL</mat-label>
-          <input matInput formControlName="imageUrl">
-        </mat-form-field>
+        <div class="image-upload-section">
+          <label class="upload-label">Item Photo</label>
 
-        @if (form.get('imageUrl')?.value) {
-          <div class="image-preview">
-            <img [src]="form.get('imageUrl')?.value" alt="Preview" class="preview-img"
-                 (error)="onImageError($event)">
+          @if (imagePreviewUrl) {
+            <div class="image-preview">
+              <img [src]="imagePreviewUrl" alt="Item preview" style="max-width:200px; max-height:200px; border-radius:8px; object-fit:cover;">
+              <button mat-icon-button type="button" (click)="removeImage()" matTooltip="Remove image">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </div>
+          }
+
+          <div class="drop-zone"
+               [class.drag-over]="isDragging"
+               (dragover)="onDragOver($event)"
+               (dragleave)="isDragging = false"
+               (drop)="onDrop($event)"
+               (click)="fileInput.click()">
+            <mat-icon>cloud_upload</mat-icon>
+            <span>Drop image here or click to browse</span>
+            <small>JPG, PNG, WebP · Max 5MB</small>
           </div>
-        }
+
+          <input #fileInput type="file" accept="image/jpeg,image/png,image/webp" style="display:none"
+                 (change)="onFileSelected($event)">
+
+          @if (isUploading) {
+            <mat-progress-bar mode="indeterminate" style="margin-top:8px;"></mat-progress-bar>
+          }
+          @if (uploadError) {
+            <mat-error>{{ uploadError }}</mat-error>
+          }
+        </div>
 
         <mat-form-field class="full-width">
           <mat-label>Notes</mat-label>
           <textarea matInput formControlName="notes" rows="2"></textarea>
         </mat-form-field>
+
+        <div class="seasonal-section">
+          <mat-checkbox formControlName="isSeasonalItem">Seasonal Item?</mat-checkbox>
+
+          @if (form.get('isSeasonalItem')?.value) {
+            <div class="month-fields">
+              <mat-form-field style="width:48%; margin-right:4%">
+                <mat-label>Season Start Month</mat-label>
+                <mat-select formControlName="seasonalStartMonth">
+                  @for (month of months; track month.value) {
+                    <mat-option [value]="month.value">{{ month.label }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field style="width:48%">
+                <mat-label>Season End Month</mat-label>
+                <mat-select formControlName="seasonalEndMonth">
+                  @for (month of months; track month.value) {
+                    <mat-option [value]="month.value">{{ month.label }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            </div>
+          }
+        </div>
       </form>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
@@ -104,17 +160,51 @@ import { Item, Vendor } from '../../../shared/models/api.models';
     mat-form-field {
       margin-bottom: 16px;
     }
-    .image-preview {
+    .image-upload-section {
       margin-bottom: 16px;
-      text-align: center;
     }
-    .preview-img {
-      max-width: 200px;
-      max-height: 150px;
-      object-fit: contain;
-      border: 1px solid #e0e0e0;
-      border-radius: 4px;
+    .upload-label {
+      display: block;
+      font-size: 12px;
+      color: rgba(0,0,0,0.6);
+      margin-bottom: 8px;
     }
+    .image-preview {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .drop-zone {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 24px;
+      border: 2px dashed #bdbdbd;
+      border-radius: 8px;
+      cursor: pointer;
+      color: #757575;
+      transition: border-color 0.2s, background-color 0.2s;
+    }
+    .drop-zone:hover {
+      border-color: #1976d2;
+      background-color: #e3f2fd;
+      color: #1976d2;
+    }
+    .drop-zone.drag-over {
+      border-color: #1976d2;
+      background-color: #bbdefb;
+      color: #1976d2;
+    }
+    .drop-zone mat-icon {
+      font-size: 36px;
+      width: 36px;
+      height: 36px;
+    }
+    .seasonal-section { margin-bottom: 16px; }
+    .month-fields { display: flex; margin-top: 12px; }
   `]
 })
 export class ItemFormComponent implements OnInit {
@@ -122,6 +212,19 @@ export class ItemFormComponent implements OnInit {
   isEdit = false;
   vendors: Vendor[] = [];
   hasAddedItems = false;
+  imagePreviewUrl: string | null = null;
+  isDragging = false;
+  isUploading = false;
+  uploadError: string | null = null;
+
+  readonly months = [
+    { value: 1, label: 'January' }, { value: 2, label: 'February' },
+    { value: 3, label: 'March' }, { value: 4, label: 'April' },
+    { value: 5, label: 'May' }, { value: 6, label: 'June' },
+    { value: 7, label: 'July' }, { value: 8, label: 'August' },
+    { value: 9, label: 'September' }, { value: 10, label: 'October' },
+    { value: 11, label: 'November' }, { value: 12, label: 'December' }
+  ];
 
   constructor(
     private fb: FormBuilder,
@@ -137,13 +240,17 @@ export class ItemFormComponent implements OnInit {
       costPerStem: [data?.costPerStem || 0, [Validators.required, Validators.min(0.01)]],
       bundleSize: [data?.bundleSize || 1, [Validators.required, Validators.min(1)]],
       vendorId: [data?.vendorId || null],
-      imageUrl: [data?.imageUrl || ''],
-      notes: [data?.notes || '']
+      imageUrl: [data?.imageUrl ?? null],
+      notes: [data?.notes || ''],
+      isSeasonalItem: [data?.isSeasonalItem ?? false],
+      seasonalStartMonth: [data?.seasonalStartMonth ?? null],
+      seasonalEndMonth: [data?.seasonalEndMonth ?? null]
     });
   }
 
   ngOnInit() {
     this.loadVendors();
+    this.imagePreviewUrl = this.form.get('imageUrl')?.value ?? null;
   }
 
   loadVendors() {
@@ -191,11 +298,15 @@ export class ItemFormComponent implements OnInit {
             costPerStem: 0,
             bundleSize: 1,
             vendorId: null,
-            imageUrl: '',
-            notes: ''
+            imageUrl: null,
+            notes: '',
+            isSeasonalItem: false,
+            seasonalStartMonth: null,
+            seasonalEndMonth: null
           });
           this.form.markAsPristine();
           this.form.markAsUntouched();
+          this.imagePreviewUrl = null;
           // Signal to the list that at least one item was added (so it refreshes on dialog close)
           this.hasAddedItems = true;
         },
@@ -206,7 +317,55 @@ export class ItemFormComponent implements OnInit {
     }
   }
 
-  onImageError(event: any) {
-    event.target.style.display = 'none';
+  onFileSelected(event: Event): void {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (file) this.handleFile(file);
+  }
+
+  onDragOver(event: DragEvent): void {
+    event.preventDefault();
+    this.isDragging = true;
+  }
+
+  onDrop(event: DragEvent): void {
+    event.preventDefault();
+    this.isDragging = false;
+    const file = event.dataTransfer?.files[0];
+    if (file) this.handleFile(file);
+  }
+
+  handleFile(file: File): void {
+    this.uploadError = null;
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowed.includes(file.type)) {
+      this.uploadError = 'Only JPG, PNG, and WebP images are allowed.';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      this.uploadError = 'File must be 5MB or less.';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = e => this.imagePreviewUrl = e.target?.result as string;
+    reader.readAsDataURL(file);
+
+    this.isUploading = true;
+    this.itemService.uploadImage(file).subscribe({
+      next: ({ url }) => {
+        this.isUploading = false;
+        this.form.patchValue({ imageUrl: url });
+        this.imagePreviewUrl = url;
+      },
+      error: () => {
+        this.isUploading = false;
+        this.uploadError = 'Upload failed. Please try again.';
+      }
+    });
+  }
+
+  removeImage(): void {
+    this.imagePreviewUrl = null;
+    this.form.patchValue({ imageUrl: null });
   }
 }

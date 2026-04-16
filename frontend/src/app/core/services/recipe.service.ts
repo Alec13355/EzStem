@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
-import { Recipe, PagedResponse, ScaleRecipeResponse, RecipeCostResponse } from '../../shared/models/api.models';
+import { Recipe, PagedResponse, ScaleRecipeResponse, RecipeCostResponse, RecipeItem, UpdateRecipeItemRequest } from '../../shared/models/api.models';
 
 @Injectable({
   providedIn: 'root'
@@ -53,5 +53,9 @@ export class RecipeService {
 
   duplicateRecipe(recipeId: string): Observable<Recipe> {
     return this.api.post<Recipe>(`recipes/${recipeId}/duplicate`, {});
+  }
+
+  updateRecipeItem(recipeId: string, recipeItemId: string, request: UpdateRecipeItemRequest): Observable<RecipeItem> {
+    return this.api.put<RecipeItem>(`recipes/${recipeId}/items/${recipeItemId}`, request);
   }
 }

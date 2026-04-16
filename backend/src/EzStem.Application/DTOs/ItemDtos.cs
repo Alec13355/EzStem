@@ -52,3 +52,5 @@ public record SeasonalWarning(
     string WarningType,
     string Message
 );
+
+public record UploadImageResponse(string Url);

@@ -10,9 +10,13 @@ import { MatTableModule } from '@angular/material/table';
 import { MatSelectModule } from '@angular/material/select';
 import { MatCardModule } from '@angular/material/card';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { firstValueFrom } from 'rxjs';
 import { RecipeService } from '../../../core/services/recipe.service';
 import { ItemService } from '../../../core/services/item.service';
-import { Recipe, Item, RecipeItem, ScaleRecipeResponse } from '../../../shared/models/api.models';
+import { Recipe, Item, RecipeItem, ScaleRecipeResponse, UpdateRecipeItemRequest } from '../../../shared/models/api.models';
+import { ItemPickerDialogComponent } from '../../../shared/components/item-picker-dialog/item-picker-dialog.component';
 
 @Component({
   selector: 'app-recipe-detail',
@@ -27,7 +31,10 @@ import { Recipe, Item, RecipeItem, ScaleRecipeResponse } from '../../../shared/m
     MatTableModule,
     MatSelectModule,
     MatCardModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    MatTooltipModule,
+    MatDialogModule,
+    ItemPickerDialogComponent
   ],
   template: `
     <div class="container">
@@ -94,7 +101,14 @@ import { Recipe, Item, RecipeItem, ScaleRecipeResponse } from '../../../shared/m
             <table mat-table [dataSource]="recipe.recipeItems || []" class="mat-elevation-z2">
               <ng-container matColumnDef="name">
                 <th mat-header-cell *matHeaderCellDef>Item Name</th>
-                <td mat-cell *matCellDef="let item">{{ item.itemName || item.item?.name }}</td>
+                <td mat-cell *matCellDef="let item">
+                  {{ item.itemName || item.item?.name }}
+                  @if (!isRecipeItemInSeason(item)) {
+                    <span
+                      [matTooltip]="(item.itemName || item.item?.name) + ' may be out of season in ' + getCurrentMonthName() + '. Check availability with your vendor.'"
+                      style="cursor:help; margin-left:4px">⚠️</span>
+                  }
+                </td>
               </ng-container>
 
               <ng-container matColumnDef="quantity">
@@ -119,6 +133,9 @@ import { Recipe, Item, RecipeItem, ScaleRecipeResponse } from '../../../shared/m
               <ng-container matColumnDef="actions">
                 <th mat-header-cell *matHeaderCellDef>Actions</th>
                 <td mat-cell *matCellDef="let item">
+                  <button mat-icon-button matTooltip="Swap item" (click)="swapItem(item)">
+                    <mat-icon>swap_horiz</mat-icon>
+                  </button>
                   <button mat-icon-button color="warn" (click)="removeItem(item)">
                     <mat-icon>delete</mat-icon>
                   </button>
@@ -278,6 +295,7 @@ export class RecipeDetailComponent implements OnInit {
     private fb: FormBuilder,
     private recipeService: RecipeService,
     private itemService: ItemService,
+    private dialog: MatDialog,
     private snackBar: MatSnackBar
   ) {
     this.recipeForm = this.fb.group({
@@ -412,5 +430,43 @@ export class RecipeDetailComponent implements OnInit {
 
   goBack() {
     this.router.navigate(['/recipes']);
+  }
+
+  async swapItem(recipeItem: RecipeItem): Promise<void> {
+    const dialogRef = this.dialog.open(ItemPickerDialogComponent, {
+      width: '480px',
+      data: { currentItemId: recipeItem.itemId, items: this.availableItems }
+    });
+    const selected = await firstValueFrom(dialogRef.afterClosed());
+    if (!selected || selected.id === recipeItem.itemId) return;
+
+    const request: UpdateRecipeItemRequest = {
+      itemId: selected.id,
+      costPerStem: selected.costPerStem
+    };
+
+    this.recipeService.updateRecipeItem(this.recipe!.id, recipeItem.id, request).subscribe({
+      next: () => {
+        recipeItem.itemId = selected.id;
+        recipeItem.itemName = selected.name;
+        recipeItem.costPerStem = selected.costPerStem;
+        this.snackBar.open(`Swapped to ${selected.name}`, 'Dismiss', { duration: 3000 });
+      },
+      error: () => this.snackBar.open('Failed to swap item', 'Dismiss', { duration: 3000 })
+    });
+  }
+
+  isRecipeItemInSeason(recipeItem: RecipeItem): boolean {
+    const libraryItem = this.availableItems.find(i => i.id === recipeItem.itemId);
+    if (!libraryItem?.isSeasonalItem) return true;
+    const month = new Date().getMonth() + 1;
+    const start = libraryItem.seasonalStartMonth ?? 1;
+    const end = libraryItem.seasonalEndMonth ?? 12;
+    if (start <= end) return month >= start && month <= end;
+    return month >= start || month <= end;
+  }
+
+  getCurrentMonthName(): string {
+    return new Date().toLocaleString('default', { month: 'long' });
   }
 }

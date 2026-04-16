@@ -24,6 +24,7 @@ builder.Services.AddScoped<IPricingService, PricingService>();
 builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IFlexItemService, FlexItemService>();
+builder.Services.AddScoped<IImageStorageService, AzureImageStorageService>();
 
 builder.Services.AddAuthentication()
     .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"));

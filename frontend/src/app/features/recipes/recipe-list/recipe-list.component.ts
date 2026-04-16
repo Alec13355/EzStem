@@ -1,23 +1,32 @@
-import { Component, OnInit, Inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, Inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { MatDialog, MatDialogModule, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
 import { RecipeService } from '../../../core/services/recipe.service';
 import { Recipe } from '../../../shared/models/api.models';
+import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 
 @Component({
   selector: 'app-recipe-list',
   imports: [
     CommonModule,
+    ReactiveFormsModule,
     MatTableModule,
     MatButtonModule,
     MatIconModule,
+    MatFormFieldModule,
+    MatInputModule,
     MatDialogModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    EmptyStateComponent
   ],
   template: `
     <div class="container">
@@ -29,7 +38,18 @@ import { Recipe } from '../../../shared/models/api.models';
         </button>
       </div>
 
-      <table mat-table [dataSource]="recipes" class="mat-elevation-z2">
+      <mat-form-field appearance="outline" style="width:100%; max-width:400px; margin-bottom:16px;">
+        <mat-label>Search</mat-label>
+        <input matInput [formControl]="searchControl" placeholder="Search recipes...">
+        @if (searchControl.value) {
+          <button matSuffix mat-icon-button (click)="searchControl.setValue('')">
+            <mat-icon>close</mat-icon>
+          </button>
+        }
+      </mat-form-field>
+
+      @if (filteredRecipes.length > 0) {
+      <table mat-table [dataSource]="filteredRecipes" class="mat-elevation-z2">
         <ng-container matColumnDef="name">
           <th mat-header-cell *matHeaderCellDef>Name</th>
           <td mat-cell *matCellDef="let recipe">{{ recipe.name }}</td>
@@ -75,6 +95,15 @@ import { Recipe } from '../../../shared/models/api.models';
         <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
         <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
       </table>
+      } @else {
+        <app-empty-state
+          [icon]="'📋'"
+          [title]="'No recipes yet'"
+          [message]="'Build your first recipe to calculate costs.'"
+          [actionLabel]="'Build Recipe'"
+          [actionCallback]="createNewRecipe">
+        </app-empty-state>
+      }
     </div>
   `,
   styles: [`
@@ -101,26 +130,55 @@ import { Recipe } from '../../../shared/models/api.models';
     }
   `]
 })
-export class RecipeListComponent implements OnInit {
+export class RecipeListComponent implements OnInit, OnDestroy {
   recipes: Recipe[] = [];
+  filteredRecipes: Recipe[] = [];
+  searchControl = new FormControl('');
+  createNewRecipe = () => this.createRecipe();
   displayedColumns = ['name', 'laborCost', 'totalCost', 'itemCount', 'actions'];
   duplicatingId: string | null = null;
+  private destroy$ = new Subject<void>();
 
   constructor(
     private recipeService: RecipeService,
     private router: Router,
+    private route: ActivatedRoute,
     private dialog: MatDialog,
     private snackBar: MatSnackBar
   ) {}
 
   ngOnInit() {
     this.loadRecipes();
+
+    this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
+      if (params['q']) this.searchControl.setValue(params['q'], { emitEvent: false });
+      this.applyFilter();
+    });
+
+    this.searchControl.valueChanges.pipe(
+      debounceTime(300),
+      distinctUntilChanged(),
+      takeUntil(this.destroy$)
+    ).subscribe(value => {
+      this.router.navigate([], { queryParams: { q: value || null }, queryParamsHandling: 'merge' });
+      this.applyFilter();
+    });
   }
+
+  applyFilter() {
+    const q = (this.searchControl.value || '').toLowerCase();
+    this.filteredRecipes = q
+      ? this.recipes.filter(r => r.name.toLowerCase().includes(q))
+      : [...this.recipes];
+  }
+
+  ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
 
   loadRecipes() {
     this.recipeService.getRecipes().subscribe({
       next: (response) => {
         this.recipes = response.items ?? [];
+        this.applyFilter();
       },
       error: (err) => {
         console.error('Error loading recipes:', err);

@@ -32,4 +32,10 @@ export class ItemService {
   deleteItem(id: string): Observable<void> {
     return this.api.delete<void>(`items/${id}`);
   }
+
+  uploadImage(file: File): Observable<{ url: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.api.post<{ url: string }>('items/upload-image', formData);
+  }
 }

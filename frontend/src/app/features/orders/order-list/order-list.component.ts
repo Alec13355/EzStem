@@ -7,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { OrderService } from '../../../core/services/order.service';
 import { Order } from '../../../shared/models/api.models';
+import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 
 @Component({
   selector: 'app-order-list',
@@ -15,7 +16,8 @@ import { Order } from '../../../shared/models/api.models';
     MatTableModule,
     MatButtonModule,
     MatIconModule,
-    MatChipsModule
+    MatChipsModule,
+    EmptyStateComponent
   ],
   template: `
     <div class="container">
@@ -23,6 +25,7 @@ import { Order } from '../../../shared/models/api.models';
         <h1>Orders</h1>
       </div>
 
+      @if (orders.length > 0) {
       <table mat-table [dataSource]="orders" class="mat-elevation-z2">
         <ng-container matColumnDef="eventId">
           <th mat-header-cell *matHeaderCellDef>Event</th>
@@ -62,6 +65,13 @@ import { Order } from '../../../shared/models/api.models';
         <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
         <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
       </table>
+      } @else {
+        <app-empty-state
+          [icon]="'📦'"
+          [title]="'No orders yet'"
+          [message]="'Generate orders from your events.'">
+        </app-empty-state>
+      }
     </div>
   `,
   styles: [`
