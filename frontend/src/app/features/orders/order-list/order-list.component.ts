@@ -5,6 +5,8 @@ import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { finalize } from 'rxjs';
 import { OrderService } from '../../../core/services/order.service';
 import { Order } from '../../../shared/models/api.models';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
@@ -17,6 +19,7 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
     MatButtonModule,
     MatIconModule,
     MatChipsModule,
+    MatProgressSpinnerModule,
     EmptyStateComponent
   ],
   template: `
@@ -25,7 +28,11 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
         <h1>Orders</h1>
       </div>
 
-      @if (orders.length > 0) {
+      @if (isLoading) {
+        <div class="loading-spinner">
+          <mat-spinner></mat-spinner>
+        </div>
+      } @else if (orders.length > 0) {
       <table mat-table [dataSource]="orders" class="mat-elevation-z2">
         <ng-container matColumnDef="eventId">
           <th mat-header-cell *matHeaderCellDef>Event</th>
@@ -79,6 +86,12 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
       margin-bottom: 24px;
     }
 
+    .loading-spinner {
+      display: flex;
+      justify-content: center;
+      padding: 48px;
+    }
+
     table {
       width: 100%;
     }
@@ -92,6 +105,7 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
 export class OrderListComponent implements OnInit {
   orders: Order[] = [];
   displayedColumns = ['eventId', 'status', 'totalCost', 'createdAt', 'actions'];
+  isLoading = true;
 
   constructor(
     private orderService: OrderService,
@@ -103,14 +117,17 @@ export class OrderListComponent implements OnInit {
   }
 
   loadOrders() {
-    this.orderService.getOrders().subscribe({
-      next: (response) => {
-        this.orders = response.items ?? [];
-      },
-      error: (err) => {
-        console.error('Error loading orders:', err);
-      }
-    });
+    this.isLoading = true;
+    this.orderService.getOrders()
+      .pipe(finalize(() => this.isLoading = false))
+      .subscribe({
+        next: (response) => {
+          this.orders = response.items ?? [];
+        },
+        error: (err) => {
+          console.error('Error loading orders:', err);
+        }
+      });
   }
 
   calculateOrderTotal(order: Order): number {

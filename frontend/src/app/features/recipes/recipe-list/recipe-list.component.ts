@@ -9,7 +9,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatDialog, MatDialogModule, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { Subject, debounceTime, distinctUntilChanged, finalize, takeUntil } from 'rxjs';
 import { RecipeService } from '../../../core/services/recipe.service';
 import { Recipe } from '../../../shared/models/api.models';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
@@ -26,6 +27,7 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
     MatInputModule,
     MatDialogModule,
     MatSnackBarModule,
+    MatProgressSpinnerModule,
     EmptyStateComponent
   ],
   template: `
@@ -48,7 +50,11 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
         }
       </mat-form-field>
 
-      @if (filteredRecipes.length > 0) {
+      @if (isLoading) {
+        <div class="loading-spinner">
+          <mat-spinner></mat-spinner>
+        </div>
+      } @else if (filteredRecipes.length > 0) {
       <table mat-table [dataSource]="filteredRecipes" class="mat-elevation-z2">
         <ng-container matColumnDef="name">
           <th mat-header-cell *matHeaderCellDef>Name</th>
@@ -118,6 +124,12 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
       width: 100%;
     }
 
+    .loading-spinner {
+      display: flex;
+      justify-content: center;
+      padding: 48px;
+    }
+
     .action-btn {
       width: 44px !important;
       height: 44px !important;
@@ -137,6 +149,7 @@ export class RecipeListComponent implements OnInit, OnDestroy {
   createNewRecipe = () => this.createRecipe();
   displayedColumns = ['name', 'laborCost', 'totalCost', 'itemCount', 'actions'];
   duplicatingId: string | null = null;
+  isLoading = true;
   private destroy$ = new Subject<void>();
 
   constructor(
@@ -175,15 +188,18 @@ export class RecipeListComponent implements OnInit, OnDestroy {
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
 
   loadRecipes() {
-    this.recipeService.getRecipes().subscribe({
-      next: (response) => {
-        this.recipes = response.items ?? [];
-        this.applyFilter();
-      },
-      error: (err) => {
-        console.error('Error loading recipes:', err);
-      }
-    });
+    this.isLoading = true;
+    this.recipeService.getRecipes()
+      .pipe(finalize(() => this.isLoading = false))
+      .subscribe({
+        next: (response) => {
+          this.recipes = response.items ?? [];
+          this.applyFilter();
+        },
+        error: (err) => {
+          console.error('Error loading recipes:', err);
+        }
+      });
   }
 
   createRecipe() {

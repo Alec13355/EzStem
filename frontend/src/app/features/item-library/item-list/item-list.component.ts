@@ -241,7 +241,7 @@ export class ItemListComponent implements OnInit, OnDestroy {
   activeFilter = new FormControl('');
   openAddItemDialog = () => this.addItem();
   displayedColumns = ['image', 'name', 'costPerStem', 'vendor', 'actions'];
-  loading = false;
+  loading = true;
   totalCount = 0;
   pageSize = 10;
   pageNumber = 1;

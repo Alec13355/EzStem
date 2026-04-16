@@ -142,7 +142,7 @@ export class VendorListComponent implements OnInit {
   vendors: Vendor[] = [];
   openAddVendorDialog = () => this.addVendor();
   displayedColumns = ['name', 'contactEmail', 'notes', 'actions'];
-  loading = false;
+  loading = true;
   totalCount = 0;
   pageSize = 10;
   pageNumber = 1;

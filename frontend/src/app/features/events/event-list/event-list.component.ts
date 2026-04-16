@@ -13,7 +13,8 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatDialog, MatDialogModule, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { Subject, debounceTime, distinctUntilChanged, finalize, takeUntil } from 'rxjs';
 import { EventService } from '../../../core/services/event.service';
 import { FloristEvent } from '../../../shared/models/api.models';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
@@ -34,6 +35,7 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
     MatNativeDateModule,
     MatDialogModule,
     MatSnackBarModule,
+    MatProgressSpinnerModule,
     EmptyStateComponent
   ],
   template: `
@@ -109,7 +111,11 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
         </mat-chip-set>
       }
 
-      @if (filteredEvents.length > 0) {
+      @if (isLoading) {
+        <div class="loading-spinner">
+          <mat-spinner></mat-spinner>
+        </div>
+      } @else if (filteredEvents.length > 0) {
       <table mat-table [dataSource]="filteredEvents" class="mat-elevation-z2">
         <ng-container matColumnDef="name">
           <th mat-header-cell *matHeaderCellDef>Name</th>
@@ -173,6 +179,12 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
 
     .filter-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
 
+    .loading-spinner {
+      display: flex;
+      justify-content: center;
+      padding: 48px;
+    }
+
     table {
       width: 100%;
     }
@@ -203,6 +215,7 @@ export class EventListComponent implements OnInit, OnDestroy {
   readonly eventStatuses = ['Draft', 'Confirmed', 'Ordered', 'Completed'];
   createNewEvent = () => this.createEvent();
   displayedColumns = ['name', 'date', 'client', 'status', 'actions'];
+  isLoading = true;
   private destroy$ = new Subject<void>();
 
   constructor(
@@ -250,15 +263,18 @@ export class EventListComponent implements OnInit, OnDestroy {
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
 
   loadEvents() {
-    this.eventService.getEvents().subscribe({
-      next: (response) => {
-        this.events = response.items ?? [];
-        this.applyFilters();
-      },
-      error: (err) => {
-        console.error('Error loading events:', err);
-      }
-    });
+    this.isLoading = true;
+    this.eventService.getEvents()
+      .pipe(finalize(() => this.isLoading = false))
+      .subscribe({
+        next: (response) => {
+          this.events = response.items ?? [];
+          this.applyFilters();
+        },
+        error: (err) => {
+          console.error('Error loading events:', err);
+        }
+      });
   }
 
   createEvent() {

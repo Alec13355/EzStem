@@ -384,3 +384,9 @@
 - URL query params: `queryParamsHandling: 'merge'` preserves other params on navigation
 - Item swap: firstValueFrom(dialog.afterClosed()) for clean async/await pattern
 - ItemPickerDialogComponent: MAT_DIALOG_DATA injection pattern for passing items list
+
+### Bug Fix: MSAL Redirect URI Mismatch (2025)
+- `environment.prod.ts` had `redirectUri` and `postLogoutRedirectUri` set to the Azure Static Apps preview URL (`thankful-bay-01befc610.7.azurestaticapps.net`) instead of the live domain (`ezstem.net`).
+- After MSAL login, the redirect callback couldn't be handled on ezstem.net, so `_account` was never set, `getToken()` returned `null`, and every API call was sent without an Authorization header — causing 401s everywhere and no data loading in the app.
+- Fix: update both URIs in `environment.prod.ts` to `https://ezstem.net`.
+- **Remember:** always verify both `redirectUri` and `postLogoutRedirectUri` match the live domain when deploying to a new host.
