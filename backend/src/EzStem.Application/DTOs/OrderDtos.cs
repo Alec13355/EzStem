@@ -25,7 +25,9 @@ public record WasteSummary(
     decimal TotalStemsOrdered,
     decimal TotalStemsUsed,
     decimal WastePercentage,
-    string WasteCategory
+    string WasteCategory,
+    IEnumerable<string> OptimizationSuggestions,
+    decimal RecommendedQuantityMultiplier
 );
 
 public record RecordWasteRequest(

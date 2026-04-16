@@ -11,9 +11,12 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatCardModule } from '@angular/material/card';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { EventService } from '../../../core/services/event.service';
 import { RecipeService } from '../../../core/services/recipe.service';
-import { FloristEvent, Recipe, EventSummary } from '../../../shared/models/api.models';
+import { ItemService } from '../../../core/services/item.service';
+import { FlexItemService } from '../../../core/services/flex-item.service';
+import { FloristEvent, Recipe, EventSummary, FlexItem, Item } from '../../../shared/models/api.models';
 
 @Component({
   selector: 'app-event-detail',
@@ -29,16 +32,27 @@ import { FloristEvent, Recipe, EventSummary } from '../../../shared/models/api.m
     MatSelectModule,
     MatCardModule,
     MatDatepickerModule,
-    MatNativeDateModule
+    MatNativeDateModule,
+    MatSnackBarModule
   ],
   template: `
     <div class="container">
       <div class="header">
         <h1>{{ isNew ? 'New Event' : event?.name }}</h1>
-        <button mat-button (click)="goBack()">
-          <mat-icon>arrow_back</mat-icon>
-          Back
-        </button>
+        <div class="action-buttons">
+          <button mat-button (click)="goBack()">
+            <mat-icon>arrow_back</mat-icon>
+            Back
+          </button>
+          <button mat-stroked-button (click)="downloadProductionSheet()" [disabled]="isNew || isPdfGenerating">
+            @if (isPdfGenerating) {
+              <mat-icon>hourglass_empty</mat-icon>
+            } @else {
+              <mat-icon>assignment</mat-icon>
+            }
+            Production Sheet
+          </button>
+        </div>
       </div>
 
       @if (seasonalWarnings.length > 0) {
@@ -152,6 +166,100 @@ import { FloristEvent, Recipe, EventSummary } from '../../../shared/models/api.m
           </mat-card-content>
         </mat-card>
 
+        <mat-card class="mb-3">
+          <mat-card-content>
+            <div class="flex-items-header mb-3">
+              <span class="flex-section-title">Flex Items</span>
+              @if (!isAddingFlexItem) {
+                <button mat-raised-button color="accent" (click)="isAddingFlexItem = true">
+                  <mat-icon>add</mat-icon>
+                  Add Flex Item
+                </button>
+              }
+            </div>
+
+            <div class="info-hint mb-3">
+              <mat-icon>info</mat-icon>
+              <span>Add individual stems directly to this event — no recipe needed.</span>
+            </div>
+
+            @if (flexItems.length > 0) {
+              <table mat-table [dataSource]="flexItems" class="mat-elevation-z2 mb-2">
+                <ng-container matColumnDef="item">
+                  <th mat-header-cell *matHeaderCellDef>Item</th>
+                  <td mat-cell *matCellDef="let fi">{{ fi.itemName }}</td>
+                </ng-container>
+
+                <ng-container matColumnDef="vendor">
+                  <th mat-header-cell *matHeaderCellDef>Vendor</th>
+                  <td mat-cell *matCellDef="let fi">{{ fi.vendorName || '—' }}</td>
+                </ng-container>
+
+                <ng-container matColumnDef="qty">
+                  <th mat-header-cell *matHeaderCellDef>Qty Needed</th>
+                  <td mat-cell *matCellDef="let fi">{{ fi.quantityNeeded }}</td>
+                </ng-container>
+
+                <ng-container matColumnDef="costPerStem">
+                  <th mat-header-cell *matHeaderCellDef>Cost/Stem</th>
+                  <td mat-cell *matCellDef="let fi">{{ fi.costPerStem | currency }}</td>
+                </ng-container>
+
+                <ng-container matColumnDef="total">
+                  <th mat-header-cell *matHeaderCellDef>Total</th>
+                  <td mat-cell *matCellDef="let fi">{{ fi.lineTotalCost | currency }}</td>
+                </ng-container>
+
+                <ng-container matColumnDef="delete">
+                  <th mat-header-cell *matHeaderCellDef></th>
+                  <td mat-cell *matCellDef="let fi">
+                    <button mat-icon-button color="warn" (click)="deleteFlexItem(fi)" aria-label="Delete flex item">
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </td>
+                </ng-container>
+
+                <tr mat-header-row *matHeaderRowDef="flexColumns"></tr>
+                <tr mat-row *matRowDef="let row; columns: flexColumns;"></tr>
+              </table>
+
+              <div class="flex-total mb-2">
+                <strong>Total flex cost: {{ totalFlexCost | currency }}</strong>
+              </div>
+            }
+
+            @if (isAddingFlexItem) {
+              <form [formGroup]="flexItemForm" (ngSubmit)="addFlexItem()" class="flex-item-form mt-2">
+                <mat-form-field style="width: 250px; margin-right: 16px;">
+                  <mat-label>Item</mat-label>
+                  <mat-select formControlName="itemId" required>
+                    @for (item of availableItems; track item.id) {
+                      <mat-option [value]="item.id">{{ item.name }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+
+                <mat-form-field style="width: 120px; margin-right: 16px;">
+                  <mat-label>Quantity</mat-label>
+                  <input matInput type="number" formControlName="quantityNeeded" min="0.1" step="0.1" required>
+                </mat-form-field>
+
+                <mat-form-field style="width: 200px; margin-right: 16px;">
+                  <mat-label>Notes (optional)</mat-label>
+                  <input matInput formControlName="notes">
+                </mat-form-field>
+
+                <button mat-raised-button color="primary" type="submit" [disabled]="!flexItemForm.valid">
+                  Add
+                </button>
+                <button mat-button type="button" (click)="isAddingFlexItem = false; flexItemForm.reset({ quantityNeeded: 1 })">
+                  Cancel
+                </button>
+              </form>
+            }
+          </mat-card-content>
+        </mat-card>
+
         @if (summary) {
           <mat-card class="mb-3">
             <mat-card-header>
@@ -201,6 +309,12 @@ import { FloristEvent, Recipe, EventSummary } from '../../../shared/models/api.m
       margin-bottom: 24px;
     }
 
+    .action-buttons {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
     .warning-card {
       background-color: #fff3cd;
       border-left: 4px solid #f57c00;
@@ -237,6 +351,48 @@ import { FloristEvent, Recipe, EventSummary } from '../../../shared/models/api.m
       background: #f5f5f5;
       border-radius: 4px;
     }
+
+    .flex-items-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .flex-section-title {
+      font-size: 20px;
+      font-weight: 500;
+      color: rgba(0, 0, 0, 0.87);
+    }
+
+    .info-hint {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background-color: #e3f2fd;
+      border-radius: 4px;
+      color: #1565c0;
+      font-size: 14px;
+    }
+
+    .info-hint mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+
+    .flex-item-form {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .flex-total {
+      padding: 8px 0;
+      font-size: 15px;
+    }
   `]
 })
 export class EventDetailComponent implements OnInit {
@@ -244,18 +400,27 @@ export class EventDetailComponent implements OnInit {
   eventForm: FormGroup;
   isNew = false;
   availableRecipes: Recipe[] = [];
+  availableItems: Item[] = [];
   selectedRecipeId: string = '';
   newRecipeQuantity = 1;
   summary: EventSummary | null = null;
   recipeColumns = ['name', 'quantity', 'unitCost', 'totalCost'];
   seasonalWarnings: string[] = [];
+  isPdfGenerating = false;
+  flexItems: FlexItem[] = [];
+  flexItemForm!: FormGroup;
+  isAddingFlexItem = false;
+  flexColumns = ['item', 'vendor', 'qty', 'costPerStem', 'total', 'delete'];
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private fb: FormBuilder,
     private eventService: EventService,
-    private recipeService: RecipeService
+    private recipeService: RecipeService,
+    private itemService: ItemService,
+    private flexItemService: FlexItemService,
+    private snackBar: MatSnackBar
   ) {
     this.eventForm = this.fb.group({
       name: ['', Validators.required],
@@ -270,12 +435,19 @@ export class EventDetailComponent implements OnInit {
     const id = this.route.snapshot.paramMap.get('id');
     this.isNew = id === 'new';
 
+    this.flexItemForm = this.fb.group({
+      itemId: ['', Validators.required],
+      quantityNeeded: [1, [Validators.required, Validators.min(0.1)]],
+      notes: ['']
+    });
+
     if (!this.isNew && id) {
       this.loadEvent(id);
       this.loadSummary(id);
     }
 
     this.loadRecipes();
+    this.loadItems();
   }
 
   loadEvent(id: string) {
@@ -291,6 +463,7 @@ export class EventDetailComponent implements OnInit {
         });
         this.eventForm.markAsPristine();
         this.checkSeasonalItems();
+        this.loadFlexItems();
       },
       error: (err) => {
         console.error('Error loading event:', err);
@@ -317,6 +490,48 @@ export class EventDetailComponent implements OnInit {
       error: (err) => {
         console.error('Error loading summary:', err);
       }
+    });
+  }
+
+  loadItems(): void {
+    this.itemService.getItems(1, 1000).subscribe({
+      next: (response) => this.availableItems = response.items ?? [],
+      error: () => this.snackBar.open('Failed to load items', 'Dismiss', { duration: 3000 })
+    });
+  }
+
+  loadFlexItems(): void {
+    if (!this.event) return;
+    this.flexItemService.getFlexItems(this.event.id).subscribe({
+      next: items => this.flexItems = items,
+      error: () => this.snackBar.open('Failed to load flex items', 'Dismiss', { duration: 3000 })
+    });
+  }
+
+  get totalFlexCost(): number {
+    return this.flexItems.reduce((sum, item) => sum + item.lineTotalCost, 0);
+  }
+
+  addFlexItem(): void {
+    if (!this.flexItemForm.valid || !this.event) return;
+    const { itemId, quantityNeeded, notes } = this.flexItemForm.value;
+    this.flexItemService.addFlexItem(this.event.id, itemId, quantityNeeded, notes || undefined).subscribe({
+      next: (item) => {
+        this.flexItems = [...this.flexItems, item];
+        this.flexItemForm.reset({ quantityNeeded: 1 });
+        this.isAddingFlexItem = false;
+      },
+      error: () => this.snackBar.open('Failed to add flex item', 'Dismiss', { duration: 3000 })
+    });
+  }
+
+  deleteFlexItem(item: FlexItem): void {
+    if (!this.event) return;
+    this.flexItemService.deleteFlexItem(this.event.id, item.id).subscribe({
+      next: () => {
+        this.flexItems = this.flexItems.filter(fi => fi.id !== item.id);
+      },
+      error: () => this.snackBar.open('Failed to delete flex item', 'Dismiss', { duration: 3000 })
     });
   }
 
@@ -400,6 +615,104 @@ export class EventDetailComponent implements OnInit {
           console.error('Error generating order:', err);
         }
       });
+    }
+  }
+
+  async downloadProductionSheet() {
+    if (!this.event) return;
+    this.isPdfGenerating = true;
+    try {
+      const sheet = await this.eventService.getProductionSheet(this.event.id).toPromise();
+      if (!sheet) return;
+
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF();
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 14;
+      let y = 20;
+
+      // Title
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${sheet.eventName} — Production Sheet`, margin, y);
+      y += 8;
+
+      // Subtitles
+      const formattedDate = new Date(sheet.eventDate).toLocaleDateString();
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100);
+      doc.text(`Event Date: ${formattedDate} | Client: ${sheet.clientName ?? 'N/A'}`, margin, y);
+      y += 6;
+      doc.setTextColor(0);
+      doc.text(`Total Stems: ${sheet.totalStemCount}`, margin, y);
+      y += 4;
+
+      // Separator
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 8;
+
+      // Recipes
+      for (const recipe of sheet.recipes) {
+        if (y > 255) { doc.addPage(); y = 20; }
+
+        // Recipe header
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`\u{1F4CB} ${recipe.recipeName} \u00D7 ${recipe.quantity}`, margin, y);
+        y += 6;
+
+        // Notes
+        if (recipe.notes) {
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'italic');
+          doc.setTextColor(80);
+          doc.text(`(Note: ${recipe.notes})`, margin + 4, y);
+          doc.setTextColor(0);
+          y += 5;
+        }
+
+        // Table header
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        const col = { item: margin + 2, qty: 120, vendor: 150 };
+        doc.text('Item', col.item, y);
+        doc.text('Qty', col.qty, y);
+        doc.text('Vendor', col.vendor, y);
+        y += 2;
+        doc.line(margin, y, pageWidth - margin, y);
+        y += 5;
+
+        // Table rows
+        doc.setFont('helvetica', 'normal');
+        for (const li of recipe.items) {
+          if (y > 270) { doc.addPage(); y = 20; }
+          doc.text(String(li.itemName), col.item, y);
+          doc.text(String(li.quantityNeeded), col.qty, y);
+          doc.text(li.vendorName ?? '—', col.vendor, y);
+          y += 5;
+        }
+
+        doc.line(margin, y, pageWidth - margin, y);
+        y += 8;
+      }
+
+      // Footer
+      if (y > 265) { doc.addPage(); y = 20; }
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(120);
+      doc.text(`Generated by EzStem · ${new Date().toLocaleDateString()}`, margin, y);
+
+      const safeName = sheet.eventName.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      doc.save(`production-sheet-${safeName}-${dateStr}.pdf`);
+    } catch (err) {
+      console.error('Error generating production sheet:', err);
+      this.snackBar.open('Failed to generate production sheet. Please try again.', 'Dismiss', { duration: 4000 });
+    } finally {
+      this.isPdfGenerating = false;
     }
   }
 

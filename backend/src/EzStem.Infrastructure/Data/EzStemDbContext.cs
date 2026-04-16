@@ -16,6 +16,7 @@ public class EzStemDbContext : DbContext
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderLineItem> OrderLineItems => Set<OrderLineItem>();
     public DbSet<PricingConfig> PricingConfigs => Set<PricingConfig>();
+    public DbSet<FlexItem> FlexItems => Set<FlexItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -88,6 +89,13 @@ public class EzStemDbContext : DbContext
             entity.Property(p => p.MarkupFactor).HasPrecision(18, 4);
             entity.Property(p => p.OverheadPercent).HasPrecision(18, 4);
             entity.Property(p => p.LaborDefaultCost).HasPrecision(18, 4);
+        });
+
+        // FlexItem configuration
+        modelBuilder.Entity<FlexItem>(entity =>
+        {
+            entity.Property(f => f.QuantityNeeded).HasPrecision(18, 4);
+            entity.HasIndex(f => f.EventId);
         });
     }
 }

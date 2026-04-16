@@ -9,6 +9,30 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-04-15: Flex Mode — Direct Stem Items on Events
+
+**What was built:**
+- `FlexItem` domain entity: belongs to a `FloristEvent`, references an `Item`, carries `QuantityNeeded` + optional `Notes`
+- `IFlexItemService` + `FlexItemService`: full CRUD — GetFlexItemsAsync, AddFlexItemAsync, UpdateFlexItemAsync, DeleteFlexItemAsync
+- `FlexItemsController`: nested route `/api/events/{eventId}/flex-items` with GET / POST / PUT / DELETE
+- EF migration `AddFlexItems` — table with `EventId` index, `QuantityNeeded` precision (18,4)
+- Extended `OrderService.GenerateOrderAsync` to merge flex items into the item aggregation pass before order line item creation
+- Decision doc written to `.squad/decisions/inbox/linus-flex-mode.md` for Rusty
+
+**Key decisions:**
+- FlexItems are **physically deleted** (no soft-delete): they're transient planning additions, not auditable history
+- `LineTotalCost` is a live calculation (`QuantityNeeded * Item.CostPerStem`) — not stored, computed on read
+- Flex items merge with recipe-derived quantities during order generation (shared `itemId` → summed, bundle-rounded once)
+- `UpdateFlexItemRequest` uses nullable fields — pass `null` to leave a field unchanged; explicit `""` or `0` would overwrite
+
+**Test coverage (6 new tests, 32 total passing):**
+- AddFlexItem returns correct FlexItemResponse
+- GetFlexItems returns all items for event
+- Delete returns false for non-existent item
+- LineTotalCost calculated correctly (QuantityNeeded × CostPerStem)
+- Delete existing item removes and returns true
+- Update persists new quantity + notes, recalculates LineTotalCost
+
 ### 2026-04-14: P0 Backend APIs Implemented
 
 **What was built:**
@@ -179,4 +203,46 @@ Could not load type 'Microsoft.OpenApi.Any.IOpenApiAny' from assembly 'Microsoft
 
 **Verification:** Production build succeeded with 0 errors (1.38s). Only budget warning (acceptable).
 
-**Key learning:** On settings/configuration pages showing user's chosen defaults, avoid error-state colors (red). Use neutral tones with informational hints instead. Error colors imply validation failure, not user preference.
+### 2026-04-15: Waste Optimization Suggestions Added
+
+**What changed:**
+- Extended `WasteSummary` DTO with two new fields: `OptimizationSuggestions` (`IEnumerable<string>`) and `RecommendedQuantityMultiplier` (`decimal`)
+- Extracted private static helper `GetOptimizationSuggestions(decimal wastePercentage)` in `OrderService` — single source of truth used by both `CalculateWasteAsync` and `GetWasteAsync`
+- 5 existing waste tests updated to assert new fields; 2 new tests added (>30% high waste, <5% excellent efficiency)
+- All 32 backend tests pass; build 0 warnings/errors
+
+**Suggestion tier thresholds:**
+| WastePercentage | Multiplier | Suggestion count |
+|---|---|---|
+| > 30% | 0.75 | 2 (includes recipe quantity hint) |
+| 20–30% (exclusive) | 0.82 | 1 |
+| 10–20% (inclusive) | 0.90 | 1 |
+| 5–10% (exclusive) | 0.95 | 1 |
+| < 5% | 1.0 | 1 ("Excellent efficiency") |
+
+**Boundary note:** Exactly 20% falls into the 10–20 bucket (multiplier 0.90) because the "high" guard is `> 20`, matching the existing WasteCategory "Medium" boundary (`<= 20`). Keeps category and suggestion tiers consistent.
+
+**Format note:** Percentage values interpolated with `{wastePercentage:0.##}` — strips trailing decimal zeros (15.0 → "15", 15.5 → "15.5").
+
+### 2026-04-14: Production Sheet Endpoint Implemented
+
+**What was built:**
+- `GET /api/events/{id}/production-sheet` — returns what to make for an event (not what to buy)
+- 3 new DTOs: `ProductionSheetLineItem`, `ProductionSheetRecipe`, `ProductionSheetResponse`
+- `GetProductionSheetAsync` on `IEventService` + `EventService`
+- 4 new tests in `ProductionSheetTests.cs` (32 total pass)
+
+**Key patterns used:**
+- EF deep-include chain: `EventRecipes → Recipe → RecipeItems → Item → Vendor`
+- Quantity multiplication: `recipeItem.Quantity * eventRecipe.Quantity` per line item
+- `TotalStemCount` uses `(int)Sum(ri => ri.Quantity * er.Quantity)` across all EventRecipes
+- `Notes` on `ProductionSheetRecipe` sourced from `Recipe.Description` (no dedicated notes field exists)
+
+**Files changed:**
+- `backend/src/EzStem.Application/DTOs/EventDtos.cs` — 3 new DTO records added
+- `backend/src/EzStem.Application/Interfaces/IEventService.cs` — interface method added
+- `backend/src/EzStem.Infrastructure/Services/EventService.cs` — implementation added
+- `backend/src/EzStem.API/Controllers/EventsController.cs` — endpoint added
+- `backend/tests/EzStem.Tests/Services/ProductionSheetTests.cs` — new test file (4 tests)
+
+**Note:** Release build had a stale incremental cache issue (pre-existing) — `dotnet clean -c Release` before rebuild resolved it. Debug build was unaffected.

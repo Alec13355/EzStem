@@ -63,6 +63,8 @@ public class WasteServiceTests
         Assert.Equal(85, result.TotalStemsUsed);
         Assert.Equal(15, result.WastePercentage);
         Assert.Equal("Medium", result.WasteCategory);
+        Assert.Equal(0.90m, result.RecommendedQuantityMultiplier);
+        Assert.Contains(result.OptimizationSuggestions, s => s.Contains("Minor waste") && s.Contains("15"));
     }
 
     [Fact]
@@ -113,6 +115,8 @@ public class WasteServiceTests
         Assert.Equal(95, result.TotalStemsUsed);
         Assert.Equal(5, result.WastePercentage);
         Assert.Equal("Low", result.WasteCategory);
+        Assert.Equal(0.95m, result.RecommendedQuantityMultiplier);
+        Assert.Contains(result.OptimizationSuggestions, s => s.Contains("Good efficiency"));
     }
 
     [Fact]
@@ -163,6 +167,8 @@ public class WasteServiceTests
         Assert.Equal(75, result.TotalStemsUsed);
         Assert.Equal(25, result.WastePercentage);
         Assert.Equal("High", result.WasteCategory);
+        Assert.Equal(0.82m, result.RecommendedQuantityMultiplier);
+        Assert.Contains(result.OptimizationSuggestions, s => s.Contains("25") && s.Contains("15%"));
     }
 
     [Fact]
@@ -213,6 +219,8 @@ public class WasteServiceTests
         Assert.Equal(90, result.TotalStemsUsed);
         Assert.Equal(10, result.WastePercentage);
         Assert.Equal("Medium", result.WasteCategory);
+        Assert.Equal(0.90m, result.RecommendedQuantityMultiplier);
+        Assert.Contains(result.OptimizationSuggestions, s => s.Contains("Minor waste") && s.Contains("10"));
     }
 
     [Fact]
@@ -263,5 +271,78 @@ public class WasteServiceTests
         Assert.Equal(80, result.TotalStemsUsed);
         Assert.Equal(20, result.WastePercentage);
         Assert.Equal("Medium", result.WasteCategory);
+        Assert.Equal(0.90m, result.RecommendedQuantityMultiplier);
+        Assert.Contains(result.OptimizationSuggestions, s => s.Contains("Minor waste") && s.Contains("20"));
+    }
+
+    [Fact]
+    public async Task CalculateWaste_HighWaste_GeneratesTwoSuggestionsAndMultiplier075()
+    {
+        using var context = CreateInMemoryContext();
+        var service = new OrderService(context);
+
+        var vendor = new Vendor { Id = Guid.NewGuid(), Name = "Test Vendor" };
+        context.Vendors.Add(vendor);
+
+        var item = new Item { Id = Guid.NewGuid(), Name = "Rose", CostPerStem = 0.5m, BundleSize = 25, VendorId = vendor.Id };
+        context.Items.Add(item);
+
+        var evt = new FloristEvent { Id = Guid.NewGuid(), Name = "Wedding", EventDate = DateTime.UtcNow.AddDays(30) };
+        context.Events.Add(evt);
+
+        var order = new Order { Id = Guid.NewGuid(), EventId = evt.Id, Status = OrderStatus.Draft };
+        context.Orders.Add(order);
+
+        context.OrderLineItems.Add(new OrderLineItem
+        {
+            Id = Guid.NewGuid(), OrderId = order.Id, ItemId = item.Id,
+            VendorId = vendor.Id, QuantityNeeded = 60, QuantityOrdered = 100, CostPerUnit = 0.5m
+        });
+
+        await context.SaveChangesAsync();
+
+        // 35% waste (65 used out of 100)
+        var result = await service.CalculateWasteAsync(order.Id, 65);
+
+        Assert.Equal(35, result.WastePercentage);
+        Assert.Equal(0.75m, result.RecommendedQuantityMultiplier);
+        var suggestions = result.OptimizationSuggestions.ToList();
+        Assert.Equal(2, suggestions.Count);
+        Assert.Contains(suggestions, s => s.Contains("35") && s.Contains("20%"));
+        Assert.Contains(suggestions, s => s.Contains("recipe quantities"));
+    }
+
+    [Fact]
+    public async Task CalculateWaste_ExcellentEfficiency_GivesMultiplier10AndCorrectSuggestion()
+    {
+        using var context = CreateInMemoryContext();
+        var service = new OrderService(context);
+
+        var vendor = new Vendor { Id = Guid.NewGuid(), Name = "Test Vendor" };
+        context.Vendors.Add(vendor);
+
+        var item = new Item { Id = Guid.NewGuid(), Name = "Rose", CostPerStem = 0.5m, BundleSize = 25, VendorId = vendor.Id };
+        context.Items.Add(item);
+
+        var evt = new FloristEvent { Id = Guid.NewGuid(), Name = "Wedding", EventDate = DateTime.UtcNow.AddDays(30) };
+        context.Events.Add(evt);
+
+        var order = new Order { Id = Guid.NewGuid(), EventId = evt.Id, Status = OrderStatus.Draft };
+        context.Orders.Add(order);
+
+        context.OrderLineItems.Add(new OrderLineItem
+        {
+            Id = Guid.NewGuid(), OrderId = order.Id, ItemId = item.Id,
+            VendorId = vendor.Id, QuantityNeeded = 97, QuantityOrdered = 100, CostPerUnit = 0.5m
+        });
+
+        await context.SaveChangesAsync();
+
+        // 3% waste (97 used out of 100)
+        var result = await service.CalculateWasteAsync(order.Id, 97);
+
+        Assert.Equal(3, result.WastePercentage);
+        Assert.Equal(1.0m, result.RecommendedQuantityMultiplier);
+        Assert.Contains(result.OptimizationSuggestions, s => s.Contains("Excellent efficiency"));
     }
 }

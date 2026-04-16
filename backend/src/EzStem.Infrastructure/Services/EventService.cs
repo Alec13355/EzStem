@@ -223,6 +223,50 @@ public class EventService : IEventService
         );
     }
 
+    public async Task<ProductionSheetResponse?> GetProductionSheetAsync(Guid eventId, CancellationToken ct = default)
+    {
+        var evt = await _context.Events
+            .Include(e => e.EventRecipes)
+            .ThenInclude(er => er.Recipe)
+            .ThenInclude(r => r.RecipeItems)
+            .ThenInclude(ri => ri.Item)
+            .ThenInclude(i => i.Vendor)
+            .FirstOrDefaultAsync(e => e.Id == eventId, ct);
+
+        if (evt == null) return null;
+
+        int totalStemCount = 0;
+        var sheetRecipes = new List<ProductionSheetRecipe>();
+
+        foreach (var er in evt.EventRecipes)
+        {
+            var lineItems = er.Recipe.RecipeItems.Select(ri => new ProductionSheetLineItem(
+                ri.Item.Name,
+                ri.Item.Vendor?.Name,
+                ri.Quantity * er.Quantity,
+                "stems"
+            )).ToList();
+
+            totalStemCount += (int)er.Recipe.RecipeItems.Sum(ri => ri.Quantity * er.Quantity);
+
+            sheetRecipes.Add(new ProductionSheetRecipe(
+                er.Recipe.Name,
+                er.Quantity,
+                lineItems,
+                er.Recipe.Description
+            ));
+        }
+
+        return new ProductionSheetResponse(
+            evt.Id,
+            evt.Name,
+            evt.EventDate,
+            evt.ClientName,
+            sheetRecipes,
+            totalStemCount
+        );
+    }
+
     private EventRecipeResponse MapToEventRecipeResponse(EventRecipe er)
     {
         var recipeCost = _recipeService.GetRecipeCostAsync(er.RecipeId).Result;

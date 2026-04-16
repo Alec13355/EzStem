@@ -113,6 +113,19 @@ import { Order, OrderLineItem, VendorOrderGroup, WasteSummary } from '../../../s
                       }">{{ wasteResult.wastePercentage | number:'1.1-1' }}% ({{ wasteResult.wasteCategory }})</span>
                     </div>
                   </div>
+                  @if (wasteResult.optimizationSuggestions.length > 0) {
+                    <div class="optimization-tips">
+                      <div class="tips-header">💡 Optimization Tips</div>
+                      @if (wasteResult.recommendedQuantityMultiplier !== 1.0) {
+                        <div class="tips-multiplier">
+                          Next order recommendation: order at {{ wasteResult.recommendedQuantityMultiplier * 100 | number:'1.0-0' }}% of your current quantities.
+                        </div>
+                      }
+                      @for (suggestion of wasteResult.optimizationSuggestions; track suggestion) {
+                        <div class="tips-item">• {{ suggestion }}</div>
+                      }
+                    </div>
+                  }
                 </div>
               }
             </mat-card-content>
@@ -243,6 +256,29 @@ import { Order, OrderLineItem, VendorOrderGroup, WasteSummary } from '../../../s
 
     .export-btn {
       margin-left: 8px;
+    }
+
+    .optimization-tips {
+      background: #e3f2fd;
+      border-left: 4px solid #1976d2;
+      padding: 12px 16px;
+      border-radius: 4px;
+      margin-top: 12px;
+    }
+
+    .tips-header {
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .tips-multiplier {
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+
+    .tips-item {
+      font-size: 14px;
+      line-height: 1.6;
     }
   `]
 })

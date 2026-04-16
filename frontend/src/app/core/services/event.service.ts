@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
-import { FloristEvent, EventSummary, Order, PagedResponse } from '../../shared/models/api.models';
+import { FloristEvent, EventSummary, Order, PagedResponse, ProductionSheetResponse } from '../../shared/models/api.models';
 
 @Injectable({
   providedIn: 'root'
@@ -41,5 +41,9 @@ export class EventService {
 
   generateOrder(eventId: string): Observable<Order> {
     return this.api.post<Order>(`events/${eventId}/generate-order`, {});
+  }
+
+  getProductionSheet(eventId: string): Observable<ProductionSheetResponse> {
+    return this.api.get<ProductionSheetResponse>(`events/${eventId}/production-sheet`);
   }
 }

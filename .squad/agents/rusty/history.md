@@ -270,3 +270,92 @@
 
 **Approval:** APPROVED WITH NOTES (issues resolved) — Tess's UX review requirements met.
 
+
+### 2026-04-16: Production Sheet PDF Download
+
+**Feature:** "Production Sheet" download button on event-detail page.
+
+**Models Added (api.models.ts):**
+- `ProductionSheetLineItem` — itemName, vendorName, quantityNeeded, unit
+- `ProductionSheetRecipe` — recipeName, quantity, items[], notes
+- `ProductionSheetResponse` — eventId, eventName, eventDate, clientName, recipes[], totalStemCount
+
+**Service Change (event.service.ts):**
+- Imported `ProductionSheetResponse`
+- Added `getProductionSheet(eventId)` → `GET /api/events/{id}/production-sheet`
+
+**Component Changes (event-detail.component.ts):**
+- Added `MatSnackBarModule` to imports array, `MatSnackBar` injected into constructor
+- Added `isPdfGenerating = false` class property
+- Header refactored: single Back button → `.action-buttons` flex container with Back + Production Sheet buttons
+- "Production Sheet" button: `mat-stroked-button`, disabled on `isNew || isPdfGenerating`, hourglass/assignment icon toggle
+- `downloadProductionSheet()` async method using `jsPDF` dynamic import:
+  - Calls `getProductionSheet()` as a promise
+  - PDF layout: title (16pt bold), subtitle with date/client (10pt grey), total stems line, separator, per-recipe sections with header/notes/item table, footer
+  - Filename: `production-sheet-{eventName}-{date}.pdf`
+  - Error snackbar on failure, `isPdfGenerating` reset in finally block
+
+**Patterns Followed:**
+- Dynamic import `const { jsPDF } = await import('jspdf')` — matches order-detail pattern
+- `toPromise()` used on Observable within async method
+- Try/catch/finally for PDF generation lifecycle
+
+**Build Status:** ✅ 0 errors. Budget warning pre-existing (non-blocking).
+
+### 2026-04-16: Waste Optimization Suggestions UI
+
+**Features Added:**
+- `WasteSummary` interface extended with `optimizationSuggestions: string[]` and `recommendedQuantityMultiplier: number`
+- Optimization tips card displayed inline after waste stats in the Record Waste form result section
+- Card only renders if `optimizationSuggestions.length > 0` (no empty state rendered)
+- Multiplier line only renders if `recommendedQuantityMultiplier !== 1.0`
+- Multiplier displayed as percentage: `multiplier * 100` formatted with `number:'1.0-0'` pipe
+
+**UI Pattern:**
+- Light blue info card: `background: #e3f2fd; border-left: 4px solid #1976d2; padding: 12px 16px; border-radius: 4px;`
+- Consistent with pricing-settings info card style used elsewhere
+- Header "💡 Optimization Tips" at `font-weight: 600`
+- Each suggestion prefixed with `•` bullet character
+
+**Type Safety Note:**
+- Inside Angular `@if (wasteResult)` blocks, do NOT use `?.` on non-optional interface fields — it triggers NG8107 (unnecessary optional chain) and TS2532 (possibly undefined). Use direct property access: `wasteResult.optimizationSuggestions.length > 0`.
+
+**Build Status:** ✅ Production build passing (0 errors, CommonJS warnings only — pre-existing).
+
+### 2026-04-16: Flex Mode Frontend
+
+**Feature:** Flex Items UI on the event-detail page — lets florists add individual stems directly to an event without a recipe.
+
+**Files Created:**
+- `frontend/src/app/core/services/flex-item.service.ts` — CRUD service wrapping `/api/events/{eventId}/flex-items`
+
+**Files Modified:**
+- `frontend/src/app/shared/models/api.models.ts` — Added `FlexItem` interface (id, eventId, itemId, itemName, vendorId, vendorName, quantityNeeded, notes, costPerStem, lineTotalCost, createdAt)
+- `frontend/src/app/features/events/event-detail/event-detail.component.ts` — Full Flex Items integration
+
+**Component Changes (event-detail):**
+- Injected `ItemService` and `FlexItemService` alongside existing services
+- Added `availableItems: Item[]`, `flexItems: FlexItem[]`, `flexItemForm`, `isAddingFlexItem`, `flexColumns` properties
+- `flexItemForm` initialized in `ngOnInit` with itemId (required), quantityNeeded (required, min 0.1), notes (optional)
+- `loadItems()` — fetches all items with pageSize=1000 for the flex item select
+- `loadFlexItems()` — called from within `loadEvent()`'s success callback (after `this.event` is set)
+- `addFlexItem()` — validates form, posts to service, pushes to array, resets form, closes inline form
+- `deleteFlexItem(item)` — calls service, filters item from array on success
+- `get totalFlexCost()` — computed getter from `flexItems.reduce`
+
+**Template:**
+- Flex Items card inserted between Recipes card and Event Summary card
+- Custom flex header with title + "Add Flex Item" button (hidden while form is open)
+- Light blue info hint (`#e3f2fd` background, `#1565c0` text — matching Material info palette)
+- Material table with columns: item, vendor, qty, costPerStem, total, delete
+- Footer row showing total flex cost via `currency` pipe
+- Inline add form with item select (reuses `availableItems`), quantity, notes fields
+- Form cancel resets `flexItemForm` to `{ quantityNeeded: 1 }` defaults
+
+**Build:** ✅ 0 errors. Pre-existing bundle budget warning unchanged.
+
+**Pattern Notes:**
+- `availableItems` did NOT pre-exist in event-detail — added and loaded via `ItemService.getItems(1, 1000)`
+- `loadFlexItems()` is safe to call on every `loadEvent()` success (also fires on save) — harmless refresh
+- `MatSnackBar` and `MatSnackBarModule` were already present in event-detail from a prior session
+- `ItemService` and `FlexItemService` are both `providedIn: 'root'` — no additional DI setup needed

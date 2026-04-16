@@ -169,4 +169,43 @@ export interface WasteSummary {
   totalStemsUsed: number;
   wastePercentage: number;
   wasteCategory: 'Low' | 'Medium' | 'High';
+  optimizationSuggestions: string[];
+  recommendedQuantityMultiplier: number;
+}
+
+export interface ProductionSheetLineItem {
+  itemName: string;
+  vendorName: string | null;
+  quantityNeeded: number;
+  unit: string; // "stems"
+}
+
+export interface ProductionSheetRecipe {
+  recipeName: string;
+  quantity: number;
+  items: ProductionSheetLineItem[];
+  notes: string | null;
+}
+
+export interface ProductionSheetResponse {
+  eventId: string;
+  eventName: string;
+  eventDate: string;
+  clientName: string | null;
+  recipes: ProductionSheetRecipe[];
+  totalStemCount: number;
+}
+
+export interface FlexItem {
+  id: string;
+  eventId: string;
+  itemId: string;
+  itemName: string;
+  vendorId: string | null;
+  vendorName: string | null;
+  quantityNeeded: number;
+  notes: string | null;
+  costPerStem: number;
+  lineTotalCost: number;
+  createdAt: string;
 }

@@ -81,6 +81,14 @@ public class EventsController : ControllerBase
         return Ok(summary);
     }
 
+    [HttpGet("{id}/production-sheet")]
+    public async Task<ActionResult<ProductionSheetResponse>> GetProductionSheet(Guid id, CancellationToken ct = default)
+    {
+        var sheet = await _eventService.GetProductionSheetAsync(id, ct);
+        if (sheet == null) return NotFound();
+        return Ok(sheet);
+    }
+
     [HttpPost("{id}/recipes")]
     public async Task<ActionResult<EventRecipeResponse>> AddRecipeToEvent(
         Guid id,

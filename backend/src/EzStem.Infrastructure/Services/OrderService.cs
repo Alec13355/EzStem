@@ -48,6 +48,26 @@ public class OrderService : IOrderService
             }
         }
 
+        // Include flex items — direct stem additions outside recipes
+        var flexItems = await _context.FlexItems
+            .Include(f => f.Item)
+            .ThenInclude(i => i.Vendor)
+            .Where(f => f.EventId == eventId)
+            .ToListAsync(ct);
+
+        foreach (var flexItem in flexItems)
+        {
+            if (itemAggregates.ContainsKey(flexItem.ItemId))
+            {
+                var current = itemAggregates[flexItem.ItemId];
+                itemAggregates[flexItem.ItemId] = (current.item, current.quantity + flexItem.QuantityNeeded);
+            }
+            else
+            {
+                itemAggregates[flexItem.ItemId] = (flexItem.Item, flexItem.QuantityNeeded);
+            }
+        }
+
         var order = new Order
         {
             Id = Guid.NewGuid(),
@@ -190,8 +210,9 @@ public class OrderService : IOrderService
         await _context.SaveChangesAsync(ct);
 
         var category = wastePercentage < 10 ? "Low" : wastePercentage <= 20 ? "Medium" : "High";
+        var (suggestions, multiplier) = GetOptimizationSuggestions(wastePercentage);
 
-        return new WasteSummary(totalStemsOrdered, actualStemsUsed, wastePercentage, category);
+        return new WasteSummary(totalStemsOrdered, actualStemsUsed, wastePercentage, category, suggestions, multiplier);
     }
 
     public async Task<WasteSummary?> GetWasteAsync(Guid orderId, CancellationToken ct = default)
@@ -206,8 +227,44 @@ public class OrderService : IOrderService
         var totalStemsOrdered = order.LineItems.Sum(li => li.QuantityOrdered);
         var actualStemsUsed = totalStemsOrdered - (totalStemsOrdered * order.WastePercentage.Value / 100);
         var category = order.WastePercentage.Value < 10 ? "Low" : order.WastePercentage.Value <= 20 ? "Medium" : "High";
+        var (suggestions, multiplier) = GetOptimizationSuggestions(order.WastePercentage.Value);
 
-        return new WasteSummary(totalStemsOrdered, actualStemsUsed, order.WastePercentage.Value, category);
+        return new WasteSummary(totalStemsOrdered, actualStemsUsed, order.WastePercentage.Value, category, suggestions, multiplier);
+    }
+
+    private static (IEnumerable<string> suggestions, decimal multiplier) GetOptimizationSuggestions(decimal wastePercentage)
+    {
+        var pct = $"{wastePercentage:0.##}";
+
+        if (wastePercentage > 30)
+            return (new[]
+            {
+                $"You had {pct}% waste — consider ordering 20% fewer stems next time.",
+                "Review your recipe quantities — they may be set too high."
+            }, 0.75m);
+
+        if (wastePercentage > 20)
+            return (new[]
+            {
+                $"You had {pct}% waste — try ordering 15% fewer stems next time."
+            }, 0.82m);
+
+        if (wastePercentage >= 10)
+            return (new[]
+            {
+                $"Minor waste ({pct}%). Consider reducing orders by 10% for leaner buying."
+            }, 0.90m);
+
+        if (wastePercentage >= 5)
+            return (new[]
+            {
+                "Good efficiency! A small 5% buffer reduction could save costs."
+            }, 0.95m);
+
+        return (new[]
+        {
+            "Excellent efficiency — you're using nearly everything you order."
+        }, 1.0m);
     }
 
     public async Task<string> GenerateOrderCsvAsync(Guid orderId, CancellationToken ct = default)
