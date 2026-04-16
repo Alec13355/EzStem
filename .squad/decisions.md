@@ -998,3 +998,53 @@ Flex Items section integrated inline on event-detail page.
 **Design**: `#e3f2fd` background + `#1976d2` left border — matches existing pricing-settings info card pattern for "informational, non-critical" content. Card hidden when `optimizationSuggestions.length === 0`. Multiplier hint suppressed when `recommendedQuantityMultiplier === 1.0`.
 
 **Type safety note**: Avoided `?.` optional chain on non-optional interface fields inside `@if` blocks — Angular template type narrowing + NG8107/TS2532 interaction requires direct property access on guaranteed fields.
+
+---
+
+## P1 UX Epic
+
+### Azure Blob Storage Infra for Item Images (Basher — 2026-04-15)
+
+Extended `infra/modules/storage.bicep` to add a dedicated `item-images` blob container (public blob access, no container listing). CORS restricted to `GET`/`HEAD` only — uploads must go through backend API. Connection string stored in Key Vault secret `AzureBlobStorageConnectionString` and injected into App Service as `AzureBlobStorage__ConnectionString`. No new Azure resource — extends existing storage account. Pattern mirrors `staticwebapp.bicep` for `listKeys()` output.
+
+### Item Image Upload API (Linus — 2026-04-15)
+
+`POST /api/items/upload-image` — multipart/form-data, field `file`. Accepts JPG/PNG/WebP up to 5MB. Returns `{ "url": "<blob public URL>" }`. Interface `IImageStorageService` in Application layer; `AzureImageStorageService` in Infrastructure. Blob named `{Guid}/{originalFileName}`. Config key: `AzureBlobStorage:ConnectionString` (dev: `UseDevelopmentStorage=true`). Container `item-images` created automatically with `PublicAccessType.Blob` on first upload.
+
+### Item Image Upload UI (Rusty — 2026-04-16, Issue #11)
+
+Replaced `imageUrl` text input in item form with drag-and-drop upload zone. Local `FileReader` preview fires before backend response. Client-side validation: JPG/PNG/WebP, max 5MB. `ApiService.post` used for upload (no explicit `Content-Type` — browser sets `multipart/form-data; boundary=...` automatically when body is `FormData`). Thumbnails in item list; 🌸 emoji fallback when no image. Edit mode: `imagePreviewUrl` initialized from form value in `ngOnInit`.
+
+### P1 UX Wave 1 — Empty States, Seasonal Badges, Search/Filter, Item Swap (Rusty — Issues #10, #12, #9, #7)
+
+**#10 Empty States**: `EmptyStateComponent` with `actionCallback: () => void` @Input. Items/Vendors use dialog-based creation — callback calls existing dialog opener methods (no `/items/new` route). Existing loading spinner behavior preserved.
+
+**#12 Seasonal Badges**: Season chips inline in item name cell (not separate column) to minimize table width. `isInSeason()` handles year-boundary wrap (e.g., Nov–Feb) with or-condition. Recipe detail loads full item library to get seasonal metadata for RecipeItems. `getCurrentMonthName()` in out-of-season tooltip.
+
+**#9 Search & Filter**: Item Library uses server-side search (name); vendor/seasonal/active filters applied client-side. `isActive` added as optional boolean to Item interface. Filters reflected in URL query params via `queryParamsHandling: 'merge'`. Filter chips use `(removed)` event + `FormControl.setValue('')` pattern.
+
+**#7 Item Swap**: `firstValueFrom(dialogRef.afterClosed())` pattern for clean async flow. Updates RecipeItem in-place on success (no full reload). Uses existing `availableItems` array from item library load.
+
+### Production Sheet API (Linus — 2026-04-14)
+
+`GET /api/events/{id}/production-sheet` — florist setup-day guide (what to make, not what to buy). DTOs: `ProductionSheetLineItem`, `ProductionSheetRecipe`, `ProductionSheetResponse`. Loads full include chain: `EventRecipes → Recipe → RecipeItems → Item → Vendor`. Per EventRecipe: multiplies RecipeItem quantity by EventRecipe.Quantity. `TotalStemCount` = sum of all (recipeItem.Quantity × eventRecipe.Quantity). Notes sourced from `Recipe.Description`. 4 tests.
+
+### Production Sheet PDF Download UI (Rusty — 2026-04-16)
+
+"Download Production Sheet" button in event-detail header action area (alongside "Back"), not inside summary card — keeps document-level actions separate from data-mutation actions. `toPromise()` inside async `downloadProductionSheet()` to stay consistent with `await import('jspdf')` pattern. Three-column item table: Item | Qty | Vendor (cost excluded — production sheet is for setup crew). `isPdfGenerating` covers both network fetch and PDF generation. No server-side PDF — matches existing order-detail client-side jsPDF pattern.
+
+### FlexItem API Contract (Linus — 2026-04-15)
+
+CRUD under `/api/events/{eventId}/flex-items` (`[Authorize]`). `FlexItemResponse` includes live-calculated `lineTotalCost = quantityNeeded * costPerStem` (not stored). When `generate-order` is called, flex items are merged into the same aggregation pass as recipe items — quantities summed if same `itemId`. `vendorId`/`vendorName` nullable. Physical delete (no soft-delete) — flex items are transient planning additions.
+
+### Flex Mode UI (Rusty — 2026-04-16)
+
+Flex Items card integrated inline on event-detail (no separate route). `availableItems` loaded fresh via `ItemService.getItems(1, 1000)` — consider caching at service level if item counts grow large. `loadFlexItems()` called from `loadEvent()` — ensures flex items load only after `this.event` is set. Immutable array updates: spread for add, filter for delete. `currency` pipe for cost display. Update (PUT) implemented in service but not yet wired to UI edit flow.
+
+### Waste Optimization Suggestions — Backend (Linus — 2026-04-15)
+
+Extended `WasteSummary` DTO with `OptimizationSuggestions: IEnumerable<string>` and `RecommendedQuantityMultiplier: decimal`. Tier logic: >30% → multiplier 0.75; >20–30% → 0.82; 10–20% → 0.90; 5–10% → 0.95; <5% → 1.0. Exactly 20% falls in 10–20% bucket (multiplier 0.90) — consistent with `WasteCategory` boundary. Additive only, no breaking changes.
+
+### Waste Optimization Suggestions UI (Rusty — 2026-04-16)
+
+"💡 Optimization Tips" card appears inline in order-detail waste result section after waste is recorded. Style: `#e3f2fd` background + `#1976d2` left border — matches existing pricing-settings info card pattern. Card hidden when `optimizationSuggestions.length === 0`. Multiplier hint suppressed when `recommendedQuantityMultiplier === 1.0`. Avoided `?.` optional chain on non-optional interface fields inside `@if` blocks — Angular template type narrowing requires direct property access to prevent NG8107/TS2532.
