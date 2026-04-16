@@ -4,6 +4,21 @@ Use this checklist to ensure a smooth deployment to Azure.
 
 ---
 
+## ✅ Storage — Item Images
+
+The `storage.bicep` module provisions a single Azure Storage Account that serves two purposes:
+1. **Frontend static website hosting** — Angular build artifacts served via `$web` container
+2. **Item image uploads** — `item-images` blob container with public `Blob`-level read access and CORS (GET/HEAD from any origin)
+
+**Connection string provisioned automatically:**
+- Key Vault secret: `AzureBlobStorageConnectionString` (stored by `keyvault.bicep`)
+- App Service app setting: `AzureBlobStorage__ConnectionString` (double underscore = nested JSON config)
+- Both are wired via `storage.outputs.connectionString` in `main.bicep` — no manual secret entry required
+
+**Storage account naming:** `replace('${appName}storage', '-', '')` → e.g. `ezstemdevstorage`
+
+---
+
 ## ✅ Pre-Deployment Checklist
 
 - [ ] Azure CLI installed (`az --version`)

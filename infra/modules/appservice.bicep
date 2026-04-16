@@ -16,6 +16,9 @@ param appInsightsConnectionString string
 @description('Hostname of the Static Web App for CORS (without https://)')
 param swaHostname string = ''
 
+@description('Blob storage connection string for image uploads')
+param blobStorageConnectionString string
+
 var appServicePlanName = '${appName}-plan'
 var webAppName = '${appName}-api'
 var sku = environment == 'prod' ? 'P2v3' : 'B1'
@@ -75,6 +78,10 @@ resource webApp 'Microsoft.Web/sites@2023-01-01' = {
         {
           name: 'ASPNETCORE_URLS'
           value: 'http://+:8080'
+        }
+        {
+          name: 'AzureBlobStorage__ConnectionString'
+          value: blobStorageConnectionString
         }
         {
           name: 'SCM_DO_BUILD_DURING_DEPLOYMENT'

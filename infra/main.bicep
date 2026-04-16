@@ -26,6 +26,7 @@ module appService 'modules/appservice.bicep' = {
     sqlConnectionString: database.outputs.connectionString
     appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
     swaHostname: staticWebApp.outputs.swaDefaultHostname
+    blobStorageConnectionString: storage.outputs.connectionString
   }
 }
 
@@ -48,6 +49,7 @@ module keyVault 'modules/keyvault.bicep' = {
     location: location
     appName: appName
     sqlConnectionString: database.outputs.connectionString
+    blobStorageConnectionString: storage.outputs.connectionString
   }
 }
 

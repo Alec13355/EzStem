@@ -130,7 +130,23 @@
 - **OIDC service principal permissions:** Keep OIDC SP permissions minimal — only infra deployment scope, not directory reads
 - **DB naming derivation:** The pattern `DB_NAME="${SQL_SERVER%-sql}-db"` correctly strips `-sql` suffix and adds `-db` (verified against Bicep naming: `${appName}-sql` → `${appName}-db`)
 
-### Azure Static Web Apps SPA Routing Configuration (2026-04-15)
+### Blob Storage for Item Images (Issue #11 — infra portion)
+
+**Date:** 2026-04-15
+
+**What was added:**
+- Enhanced `infra/modules/storage.bicep` with a `blobService` resource (CORS), `item-images` container (public Blob access), and a `connectionString` output
+- Added `AzureBlobStorageConnectionString` secret to Key Vault via `keyvault.bicep`
+- Added `AzureBlobStorage__ConnectionString` app setting to App Service via `appservice.bicep`
+- Wired `storage.outputs.connectionString` to both modules in `main.bicep`
+
+**Key learnings:**
+- The existing storage account (`ezstemdevstorage`) doubles as both frontend static website host and image storage — one account, two containers (`$web` + `item-images`)
+- `listKeys()` in a Bicep output triggers `outputs-should-not-contain-secrets` linter warning — acceptable since KV immediately stores it; same pattern used by `staticwebapp.bicep`
+- Double underscore in app setting name (`AzureBlobStorage__ConnectionString`) maps to nested JSON config in ASP.NET Core — no code changes needed on the consumer side
+- Bicep dependency graph automatically handles ordering: `appService` and `keyVault` modules now implicitly depend on `storage` module
+
+
 
 **Problem:** Angular SPA shows 404 errors when users refresh on any route (e.g., `/items`, `/orders/abc-123`). Azure Static Web Apps tries to find a server-side file at that path instead of serving the SPA's `index.html`.
 

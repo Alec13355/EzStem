@@ -8,14 +8,13 @@ param location string
 param appName string
 
 var storageAccountName = replace('${appName}storage', '-', '')
-var storageSku = 'Standard_LRS'
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: storageAccountName
   location: location
   kind: 'StorageV2'
   sku: {
-    name: storageSku
+    name: 'Standard_LRS'
   }
   properties: {
     accessTier: 'Hot'
@@ -25,6 +24,37 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   }
 }
 
+resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01' = {
+  parent: storageAccount
+  name: 'default'
+  properties: {
+    cors: {
+      corsRules: [
+        {
+          allowedOrigins: ['*']
+          allowedMethods: ['GET', 'HEAD']
+          allowedHeaders: ['*']
+          exposedHeaders: ['*']
+          maxAgeInSeconds: 3600
+        }
+      ]
+    }
+  }
+}
+
+resource itemImagesContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = {
+  parent: blobService
+  name: 'item-images'
+  properties: {
+    publicAccess: 'Blob'
+  }
+}
+
+@description('Storage account connection string')
+output connectionString string = 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};AccountKey=${storageAccount.listKeys().keys[0].value};EndpointSuffix=${az.environment().suffixes.storage}'
+
+@description('Storage account name')
 output storageAccountName string = storageAccount.name
+
 output storageAccountId string = storageAccount.id
 output primaryEndpoint string = storageAccount.properties.primaryEndpoints.web

@@ -11,6 +11,10 @@ param appName string
 @secure()
 param sqlConnectionString string
 
+@description('Blob storage connection string to store')
+@secure()
+param blobStorageConnectionString string
+
 var keyVaultName = 'ez-${environment}-kv-${substring(uniqueString(resourceGroup().id), 0, 8)}'
 
 resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
@@ -34,6 +38,14 @@ resource sqlConnectionSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   name: 'SqlConnectionString'
   properties: {
     value: sqlConnectionString
+  }
+}
+
+resource blobStorageConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'AzureBlobStorageConnectionString'
+  properties: {
+    value: blobStorageConnectionString
   }
 }
 
