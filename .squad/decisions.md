@@ -914,3 +914,87 @@ No changes required in:
 This was not blocked and the CORS fix was applied as requested. However, the team should confirm whether a dedicated production API (`ezstem-api.azurewebsites.net` or similar) is planned, and whether the frontend's API base URL needs updating once it exists.
 
 **Files Changed:** `backend/src/EzStem.API/appsettings.json`
+
+---
+
+## P1 Features
+
+### Production Sheet API Endpoint (Linus — 2026-04-14)
+
+Added `GET /api/events/{id}/production-sheet` endpoint that returns a florist setup-day guide showing **what to make** for an event, distinct from the purchase order which shows what to buy.
+
+**New DTOs** (`EventDtos.cs`): `ProductionSheetLineItem`, `ProductionSheetRecipe`, `ProductionSheetResponse`
+
+**Service** (`EventService.GetProductionSheetAsync`): Loads event with full chain `EventRecipes → Recipe → RecipeItems → Item → Vendor`. Per EventRecipe: multiplies each RecipeItem quantity by EventRecipe.Quantity. Returns null if event not found.
+
+**Controller**: `[HttpGet("{id}/production-sheet")]` → 404 if not found, 200 with sheet.
+
+**Tests** (`ProductionSheetTests.cs`): 4 tests covering single recipe, multi-recipe, non-existent event, stacked quantities.
+
+---
+
+### FlexItem API Contract (Linus — 2026-04-15)
+
+Flex Mode lets florists add individual stem items directly to an event without going through the recipe builder.
+
+**Endpoints** (all under `/api/events/{eventId}/flex-items`):
+- `GET` — returns all flex items ordered by creation date
+- `POST` — adds a flex item (`itemId`, `quantityNeeded`, optional `notes`)
+- `PUT /{flexItemId}` — updates quantity and/or notes
+- `DELETE /{flexItemId}` — physically deletes (no soft-delete)
+
+**Order Generation Impact**: Flex items are merged into the same aggregation pass as recipe items. If a flex item shares an `itemId` with a recipe item, their quantities are summed and a single order line item is produced (with bundle rounding applied to the combined total).
+
+**`lineTotalCost`** is a live calculation (`quantityNeeded × costPerStem`) — not stored, computed on read.
+
+---
+
+### Waste Optimization Suggestions — DTO Extension (Linus — 2026-04-15)
+
+Extended `WasteSummary` DTO with `OptimizationSuggestions` (string array) and `RecommendedQuantityMultiplier` (decimal).
+
+**5-Tier Logic** (`OrderService.GetOptimizationSuggestions`):
+
+| Threshold | Multiplier | Notes |
+|---|---|---|
+| `> 30%` | `0.75` | Two suggestions |
+| `> 20% && ≤ 30%` | `0.82` | One suggestion |
+| `>= 10% && ≤ 20%` | `0.90` | One suggestion |
+| `>= 5% && < 10%` | `0.95` | One suggestion |
+| `< 5%` | `1.0` | "Excellent efficiency" |
+
+**Boundary**: Exactly 20% → `>= 10% && ≤ 20%` bucket (multiplier 0.90). Keeps category label and suggestion tier aligned. Additive-only change — no breaking changes to consumers.
+
+---
+
+### Production Sheet PDF Download — Frontend (Rusty — 2026-04-16)
+
+Download button placed in header action area alongside "Back" — keeps document-level actions separate from data-mutation actions.
+
+**PDF layout**: Three-column item table (Item | Qty | Vendor). Cost data intentionally excluded — production sheet is for setup crew, not accounting. `isPdfGenerating` covers both the network fetch and PDF generation; no separate loading state.
+
+**Client-side jsPDF** chosen over server-side PDF to match existing order-detail pattern and avoid adding a backend dependency.
+
+---
+
+### Flex Mode UI — Frontend (Rusty — 2026-04-16)
+
+Flex Items section integrated inline on event-detail page.
+
+**Key decisions**:
+- No separate route — reduces context switching for florists
+- `availableItems` loaded fresh via `ItemService.getItems(1, 1000)` — consider caching at service level if item counts grow large
+- `loadFlexItems()` called from `loadEvent()` — ensures flex items load only after `this.event` is set
+- Immutable array updates: `addFlexItem` uses spread, `deleteFlexItem` uses filter — keeps Angular change detection clean
+- `currency` pipe used for cost display (new UI, no legacy constraints)
+- Update (PUT) implemented in service but not yet wired to UI edit flow
+
+---
+
+### Waste Optimization Suggestions UI (Rusty — 2026-04-16)
+
+"💡 Optimization Tips" card added inline in the order-detail waste result section, appearing after waste is recorded.
+
+**Design**: `#e3f2fd` background + `#1976d2` left border — matches existing pricing-settings info card pattern for "informational, non-critical" content. Card hidden when `optimizationSuggestions.length === 0`. Multiplier hint suppressed when `recommendedQuantityMultiplier === 1.0`.
+
+**Type safety note**: Avoided `?.` optional chain on non-optional interface fields inside `@if` blocks — Angular template type narrowing + NG8107/TS2532 interaction requires direct property access on guaranteed fields.
