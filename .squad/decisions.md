@@ -883,3 +883,34 @@ Build: ✅ 0 errors (1.38s)
 
 All blocking issues resolved. P0 Vendor CRUD UI + Pricing Settings feature complete and production-ready at commit 84f318a.
 
+
+---
+
+## CORS Configuration — Linus (2026-04-16)
+
+**Date:** 2026-04-16  
+**Agent:** Linus (Backend Dev)  
+**Status:** Implemented
+
+### Problem
+
+The frontend at `https://ezstem.net` was CORS-blocked when calling `https://ezstem-dev-api.azurewebsites.net`. The preflight request failed because `Access-Control-Allow-Origin` was not returned — `ezstem.net` was not in the `AllowedOrigins` list in `appsettings.json`.
+
+### Solution
+
+Added `https://ezstem.net` to `AllowedOrigins` in `backend/src/EzStem.API/appsettings.json`.
+
+No changes required in:
+- `appsettings.Development.json` — no `AllowedOrigins` key present; dev env inherits from base config and `ezstem.net` is a production origin.
+- `appsettings.Production.json` — does not exist.
+
+### ⚠️ Note for Team: Production Frontend → Dev API
+
+`https://ezstem.net` (production frontend) is calling `https://ezstem-dev-api.azurewebsites.net` (dev API). This is either:
+
+1. **Intentional staging behaviour** — production UI being smoke-tested against the dev backend before a production API exists, OR
+2. **Configuration drift** — the frontend is pointed at the wrong backend URL.
+
+This was not blocked and the CORS fix was applied as requested. However, the team should confirm whether a dedicated production API (`ezstem-api.azurewebsites.net` or similar) is planned, and whether the frontend's API base URL needs updating once it exists.
+
+**Files Changed:** `backend/src/EzStem.API/appsettings.json`
