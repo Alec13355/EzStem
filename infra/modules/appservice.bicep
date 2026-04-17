@@ -80,7 +80,7 @@ resource webApp 'Microsoft.Web/sites@2023-01-01' = {
           value: 'http://+:8080'
         }
         {
-          name: 'AzureBlobStorage__ConnStr'
+          name: 'ImageStorage__ConnStr'
           value: blobStorageConnectionString
         }
         {
