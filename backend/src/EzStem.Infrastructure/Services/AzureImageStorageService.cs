@@ -12,8 +12,8 @@ public class AzureImageStorageService : IImageStorageService
 
     public AzureImageStorageService(IConfiguration config)
     {
-        var connStr = config["AzureBlobStorage:ConnectionString"]
-            ?? throw new InvalidOperationException("AzureBlobStorage:ConnectionString not configured");
+        var connStr = config["AzureBlobStorage:AccountConnectionString"]
+            ?? throw new InvalidOperationException("AzureBlobStorage:AccountConnectionString not configured");
         var serviceClient = new BlobServiceClient(connStr);
         _container = serviceClient.GetBlobContainerClient(ContainerName);
     }
