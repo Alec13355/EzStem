@@ -93,10 +93,14 @@ resource webApp 'Microsoft.Web/sites@2023-01-01' = {
         }
         {
           name: 'AzureAd__Authority'
-          value: 'https://ezstem.ciamlogin.com/fdd626a3-0e01-441d-a864-4415ad287675'
+          value: 'https://ezstem.ciamlogin.com/fdd626a3-0e01-441d-a864-4415ad287675/v2.0'
         }
         {
           name: 'AzureAd__ClientId'
+          value: '97f156cd-f562-42e1-8de6-6e82c543fa86'
+        }
+        {
+          name: 'AzureAd__Audience'
           value: '97f156cd-f562-42e1-8de6-6e82c543fa86'
         }
         {
