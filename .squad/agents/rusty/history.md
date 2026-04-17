@@ -390,3 +390,15 @@
 - After MSAL login, the redirect callback couldn't be handled on ezstem.net, so `_account` was never set, `getToken()` returned `null`, and every API call was sent without an Authorization header — causing 401s everywhere and no data loading in the app.
 - Fix: update both URIs in `environment.prod.ts` to `https://ezstem.net`.
 - **Remember:** always verify both `redirectUri` and `postLogoutRedirectUri` match the live domain when deploying to a new host.
+
+### Bug Fix: Infinite Spinner on Empty List Views (2025)
+- `item-list` and `vendor-list` initialized `loading = false`, causing a flash of `<app-empty-state>` before the spinner appeared on first render. Fix: initialize `loading = true`.
+- `recipe-list`, `event-list`, and `order-list` had **no loading state at all** — the empty-state check (`@if (items.length > 0)`) ran immediately on render with `items = []`, showing "no data" while the HTTP call was still in flight.
+- Fix: add `isLoading = true` property, wrap `loadX()` observable with `.pipe(finalize(() => this.isLoading = false))`, and update templates to `@if (isLoading) { spinner } @else if (items.length > 0) { table } @else { empty-state }`.
+- **Remember:** always initialize loading to `true` and use `finalize()` (not just the `next` branch) so the spinner clears on both success and error — even when the API returns `[]`.
+
+### Spinner Bug Review (Current Analysis)
+- **Status:** Bug does NOT exist in current codebase. All list components follow correct patterns.
+- **Verified Components:** `item-list`, `vendor-list`, `event-list`, `order-list`, `recipe-list` all use `finalize(() => this.isLoading = false)` pattern and proper template structure `@if (loading) { spinner } @else if (data.length > 0) { table } @else { empty-state }`.
+- **Root Cause:** The bug described in the reported symptom was already fixed in a previous session (2025). All current components correctly handle empty arrays by always setting loading to false and always assigning data even when `response.items = []`.
+- **Pattern Confirmation:** `finalize()` ensures loading clears on both success AND error, template structure ensures empty state shows when `loading = false` AND `data.length === 0`.
