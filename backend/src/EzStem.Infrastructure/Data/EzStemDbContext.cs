@@ -48,6 +48,7 @@ public class EzStemDbContext : DbContext
             entity.HasQueryFilter(r => !r.IsDeleted);
             entity.HasIndex(r => r.Name);
             entity.HasIndex(r => r.IsDeleted);
+            entity.HasIndex(r => r.OwnerId);
         });
 
         // RecipeItem configuration
@@ -64,6 +65,7 @@ public class EzStemDbContext : DbContext
             entity.HasIndex(e => e.Name);
             entity.HasIndex(e => e.EventDate);
             entity.HasIndex(e => e.IsDeleted);
+            entity.HasIndex(e => e.OwnerId);
         });
 
         // Order configuration
@@ -73,6 +75,7 @@ public class EzStemDbContext : DbContext
             entity.HasQueryFilter(o => !o.IsDeleted);
             entity.HasIndex(o => o.EventId);
             entity.HasIndex(o => o.IsDeleted);
+            entity.HasIndex(o => o.OwnerId);
         });
 
         // OrderLineItem configuration
@@ -86,9 +89,9 @@ public class EzStemDbContext : DbContext
         // PricingConfig configuration
         modelBuilder.Entity<PricingConfig>(entity =>
         {
-            entity.Property(p => p.MarkupFactor).HasPrecision(18, 4);
-            entity.Property(p => p.OverheadPercent).HasPrecision(18, 4);
-            entity.Property(p => p.LaborDefaultCost).HasPrecision(18, 4);
+            entity.Property(p => p.DefaultMarkupPercentage).HasPrecision(18, 4);
+            entity.Property(p => p.DefaultLaborRate).HasPrecision(18, 4);
+            entity.HasIndex(p => p.OwnerId);
         });
 
         // FlexItem configuration

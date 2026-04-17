@@ -7,6 +7,8 @@ namespace EzStem.Tests.Services;
 
 public class OrderServiceTests
 {
+    private const string TestOwnerId = "test-user-123";
+
     private EzStemDbContext CreateInMemoryContext()
     {
         var options = new DbContextOptionsBuilder<EzStemDbContext>()
@@ -28,7 +30,7 @@ public class OrderServiceTests
         var hydrangea = new Item { Id = Guid.NewGuid(), Name = "Hydrangea", CostPerStem = 2.0m, BundleSize = 10, VendorId = vendor.Id };
         context.Items.AddRange(rose, hydrangea);
 
-        var recipe = new Recipe { Id = Guid.NewGuid(), Name = "Centerpiece", LaborCost = 5.0m };
+        var recipe = new Recipe { Id = Guid.NewGuid(), Name = "Centerpiece", LaborCost = 5.0m, OwnerId = TestOwnerId };
         context.Recipes.Add(recipe);
 
         context.RecipeItems.AddRange(
@@ -40,7 +42,8 @@ public class OrderServiceTests
         {
             Id = Guid.NewGuid(),
             Name = "Wedding",
-            EventDate = DateTime.UtcNow.AddDays(30)
+            EventDate = DateTime.UtcNow.AddDays(30),
+            OwnerId = TestOwnerId
         };
         context.Events.Add(evt);
 
@@ -50,7 +53,7 @@ public class OrderServiceTests
 
         await context.SaveChangesAsync();
 
-        var result = await service.GenerateOrderAsync(evt.Id);
+        var result = await service.GenerateOrderAsync(evt.Id, TestOwnerId);
 
         Assert.NotNull(result);
         Assert.Equal(2, result.LineItems.Count());
@@ -80,7 +83,7 @@ public class OrderServiceTests
         var item2 = new Item { Id = Guid.NewGuid(), Name = "Hydrangea", CostPerStem = 2.0m, BundleSize = 10, VendorId = vendor2.Id };
         context.Items.AddRange(item1, item2);
 
-        var recipe = new Recipe { Id = Guid.NewGuid(), Name = "Arrangement", LaborCost = 5.0m };
+        var recipe = new Recipe { Id = Guid.NewGuid(), Name = "Arrangement", LaborCost = 5.0m, OwnerId = TestOwnerId };
         context.Recipes.Add(recipe);
 
         context.RecipeItems.AddRange(
@@ -92,7 +95,8 @@ public class OrderServiceTests
         {
             Id = Guid.NewGuid(),
             Name = "Event",
-            EventDate = DateTime.UtcNow.AddDays(30)
+            EventDate = DateTime.UtcNow.AddDays(30),
+            OwnerId = TestOwnerId
         };
         context.Events.Add(evt);
 
@@ -102,7 +106,7 @@ public class OrderServiceTests
 
         await context.SaveChangesAsync();
 
-        var result = await service.GenerateOrderAsync(evt.Id);
+        var result = await service.GenerateOrderAsync(evt.Id, TestOwnerId);
 
         Assert.NotNull(result);
         Assert.Equal(2, result.ByVendor.Count());

@@ -33,7 +33,7 @@ public class ItemService : IItemService
                 i.Id, i.Name, i.Description, i.CostPerStem, i.BundleSize,
                 i.ImageUrl, i.Notes, i.VendorId, i.Vendor != null ? i.Vendor.Name : null,
                 i.IsSeasonalItem, i.SeasonalStartMonth, i.SeasonalEndMonth, i.LeadTimeDays,
-                i.CreatedAt, i.UpdatedAt))
+                i.CreatedAt, i.UpdatedAt, i.IsActive))
             .ToListAsync(ct);
 
         return new PagedResponse<ItemResponse>(items, total, page, pageSize);
@@ -48,7 +48,7 @@ public class ItemService : IItemService
             item.Id, item.Name, item.Description, item.CostPerStem, item.BundleSize,
             item.ImageUrl, item.Notes, item.VendorId, item.Vendor?.Name,
             item.IsSeasonalItem, item.SeasonalStartMonth, item.SeasonalEndMonth, item.LeadTimeDays,
-            item.CreatedAt, item.UpdatedAt);
+            item.CreatedAt, item.UpdatedAt, item.IsActive);
     }
 
     public async Task<ItemResponse> CreateItemAsync(CreateItemRequest request, string ownerId, CancellationToken ct = default)
@@ -90,7 +90,7 @@ public class ItemService : IItemService
             item.Id, item.Name, item.Description, item.CostPerStem, item.BundleSize,
             item.ImageUrl, item.Notes, item.VendorId, item.Vendor?.Name,
             item.IsSeasonalItem, item.SeasonalStartMonth, item.SeasonalEndMonth, item.LeadTimeDays,
-            item.CreatedAt, item.UpdatedAt);
+            item.CreatedAt, item.UpdatedAt, item.IsActive);
     }
 
     public async Task<ItemResponse?> UpdateItemAsync(Guid id, UpdateItemRequest request, string ownerId, CancellationToken ct = default)
@@ -127,7 +127,7 @@ public class ItemService : IItemService
             item.Id, item.Name, item.Description, item.CostPerStem, item.BundleSize,
             item.ImageUrl, item.Notes, item.VendorId, item.Vendor?.Name,
             item.IsSeasonalItem, item.SeasonalStartMonth, item.SeasonalEndMonth, item.LeadTimeDays,
-            item.CreatedAt, item.UpdatedAt);
+            item.CreatedAt, item.UpdatedAt, item.IsActive);
     }
 
     public async Task<bool> DeleteItemAsync(Guid id, string ownerId, CancellationToken ct = default)

@@ -54,6 +54,11 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
         <div class="loading-spinner">
           <mat-spinner></mat-spinner>
         </div>
+      } @else if (errorMessage) {
+        <div class="error-state">
+          <span>⚠️ {{ errorMessage }}</span>
+          <button mat-button color="primary" (click)="loadRecipes()">Retry</button>
+        </div>
       } @else if (filteredRecipes.length > 0) {
       <table mat-table [dataSource]="filteredRecipes" class="mat-elevation-z2">
         <ng-container matColumnDef="name">
@@ -64,14 +69,14 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
         <ng-container matColumnDef="laborCost">
           <th mat-header-cell *matHeaderCellDef>Labor Cost</th>
           <td mat-cell *matCellDef="let recipe">
-            <span class="currency">{{ recipe.laborCost | number:'1.2-2' }}</span>
+            <span>{{ recipe.laborCost | currency }}</span>
           </td>
         </ng-container>
 
         <ng-container matColumnDef="totalCost">
           <th mat-header-cell *matHeaderCellDef>Total Cost</th>
           <td mat-cell *matCellDef="let recipe">
-            <span class="currency">{{ recipe.totalCost || 0 | number:'1.2-2' }}</span>
+            <span>{{ (recipe.totalCost ?? 0) | currency }}</span>
           </td>
         </ng-container>
 
@@ -130,6 +135,16 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
       padding: 48px;
     }
 
+    .error-state {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 24px;
+      background: #fff3e0;
+      border-left: 4px solid #ff9800;
+      border-radius: 4px;
+    }
+
     .action-btn {
       width: 44px !important;
       height: 44px !important;
@@ -150,6 +165,7 @@ export class RecipeListComponent implements OnInit, OnDestroy {
   displayedColumns = ['name', 'laborCost', 'totalCost', 'itemCount', 'actions'];
   duplicatingId: string | null = null;
   isLoading = true;
+  errorMessage: string | null = null;
   private destroy$ = new Subject<void>();
 
   constructor(
@@ -189,6 +205,7 @@ export class RecipeListComponent implements OnInit, OnDestroy {
 
   loadRecipes() {
     this.isLoading = true;
+    this.errorMessage = null;
     this.recipeService.getRecipes()
       .pipe(finalize(() => this.isLoading = false))
       .subscribe({
@@ -198,6 +215,7 @@ export class RecipeListComponent implements OnInit, OnDestroy {
         },
         error: (err) => {
           console.error('Error loading recipes:', err);
+          this.errorMessage = 'Failed to load recipes. Please try again.';
         }
       });
   }

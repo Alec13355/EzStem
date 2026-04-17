@@ -32,11 +32,16 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
         <div class="loading-spinner">
           <mat-spinner></mat-spinner>
         </div>
+      } @else if (errorMessage) {
+        <div class="error-state">
+          <span>⚠️ {{ errorMessage }}</span>
+          <button mat-button color="primary" (click)="loadOrders()">Retry</button>
+        </div>
       } @else if (orders.length > 0) {
       <table mat-table [dataSource]="orders" class="mat-elevation-z2">
         <ng-container matColumnDef="eventId">
           <th mat-header-cell *matHeaderCellDef>Event</th>
-          <td mat-cell *matCellDef="let order">{{ order.eventId }}</td>
+          <td mat-cell *matCellDef="let order">{{ order.eventName || order.eventId }}</td>
         </ng-container>
 
         <ng-container matColumnDef="status">
@@ -100,12 +105,23 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
     .status-submitted { background-color: #64b5f6; }
     .status-confirmed { background-color: #81c784; }
     .status-received { background-color: #9e9e9e; }
+
+    .error-state {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 24px;
+      background: #fff3e0;
+      border-left: 4px solid #ff9800;
+      border-radius: 4px;
+    }
   `]
 })
 export class OrderListComponent implements OnInit {
   orders: Order[] = [];
   displayedColumns = ['eventId', 'status', 'totalCost', 'createdAt', 'actions'];
   isLoading = true;
+  errorMessage: string | null = null;
 
   constructor(
     private orderService: OrderService,
@@ -118,6 +134,7 @@ export class OrderListComponent implements OnInit {
 
   loadOrders() {
     this.isLoading = true;
+    this.errorMessage = null;
     this.orderService.getOrders()
       .pipe(finalize(() => this.isLoading = false))
       .subscribe({
@@ -126,6 +143,7 @@ export class OrderListComponent implements OnInit {
         },
         error: (err) => {
           console.error('Error loading orders:', err);
+          this.errorMessage = 'Failed to load orders. Please try again.';
         }
       });
   }

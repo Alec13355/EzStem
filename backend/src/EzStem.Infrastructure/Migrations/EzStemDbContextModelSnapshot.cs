@@ -105,6 +105,9 @@ namespace EzStem.Infrastructure.Migrations
                     b.Property<string>("Notes")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("OwnerId")
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
@@ -115,6 +118,8 @@ namespace EzStem.Infrastructure.Migrations
                     b.HasIndex("IsDeleted");
 
                     b.HasIndex("Name");
+
+                    b.HasIndex("OwnerId");
 
                     b.ToTable("Events");
                 });
@@ -209,6 +214,9 @@ namespace EzStem.Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<string>("OwnerId")
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
@@ -224,6 +232,8 @@ namespace EzStem.Infrastructure.Migrations
                     b.HasIndex("EventId");
 
                     b.HasIndex("IsDeleted");
+
+                    b.HasIndex("OwnerId");
 
                     b.ToTable("Orders");
                 });
@@ -272,22 +282,23 @@ namespace EzStem.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<decimal>("LaborDefaultCost")
+                    b.Property<decimal>("DefaultLaborRate")
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
 
-                    b.Property<decimal>("MarkupFactor")
+                    b.Property<decimal>("DefaultMarkupPercentage")
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
 
-                    b.Property<decimal>("OverheadPercent")
-                        .HasPrecision(18, 4)
-                        .HasColumnType("decimal(18,4)");
+                    b.Property<string>("OwnerId")
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OwnerId");
 
                     b.ToTable("PricingConfigs");
                 });
@@ -318,11 +329,16 @@ namespace EzStem.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<string>("OwnerId")
+                        .HasColumnType("nvarchar(450)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("IsDeleted");
 
                     b.HasIndex("Name");
+
+                    b.HasIndex("OwnerId");
 
                     b.ToTable("Recipes");
                 });

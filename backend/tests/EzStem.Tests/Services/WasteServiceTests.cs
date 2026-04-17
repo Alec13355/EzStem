@@ -7,6 +7,8 @@ namespace EzStem.Tests.Services;
 
 public class WasteServiceTests
 {
+    private const string TestOwnerId = "test-user-123";
+
     private EzStemDbContext CreateInMemoryContext()
     {
         var options = new DbContextOptionsBuilder<EzStemDbContext>()
@@ -15,49 +17,40 @@ public class WasteServiceTests
         return new EzStemDbContext(options);
     }
 
-    [Fact]
-    public async Task CalculateWaste_CorrectPercentage()
+    private (FloristEvent evt, Order order, OrderLineItem lineItem) CreateOrderWithLineItem(EzStemDbContext context, decimal quantityOrdered)
     {
-        using var context = CreateInMemoryContext();
-        var service = new OrderService(context);
-
         var vendor = new Vendor { Id = Guid.NewGuid(), Name = "Test Vendor" };
         context.Vendors.Add(vendor);
 
         var item = new Item { Id = Guid.NewGuid(), Name = "Rose", CostPerStem = 0.5m, BundleSize = 25, VendorId = vendor.Id };
         context.Items.Add(item);
 
-        var evt = new FloristEvent
-        {
-            Id = Guid.NewGuid(),
-            Name = "Wedding",
-            EventDate = DateTime.UtcNow.AddDays(30)
-        };
+        var evt = new FloristEvent { Id = Guid.NewGuid(), Name = "Wedding", EventDate = DateTime.UtcNow.AddDays(30), OwnerId = TestOwnerId };
         context.Events.Add(evt);
 
-        var order = new Order
-        {
-            Id = Guid.NewGuid(),
-            EventId = evt.Id,
-            Status = OrderStatus.Draft
-        };
+        var order = new Order { Id = Guid.NewGuid(), EventId = evt.Id, Status = OrderStatus.Draft, OwnerId = TestOwnerId };
         context.Orders.Add(order);
 
         var lineItem = new OrderLineItem
         {
-            Id = Guid.NewGuid(),
-            OrderId = order.Id,
-            ItemId = item.Id,
-            VendorId = vendor.Id,
-            QuantityNeeded = 90,
-            QuantityOrdered = 100,
-            CostPerUnit = 0.5m
+            Id = Guid.NewGuid(), OrderId = order.Id, ItemId = item.Id,
+            VendorId = vendor.Id, QuantityNeeded = quantityOrdered * 0.9m, QuantityOrdered = quantityOrdered, CostPerUnit = 0.5m
         };
         context.OrderLineItems.Add(lineItem);
 
+        return (evt, order, lineItem);
+    }
+
+    [Fact]
+    public async Task CalculateWaste_CorrectPercentage()
+    {
+        using var context = CreateInMemoryContext();
+        var service = new OrderService(context);
+        var (_, order, lineItem) = CreateOrderWithLineItem(context, 100);
+        lineItem.QuantityNeeded = 90;
         await context.SaveChangesAsync();
 
-        var result = await service.CalculateWasteAsync(order.Id, 85);
+        var result = await service.CalculateWasteAsync(order.Id, TestOwnerId, 85);
 
         Assert.Equal(100, result.TotalStemsOrdered);
         Assert.Equal(85, result.TotalStemsUsed);
@@ -72,44 +65,11 @@ public class WasteServiceTests
     {
         using var context = CreateInMemoryContext();
         var service = new OrderService(context);
-
-        var vendor = new Vendor { Id = Guid.NewGuid(), Name = "Test Vendor" };
-        context.Vendors.Add(vendor);
-
-        var item = new Item { Id = Guid.NewGuid(), Name = "Rose", CostPerStem = 0.5m, BundleSize = 25, VendorId = vendor.Id };
-        context.Items.Add(item);
-
-        var evt = new FloristEvent
-        {
-            Id = Guid.NewGuid(),
-            Name = "Wedding",
-            EventDate = DateTime.UtcNow.AddDays(30)
-        };
-        context.Events.Add(evt);
-
-        var order = new Order
-        {
-            Id = Guid.NewGuid(),
-            EventId = evt.Id,
-            Status = OrderStatus.Draft
-        };
-        context.Orders.Add(order);
-
-        var lineItem = new OrderLineItem
-        {
-            Id = Guid.NewGuid(),
-            OrderId = order.Id,
-            ItemId = item.Id,
-            VendorId = vendor.Id,
-            QuantityNeeded = 90,
-            QuantityOrdered = 100,
-            CostPerUnit = 0.5m
-        };
-        context.OrderLineItems.Add(lineItem);
-
+        var (_, order, lineItem) = CreateOrderWithLineItem(context, 100);
+        lineItem.QuantityNeeded = 90;
         await context.SaveChangesAsync();
 
-        var result = await service.CalculateWasteAsync(order.Id, 95);
+        var result = await service.CalculateWasteAsync(order.Id, TestOwnerId, 95);
 
         Assert.Equal(100, result.TotalStemsOrdered);
         Assert.Equal(95, result.TotalStemsUsed);
@@ -124,44 +84,11 @@ public class WasteServiceTests
     {
         using var context = CreateInMemoryContext();
         var service = new OrderService(context);
-
-        var vendor = new Vendor { Id = Guid.NewGuid(), Name = "Test Vendor" };
-        context.Vendors.Add(vendor);
-
-        var item = new Item { Id = Guid.NewGuid(), Name = "Rose", CostPerStem = 0.5m, BundleSize = 25, VendorId = vendor.Id };
-        context.Items.Add(item);
-
-        var evt = new FloristEvent
-        {
-            Id = Guid.NewGuid(),
-            Name = "Wedding",
-            EventDate = DateTime.UtcNow.AddDays(30)
-        };
-        context.Events.Add(evt);
-
-        var order = new Order
-        {
-            Id = Guid.NewGuid(),
-            EventId = evt.Id,
-            Status = OrderStatus.Draft
-        };
-        context.Orders.Add(order);
-
-        var lineItem = new OrderLineItem
-        {
-            Id = Guid.NewGuid(),
-            OrderId = order.Id,
-            ItemId = item.Id,
-            VendorId = vendor.Id,
-            QuantityNeeded = 90,
-            QuantityOrdered = 100,
-            CostPerUnit = 0.5m
-        };
-        context.OrderLineItems.Add(lineItem);
-
+        var (_, order, lineItem) = CreateOrderWithLineItem(context, 100);
+        lineItem.QuantityNeeded = 90;
         await context.SaveChangesAsync();
 
-        var result = await service.CalculateWasteAsync(order.Id, 75);
+        var result = await service.CalculateWasteAsync(order.Id, TestOwnerId, 75);
 
         Assert.Equal(100, result.TotalStemsOrdered);
         Assert.Equal(75, result.TotalStemsUsed);
@@ -176,44 +103,11 @@ public class WasteServiceTests
     {
         using var context = CreateInMemoryContext();
         var service = new OrderService(context);
-
-        var vendor = new Vendor { Id = Guid.NewGuid(), Name = "Test Vendor" };
-        context.Vendors.Add(vendor);
-
-        var item = new Item { Id = Guid.NewGuid(), Name = "Rose", CostPerStem = 0.5m, BundleSize = 25, VendorId = vendor.Id };
-        context.Items.Add(item);
-
-        var evt = new FloristEvent
-        {
-            Id = Guid.NewGuid(),
-            Name = "Wedding",
-            EventDate = DateTime.UtcNow.AddDays(30)
-        };
-        context.Events.Add(evt);
-
-        var order = new Order
-        {
-            Id = Guid.NewGuid(),
-            EventId = evt.Id,
-            Status = OrderStatus.Draft
-        };
-        context.Orders.Add(order);
-
-        var lineItem = new OrderLineItem
-        {
-            Id = Guid.NewGuid(),
-            OrderId = order.Id,
-            ItemId = item.Id,
-            VendorId = vendor.Id,
-            QuantityNeeded = 90,
-            QuantityOrdered = 100,
-            CostPerUnit = 0.5m
-        };
-        context.OrderLineItems.Add(lineItem);
-
+        var (_, order, lineItem) = CreateOrderWithLineItem(context, 100);
+        lineItem.QuantityNeeded = 90;
         await context.SaveChangesAsync();
 
-        var result = await service.CalculateWasteAsync(order.Id, 90);
+        var result = await service.CalculateWasteAsync(order.Id, TestOwnerId, 90);
 
         Assert.Equal(100, result.TotalStemsOrdered);
         Assert.Equal(90, result.TotalStemsUsed);
@@ -228,44 +122,11 @@ public class WasteServiceTests
     {
         using var context = CreateInMemoryContext();
         var service = new OrderService(context);
-
-        var vendor = new Vendor { Id = Guid.NewGuid(), Name = "Test Vendor" };
-        context.Vendors.Add(vendor);
-
-        var item = new Item { Id = Guid.NewGuid(), Name = "Rose", CostPerStem = 0.5m, BundleSize = 25, VendorId = vendor.Id };
-        context.Items.Add(item);
-
-        var evt = new FloristEvent
-        {
-            Id = Guid.NewGuid(),
-            Name = "Wedding",
-            EventDate = DateTime.UtcNow.AddDays(30)
-        };
-        context.Events.Add(evt);
-
-        var order = new Order
-        {
-            Id = Guid.NewGuid(),
-            EventId = evt.Id,
-            Status = OrderStatus.Draft
-        };
-        context.Orders.Add(order);
-
-        var lineItem = new OrderLineItem
-        {
-            Id = Guid.NewGuid(),
-            OrderId = order.Id,
-            ItemId = item.Id,
-            VendorId = vendor.Id,
-            QuantityNeeded = 90,
-            QuantityOrdered = 100,
-            CostPerUnit = 0.5m
-        };
-        context.OrderLineItems.Add(lineItem);
-
+        var (_, order, lineItem) = CreateOrderWithLineItem(context, 100);
+        lineItem.QuantityNeeded = 90;
         await context.SaveChangesAsync();
 
-        var result = await service.CalculateWasteAsync(order.Id, 80);
+        var result = await service.CalculateWasteAsync(order.Id, TestOwnerId, 80);
 
         Assert.Equal(100, result.TotalStemsOrdered);
         Assert.Equal(80, result.TotalStemsUsed);
@@ -283,26 +144,20 @@ public class WasteServiceTests
 
         var vendor = new Vendor { Id = Guid.NewGuid(), Name = "Test Vendor" };
         context.Vendors.Add(vendor);
-
         var item = new Item { Id = Guid.NewGuid(), Name = "Rose", CostPerStem = 0.5m, BundleSize = 25, VendorId = vendor.Id };
         context.Items.Add(item);
-
-        var evt = new FloristEvent { Id = Guid.NewGuid(), Name = "Wedding", EventDate = DateTime.UtcNow.AddDays(30) };
+        var evt = new FloristEvent { Id = Guid.NewGuid(), Name = "Wedding", EventDate = DateTime.UtcNow.AddDays(30), OwnerId = TestOwnerId };
         context.Events.Add(evt);
-
-        var order = new Order { Id = Guid.NewGuid(), EventId = evt.Id, Status = OrderStatus.Draft };
+        var order = new Order { Id = Guid.NewGuid(), EventId = evt.Id, Status = OrderStatus.Draft, OwnerId = TestOwnerId };
         context.Orders.Add(order);
-
         context.OrderLineItems.Add(new OrderLineItem
         {
             Id = Guid.NewGuid(), OrderId = order.Id, ItemId = item.Id,
             VendorId = vendor.Id, QuantityNeeded = 60, QuantityOrdered = 100, CostPerUnit = 0.5m
         });
-
         await context.SaveChangesAsync();
 
-        // 35% waste (65 used out of 100)
-        var result = await service.CalculateWasteAsync(order.Id, 65);
+        var result = await service.CalculateWasteAsync(order.Id, TestOwnerId, 65);
 
         Assert.Equal(35, result.WastePercentage);
         Assert.Equal(0.75m, result.RecommendedQuantityMultiplier);
@@ -317,29 +172,22 @@ public class WasteServiceTests
     {
         using var context = CreateInMemoryContext();
         var service = new OrderService(context);
-
         var vendor = new Vendor { Id = Guid.NewGuid(), Name = "Test Vendor" };
         context.Vendors.Add(vendor);
-
         var item = new Item { Id = Guid.NewGuid(), Name = "Rose", CostPerStem = 0.5m, BundleSize = 25, VendorId = vendor.Id };
         context.Items.Add(item);
-
-        var evt = new FloristEvent { Id = Guid.NewGuid(), Name = "Wedding", EventDate = DateTime.UtcNow.AddDays(30) };
+        var evt = new FloristEvent { Id = Guid.NewGuid(), Name = "Wedding", EventDate = DateTime.UtcNow.AddDays(30), OwnerId = TestOwnerId };
         context.Events.Add(evt);
-
-        var order = new Order { Id = Guid.NewGuid(), EventId = evt.Id, Status = OrderStatus.Draft };
+        var order = new Order { Id = Guid.NewGuid(), EventId = evt.Id, Status = OrderStatus.Draft, OwnerId = TestOwnerId };
         context.Orders.Add(order);
-
         context.OrderLineItems.Add(new OrderLineItem
         {
             Id = Guid.NewGuid(), OrderId = order.Id, ItemId = item.Id,
             VendorId = vendor.Id, QuantityNeeded = 97, QuantityOrdered = 100, CostPerUnit = 0.5m
         });
-
         await context.SaveChangesAsync();
 
-        // 3% waste (97 used out of 100)
-        var result = await service.CalculateWasteAsync(order.Id, 97);
+        var result = await service.CalculateWasteAsync(order.Id, TestOwnerId, 97);
 
         Assert.Equal(3, result.WastePercentage);
         Assert.Equal(1.0m, result.RecommendedQuantityMultiplier);

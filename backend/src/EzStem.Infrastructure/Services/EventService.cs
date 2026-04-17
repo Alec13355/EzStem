@@ -17,17 +17,15 @@ public class EventService : IEventService
         _recipeService = recipeService;
     }
 
-    public async Task<PagedResponse<EventResponse>> GetEventsAsync(int page, int pageSize, string? search, CancellationToken ct = default)
+    public async Task<PagedResponse<EventResponse>> GetEventsAsync(int page, int pageSize, string? search, string ownerId, CancellationToken ct = default)
     {
         var query = _context.Events
-            .Include(e => e.EventRecipes)
-            .ThenInclude(er => er.Recipe)
+            .Include(e => e.EventRecipes).ThenInclude(er => er.Recipe)
+            .Where(e => e.OwnerId == ownerId)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
-        {
             query = query.Where(e => e.Name.Contains(search) || (e.ClientName != null && e.ClientName.Contains(search)));
-        }
 
         var total = await query.CountAsync(ct);
         var events = await query
@@ -36,22 +34,19 @@ public class EventService : IEventService
             .Take(pageSize)
             .ToListAsync(ct);
 
-        return new PagedResponse<EventResponse>(
-            events.Select(MapToEventResponse),
-            total, page, pageSize);
+        return new PagedResponse<EventResponse>(events.Select(MapToEventResponse), total, page, pageSize);
     }
 
-    public async Task<EventResponse?> GetEventByIdAsync(Guid id, CancellationToken ct = default)
+    public async Task<EventResponse?> GetEventByIdAsync(Guid id, string ownerId, CancellationToken ct = default)
     {
         var evt = await _context.Events
-            .Include(e => e.EventRecipes)
-            .ThenInclude(er => er.Recipe)
-            .FirstOrDefaultAsync(e => e.Id == id, ct);
+            .Include(e => e.EventRecipes).ThenInclude(er => er.Recipe)
+            .FirstOrDefaultAsync(e => e.Id == id && e.OwnerId == ownerId, ct);
 
         return evt == null ? null : MapToEventResponse(evt);
     }
 
-    public async Task<EventResponse> CreateEventAsync(CreateEventRequest request, CancellationToken ct = default)
+    public async Task<EventResponse> CreateEventAsync(CreateEventRequest request, string ownerId, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
             throw new ArgumentException("Name is required", nameof(request.Name));
@@ -64,21 +59,20 @@ public class EventService : IEventService
             ClientName = request.ClientName,
             Notes = request.Notes,
             Status = EventStatus.Draft,
+            OwnerId = ownerId,
             CreatedAt = DateTime.UtcNow
         };
 
         _context.Events.Add(evt);
         await _context.SaveChangesAsync(ct);
-
         return MapToEventResponse(evt);
     }
 
-    public async Task<EventResponse?> UpdateEventAsync(Guid id, UpdateEventRequest request, CancellationToken ct = default)
+    public async Task<EventResponse?> UpdateEventAsync(Guid id, UpdateEventRequest request, string ownerId, CancellationToken ct = default)
     {
         var evt = await _context.Events
-            .Include(e => e.EventRecipes)
-            .ThenInclude(er => er.Recipe)
-            .FirstOrDefaultAsync(e => e.Id == id, ct);
+            .Include(e => e.EventRecipes).ThenInclude(er => er.Recipe)
+            .FirstOrDefaultAsync(e => e.Id == id && e.OwnerId == ownerId, ct);
 
         if (evt == null) return null;
 
@@ -90,25 +84,23 @@ public class EventService : IEventService
             evt.Status = newStatus;
 
         await _context.SaveChangesAsync(ct);
-
         return MapToEventResponse(evt);
     }
 
-    public async Task<bool> DeleteEventAsync(Guid id, CancellationToken ct = default)
+    public async Task<bool> DeleteEventAsync(Guid id, string ownerId, CancellationToken ct = default)
     {
-        var evt = await _context.Events.FirstOrDefaultAsync(e => e.Id == id, ct);
+        var evt = await _context.Events.FirstOrDefaultAsync(e => e.Id == id && e.OwnerId == ownerId, ct);
         if (evt == null) return false;
 
         evt.IsDeleted = true;
         evt.DeletedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync(ct);
-
         return true;
     }
 
-    public async Task<EventRecipeResponse?> AddRecipeToEventAsync(Guid eventId, AddEventRecipeRequest request, CancellationToken ct = default)
+    public async Task<EventRecipeResponse?> AddRecipeToEventAsync(Guid eventId, AddEventRecipeRequest request, string ownerId, CancellationToken ct = default)
     {
-        var evt = await _context.Events.FirstOrDefaultAsync(e => e.Id == eventId, ct);
+        var evt = await _context.Events.FirstOrDefaultAsync(e => e.Id == eventId && e.OwnerId == ownerId, ct);
         if (evt == null) return null;
 
         var recipe = await _context.Recipes.FirstOrDefaultAsync(r => r.Id == request.RecipeId, ct);
@@ -129,17 +121,15 @@ public class EventService : IEventService
         var unitCost = recipeCost?.TotalCost ?? 0;
 
         return new EventRecipeResponse(
-            eventRecipe.Id,
-            eventRecipe.RecipeId,
-            recipe.Name,
-            eventRecipe.Quantity,
-            unitCost,
-            unitCost * eventRecipe.Quantity
-        );
+            eventRecipe.Id, eventRecipe.RecipeId, recipe.Name,
+            eventRecipe.Quantity, unitCost, unitCost * eventRecipe.Quantity);
     }
 
-    public async Task<EventRecipeResponse?> UpdateEventRecipeAsync(Guid eventId, Guid recipeId, UpdateEventRecipeRequest request, CancellationToken ct = default)
+    public async Task<EventRecipeResponse?> UpdateEventRecipeAsync(Guid eventId, Guid recipeId, UpdateEventRecipeRequest request, string ownerId, CancellationToken ct = default)
     {
+        var evt = await _context.Events.FirstOrDefaultAsync(e => e.Id == eventId && e.OwnerId == ownerId, ct);
+        if (evt == null) return null;
+
         var eventRecipe = await _context.EventRecipes
             .Include(er => er.Recipe)
             .FirstOrDefaultAsync(er => er.EventId == eventId && er.RecipeId == recipeId, ct);
@@ -153,17 +143,15 @@ public class EventService : IEventService
         var unitCost = recipeCost?.TotalCost ?? 0;
 
         return new EventRecipeResponse(
-            eventRecipe.Id,
-            eventRecipe.RecipeId,
-            eventRecipe.Recipe.Name,
-            eventRecipe.Quantity,
-            unitCost,
-            unitCost * eventRecipe.Quantity
-        );
+            eventRecipe.Id, eventRecipe.RecipeId, eventRecipe.Recipe.Name,
+            eventRecipe.Quantity, unitCost, unitCost * eventRecipe.Quantity);
     }
 
-    public async Task<bool> RemoveRecipeFromEventAsync(Guid eventId, Guid recipeId, CancellationToken ct = default)
+    public async Task<bool> RemoveRecipeFromEventAsync(Guid eventId, Guid recipeId, string ownerId, CancellationToken ct = default)
     {
+        var evt = await _context.Events.FirstOrDefaultAsync(e => e.Id == eventId && e.OwnerId == ownerId, ct);
+        if (evt == null) return false;
+
         var eventRecipe = await _context.EventRecipes
             .FirstOrDefaultAsync(er => er.EventId == eventId && er.RecipeId == recipeId, ct);
 
@@ -171,17 +159,14 @@ public class EventService : IEventService
 
         _context.EventRecipes.Remove(eventRecipe);
         await _context.SaveChangesAsync(ct);
-
         return true;
     }
 
-    public async Task<EventSummaryResponse?> GetEventSummaryAsync(Guid eventId, CancellationToken ct = default)
+    public async Task<EventSummaryResponse?> GetEventSummaryAsync(Guid eventId, string ownerId, CancellationToken ct = default)
     {
         var evt = await _context.Events
-            .Include(e => e.EventRecipes)
-            .ThenInclude(er => er.Recipe)
-            .ThenInclude(r => r.RecipeItems)
-            .FirstOrDefaultAsync(e => e.Id == eventId, ct);
+            .Include(e => e.EventRecipes).ThenInclude(er => er.Recipe).ThenInclude(r => r.RecipeItems)
+            .FirstOrDefaultAsync(e => e.Id == eventId && e.OwnerId == ownerId, ct);
 
         if (evt == null) return null;
 
@@ -194,15 +179,7 @@ public class EventService : IEventService
             var unitCost = recipeCost?.TotalCost ?? 0;
             var lineCost = unitCost * er.Quantity;
 
-            recipes.Add(new EventRecipeResponse(
-                er.Id,
-                er.RecipeId,
-                er.Recipe.Name,
-                er.Quantity,
-                unitCost,
-                lineCost
-            ));
-
+            recipes.Add(new EventRecipeResponse(er.Id, er.RecipeId, er.Recipe.Name, er.Quantity, unitCost, lineCost));
             totalCost += lineCost;
         }
 
@@ -211,27 +188,15 @@ public class EventService : IEventService
         var marginPercent = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
 
         return new EventSummaryResponse(
-            evt.Id,
-            evt.Name,
-            evt.EventDate,
-            evt.Status.ToString(),
-            totalCost,
-            totalRevenue,
-            totalProfit,
-            marginPercent,
-            recipes
-        );
+            evt.Id, evt.Name, evt.EventDate, evt.Status.ToString(),
+            totalCost, totalRevenue, totalProfit, marginPercent, recipes);
     }
 
-    public async Task<ProductionSheetResponse?> GetProductionSheetAsync(Guid eventId, CancellationToken ct = default)
+    public async Task<ProductionSheetResponse?> GetProductionSheetAsync(Guid eventId, string ownerId, CancellationToken ct = default)
     {
         var evt = await _context.Events
-            .Include(e => e.EventRecipes)
-            .ThenInclude(er => er.Recipe)
-            .ThenInclude(r => r.RecipeItems)
-            .ThenInclude(ri => ri.Item)
-            .ThenInclude(i => i.Vendor)
-            .FirstOrDefaultAsync(e => e.Id == eventId, ct);
+            .Include(e => e.EventRecipes).ThenInclude(er => er.Recipe).ThenInclude(r => r.RecipeItems).ThenInclude(ri => ri.Item).ThenInclude(i => i.Vendor)
+            .FirstOrDefaultAsync(e => e.Id == eventId && e.OwnerId == ownerId, ct);
 
         if (evt == null) return null;
 
@@ -241,60 +206,26 @@ public class EventService : IEventService
         foreach (var er in evt.EventRecipes)
         {
             var lineItems = er.Recipe.RecipeItems.Select(ri => new ProductionSheetLineItem(
-                ri.Item.Name,
-                ri.Item.Vendor?.Name,
-                ri.Quantity * er.Quantity,
-                "stems"
-            )).ToList();
+                ri.Item.Name, ri.Item.Vendor?.Name,
+                ri.Quantity * er.Quantity, "stems")).ToList();
 
             totalStemCount += (int)er.Recipe.RecipeItems.Sum(ri => ri.Quantity * er.Quantity);
-
-            sheetRecipes.Add(new ProductionSheetRecipe(
-                er.Recipe.Name,
-                er.Quantity,
-                lineItems,
-                er.Recipe.Description
-            ));
+            sheetRecipes.Add(new ProductionSheetRecipe(er.Recipe.Name, er.Quantity, lineItems, er.Recipe.Description));
         }
 
-        return new ProductionSheetResponse(
-            evt.Id,
-            evt.Name,
-            evt.EventDate,
-            evt.ClientName,
-            sheetRecipes,
-            totalStemCount
-        );
+        return new ProductionSheetResponse(evt.Id, evt.Name, evt.EventDate, evt.ClientName, sheetRecipes, totalStemCount);
     }
 
     private EventRecipeResponse MapToEventRecipeResponse(EventRecipe er)
     {
         var recipeCost = _recipeService.GetRecipeCostAsync(er.RecipeId).Result;
         var unitCost = recipeCost?.TotalCost ?? 0;
-
-        return new EventRecipeResponse(
-            er.Id,
-            er.RecipeId,
-            er.Recipe.Name,
-            er.Quantity,
-            unitCost,
-            unitCost * er.Quantity
-        );
+        return new EventRecipeResponse(er.Id, er.RecipeId, er.Recipe.Name, er.Quantity, unitCost, unitCost * er.Quantity);
     }
 
     private EventResponse MapToEventResponse(FloristEvent evt)
     {
         var eventRecipes = evt.EventRecipes.Select(MapToEventRecipeResponse);
-
-        return new EventResponse(
-            evt.Id,
-            evt.Name,
-            evt.EventDate,
-            evt.ClientName,
-            evt.Notes,
-            evt.Status.ToString(),
-            eventRecipes,
-            evt.CreatedAt
-        );
+        return new EventResponse(evt.Id, evt.Name, evt.EventDate, evt.ClientName, evt.Notes, evt.Status.ToString(), eventRecipes, evt.CreatedAt);
     }
 }

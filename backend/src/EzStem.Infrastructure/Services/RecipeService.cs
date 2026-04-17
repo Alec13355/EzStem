@@ -15,14 +15,15 @@ public class RecipeService : IRecipeService
         _context = context;
     }
 
-    public async Task<PagedResponse<RecipeResponse>> GetRecipesAsync(int page, int pageSize, string? search, CancellationToken ct = default)
+    public async Task<PagedResponse<RecipeResponse>> GetRecipesAsync(int page, int pageSize, string? search, string ownerId, CancellationToken ct = default)
     {
-        var query = _context.Recipes.Include(r => r.RecipeItems).ThenInclude(ri => ri.Item).AsQueryable();
+        var query = _context.Recipes
+            .Include(r => r.RecipeItems).ThenInclude(ri => ri.Item)
+            .Where(r => r.OwnerId == ownerId)
+            .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
-        {
             query = query.Where(r => r.Name.Contains(search) || (r.Description != null && r.Description.Contains(search)));
-        }
 
         var total = await query.CountAsync(ct);
         var recipes = await query
@@ -31,22 +32,19 @@ public class RecipeService : IRecipeService
             .Take(pageSize)
             .ToListAsync(ct);
 
-        return new PagedResponse<RecipeResponse>(
-            recipes.Select(MapToRecipeResponse),
-            total, page, pageSize);
+        return new PagedResponse<RecipeResponse>(recipes.Select(MapToRecipeResponse), total, page, pageSize);
     }
 
-    public async Task<RecipeResponse?> GetRecipeByIdAsync(Guid id, CancellationToken ct = default)
+    public async Task<RecipeResponse?> GetRecipeByIdAsync(Guid id, string ownerId, CancellationToken ct = default)
     {
         var recipe = await _context.Recipes
-            .Include(r => r.RecipeItems)
-            .ThenInclude(ri => ri.Item)
-            .FirstOrDefaultAsync(r => r.Id == id, ct);
+            .Include(r => r.RecipeItems).ThenInclude(ri => ri.Item)
+            .FirstOrDefaultAsync(r => r.Id == id && r.OwnerId == ownerId, ct);
 
         return recipe == null ? null : MapToRecipeResponse(recipe);
     }
 
-    public async Task<RecipeResponse> CreateRecipeAsync(CreateRecipeRequest request, CancellationToken ct = default)
+    public async Task<RecipeResponse> CreateRecipeAsync(CreateRecipeRequest request, string ownerId, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
             throw new ArgumentException("Name is required", nameof(request.Name));
@@ -57,6 +55,7 @@ public class RecipeService : IRecipeService
             Name = request.Name,
             Description = request.Description,
             LaborCost = request.LaborCost,
+            OwnerId = ownerId,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -66,12 +65,11 @@ public class RecipeService : IRecipeService
         return MapToRecipeResponse(recipe);
     }
 
-    public async Task<RecipeResponse?> UpdateRecipeAsync(Guid id, UpdateRecipeRequest request, CancellationToken ct = default)
+    public async Task<RecipeResponse?> UpdateRecipeAsync(Guid id, UpdateRecipeRequest request, string ownerId, CancellationToken ct = default)
     {
         var recipe = await _context.Recipes
-            .Include(r => r.RecipeItems)
-            .ThenInclude(ri => ri.Item)
-            .FirstOrDefaultAsync(r => r.Id == id, ct);
+            .Include(r => r.RecipeItems).ThenInclude(ri => ri.Item)
+            .FirstOrDefaultAsync(r => r.Id == id && r.OwnerId == ownerId, ct);
 
         if (recipe == null) return null;
 
@@ -80,19 +78,17 @@ public class RecipeService : IRecipeService
         if (request.LaborCost.HasValue) recipe.LaborCost = request.LaborCost.Value;
 
         await _context.SaveChangesAsync(ct);
-
         return MapToRecipeResponse(recipe);
     }
 
-    public async Task<bool> DeleteRecipeAsync(Guid id, CancellationToken ct = default)
+    public async Task<bool> DeleteRecipeAsync(Guid id, string ownerId, CancellationToken ct = default)
     {
-        var recipe = await _context.Recipes.FirstOrDefaultAsync(r => r.Id == id, ct);
+        var recipe = await _context.Recipes.FirstOrDefaultAsync(r => r.Id == id && r.OwnerId == ownerId, ct);
         if (recipe == null) return false;
 
         recipe.IsDeleted = true;
         recipe.DeletedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync(ct);
-
         return true;
     }
 
@@ -106,37 +102,30 @@ public class RecipeService : IRecipeService
 
         var itemsCost = recipe.RecipeItems.Sum(ri => ri.Quantity * ri.CostPerStem);
         var totalCost = itemsCost + recipe.LaborCost;
-
         return new RecipeCostResponse(itemsCost, recipe.LaborCost, totalCost);
     }
 
-    public async Task<ScaleRecipeResponse?> ScaleRecipeAsync(Guid id, int scaleFactor, CancellationToken ct = default)
+    public async Task<ScaleRecipeResponse?> ScaleRecipeAsync(Guid id, int scaleFactor, string ownerId, CancellationToken ct = default)
     {
         var recipe = await _context.Recipes
-            .Include(r => r.RecipeItems)
-            .ThenInclude(ri => ri.Item)
-            .FirstOrDefaultAsync(r => r.Id == id, ct);
+            .Include(r => r.RecipeItems).ThenInclude(ri => ri.Item)
+            .FirstOrDefaultAsync(r => r.Id == id && r.OwnerId == ownerId, ct);
 
         if (recipe == null) return null;
 
         var scaledItems = recipe.RecipeItems.Select(ri => new RecipeItemResponse(
-            ri.Id,
-            ri.ItemId,
-            ri.Item.Name,
-            ri.Quantity * scaleFactor,
-            ri.CostPerStem,
-            ri.Quantity * scaleFactor * ri.CostPerStem
-        )).ToList();
+            ri.Id, ri.ItemId, ri.Item.Name,
+            ri.Quantity * scaleFactor, ri.CostPerStem,
+            ri.Quantity * scaleFactor * ri.CostPerStem)).ToList();
 
         var totalItemsCost = scaledItems.Sum(si => si.LineTotal);
         var totalCost = totalItemsCost + recipe.LaborCost;
-
         return new ScaleRecipeResponse(scaleFactor, totalItemsCost, recipe.LaborCost, totalCost, scaledItems);
     }
 
-    public async Task<RecipeItemResponse?> AddItemToRecipeAsync(Guid recipeId, AddRecipeItemRequest request, CancellationToken ct = default)
+    public async Task<RecipeItemResponse?> AddItemToRecipeAsync(Guid recipeId, AddRecipeItemRequest request, string ownerId, CancellationToken ct = default)
     {
-        var recipe = await _context.Recipes.FirstOrDefaultAsync(r => r.Id == recipeId, ct);
+        var recipe = await _context.Recipes.FirstOrDefaultAsync(r => r.Id == recipeId && r.OwnerId == ownerId, ct);
         if (recipe == null) return null;
 
         var item = await _context.Items.FirstOrDefaultAsync(i => i.Id == request.ItemId, ct);
@@ -153,21 +142,19 @@ public class RecipeService : IRecipeService
 
         _context.RecipeItems.Add(recipeItem);
         await _context.SaveChangesAsync(ct);
-
         await _context.Entry(recipeItem).Reference(ri => ri.Item).LoadAsync(ct);
 
         return new RecipeItemResponse(
-            recipeItem.Id,
-            recipeItem.ItemId,
-            recipeItem.Item.Name,
-            recipeItem.Quantity,
-            recipeItem.CostPerStem,
-            recipeItem.Quantity * recipeItem.CostPerStem
-        );
+            recipeItem.Id, recipeItem.ItemId, recipeItem.Item.Name,
+            recipeItem.Quantity, recipeItem.CostPerStem,
+            recipeItem.Quantity * recipeItem.CostPerStem);
     }
 
-    public async Task<RecipeItemResponse?> UpdateRecipeItemAsync(Guid recipeId, Guid itemId, UpdateRecipeItemRequest request, CancellationToken ct = default)
+    public async Task<RecipeItemResponse?> UpdateRecipeItemAsync(Guid recipeId, Guid itemId, UpdateRecipeItemRequest request, string ownerId, CancellationToken ct = default)
     {
+        var recipe = await _context.Recipes.FirstOrDefaultAsync(r => r.Id == recipeId && r.OwnerId == ownerId, ct);
+        if (recipe == null) return null;
+
         var recipeItem = await _context.RecipeItems
             .Include(ri => ri.Item)
             .FirstOrDefaultAsync(ri => ri.RecipeId == recipeId && ri.ItemId == itemId, ct);
@@ -178,17 +165,16 @@ public class RecipeService : IRecipeService
         await _context.SaveChangesAsync(ct);
 
         return new RecipeItemResponse(
-            recipeItem.Id,
-            recipeItem.ItemId,
-            recipeItem.Item.Name,
-            recipeItem.Quantity,
-            recipeItem.CostPerStem,
-            recipeItem.Quantity * recipeItem.CostPerStem
-        );
+            recipeItem.Id, recipeItem.ItemId, recipeItem.Item.Name,
+            recipeItem.Quantity, recipeItem.CostPerStem,
+            recipeItem.Quantity * recipeItem.CostPerStem);
     }
 
-    public async Task<bool> RemoveItemFromRecipeAsync(Guid recipeId, Guid itemId, CancellationToken ct = default)
+    public async Task<bool> RemoveItemFromRecipeAsync(Guid recipeId, Guid itemId, string ownerId, CancellationToken ct = default)
     {
+        var recipe = await _context.Recipes.FirstOrDefaultAsync(r => r.Id == recipeId && r.OwnerId == ownerId, ct);
+        if (recipe == null) return false;
+
         var recipeItem = await _context.RecipeItems
             .FirstOrDefaultAsync(ri => ri.RecipeId == recipeId && ri.ItemId == itemId, ct);
 
@@ -196,16 +182,14 @@ public class RecipeService : IRecipeService
 
         _context.RecipeItems.Remove(recipeItem);
         await _context.SaveChangesAsync(ct);
-
         return true;
     }
 
-    public async Task<RecipeResponse?> DuplicateRecipeAsync(Guid id, CancellationToken ct = default)
+    public async Task<RecipeResponse?> DuplicateRecipeAsync(Guid id, string ownerId, CancellationToken ct = default)
     {
         var original = await _context.Recipes
-            .Include(r => r.RecipeItems)
-            .ThenInclude(ri => ri.Item)
-            .FirstOrDefaultAsync(r => r.Id == id, ct);
+            .Include(r => r.RecipeItems).ThenInclude(ri => ri.Item)
+            .FirstOrDefaultAsync(r => r.Id == id && r.OwnerId == ownerId, ct);
 
         if (original == null) return null;
 
@@ -215,6 +199,7 @@ public class RecipeService : IRecipeService
             Name = $"Copy of {original.Name}",
             Description = original.Description,
             LaborCost = original.LaborCost,
+            OwnerId = ownerId,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -246,26 +231,15 @@ public class RecipeService : IRecipeService
     private RecipeResponse MapToRecipeResponse(Recipe recipe)
     {
         var recipeItems = recipe.RecipeItems.Select(ri => new RecipeItemResponse(
-            ri.Id,
-            ri.ItemId,
-            ri.Item.Name,
-            ri.Quantity,
-            ri.CostPerStem,
-            ri.Quantity * ri.CostPerStem
-        )).ToList();
+            ri.Id, ri.ItemId, ri.Item.Name,
+            ri.Quantity, ri.CostPerStem,
+            ri.Quantity * ri.CostPerStem)).ToList();
 
         var totalItemsCost = recipeItems.Sum(ri => ri.LineTotal);
         var totalCost = totalItemsCost + recipe.LaborCost;
 
         return new RecipeResponse(
-            recipe.Id,
-            recipe.Name,
-            recipe.Description,
-            recipe.LaborCost,
-            recipeItems,
-            totalItemsCost,
-            totalCost,
-            recipe.CreatedAt
-        );
+            recipe.Id, recipe.Name, recipe.Description, recipe.LaborCost,
+            recipeItems, totalItemsCost, totalCost, recipe.CreatedAt);
     }
 }

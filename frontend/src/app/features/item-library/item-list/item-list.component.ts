@@ -110,6 +110,11 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
         <div class="loading-spinner">
           <mat-spinner></mat-spinner>
         </div>
+      } @else if (errorMessage) {
+        <div class="error-state">
+          <span>⚠️ {{ errorMessage }}</span>
+          <button mat-button color="primary" (click)="loadItems()">Retry</button>
+        </div>
       } @else {
         @if (filteredItems.length > 0) {
         <table mat-table [dataSource]="filteredItems" class="mat-elevation-z2">
@@ -229,6 +234,16 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
     }
     .in-season { background: #c8e6c9; color: #2e7d32; }
     .out-season { background: #e3f2fd; color: #1565c0; }
+
+    .error-state {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 24px;
+      background: #fff3e0;
+      border-left: 4px solid #ff9800;
+      border-radius: 4px;
+    }
   `]
 })
 export class ItemListComponent implements OnInit, OnDestroy {
@@ -242,6 +257,7 @@ export class ItemListComponent implements OnInit, OnDestroy {
   openAddItemDialog = () => this.addItem();
   displayedColumns = ['image', 'name', 'costPerStem', 'vendor', 'actions'];
   loading = true;
+  errorMessage: string | null = null;
   totalCount = 0;
   pageSize = 10;
   pageNumber = 1;
@@ -282,6 +298,7 @@ export class ItemListComponent implements OnInit, OnDestroy {
 
   loadItems() {
     this.loading = true;
+    this.errorMessage = null;
     this.itemService.getItems(this.pageNumber, this.pageSize, this.searchControl.value || '')
       .pipe(finalize(() => this.loading = false))
       .subscribe({
@@ -292,6 +309,7 @@ export class ItemListComponent implements OnInit, OnDestroy {
         },
         error: (err) => {
           console.error('Error loading items:', err);
+          this.errorMessage = 'Failed to load items. Please try again.';
         }
       });
   }

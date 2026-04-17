@@ -7,6 +7,7 @@ public class FloristEvent
     public string? ClientName { get; set; }
     public string? Notes { get; set; }
     public EventStatus Status { get; set; } = EventStatus.Draft;
+    public string? OwnerId { get; set; }
     public bool IsDeleted { get; set; } = false;
     public DateTime? DeletedAt { get; set; }
     public ICollection<EventRecipe> EventRecipes { get; set; } = new List<EventRecipe>();

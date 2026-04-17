@@ -5,6 +5,7 @@ public class Order
     public Guid EventId { get; set; }
     public FloristEvent Event { get; set; } = null!;
     public OrderStatus Status { get; set; } = OrderStatus.Draft;
+    public string? OwnerId { get; set; }
     public decimal? WastePercentage { get; set; }
     public DateTime? WasteCalculationDate { get; set; }
     public bool IsDeleted { get; set; } = false;

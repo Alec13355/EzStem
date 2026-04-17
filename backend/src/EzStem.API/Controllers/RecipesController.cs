@@ -2,6 +2,7 @@ using EzStem.Application.DTOs;
 using EzStem.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace EzStem.API.Controllers;
 
@@ -17,6 +18,12 @@ public class RecipesController : ControllerBase
         _recipeService = recipeService;
     }
 
+    private string GetUserId() =>
+        User.FindFirstValue("oid")
+        ?? User.FindFirstValue("http://schemas.microsoft.com/identity/claims/objectidentifier")
+        ?? User.FindFirstValue(ClaimTypes.NameIdentifier)
+        ?? throw new UnauthorizedAccessException("User identifier not found in token");
+
     [HttpGet]
     public async Task<ActionResult<PagedResponse<RecipeResponse>>> GetRecipes(
         [FromQuery] int page = 1,
@@ -24,14 +31,14 @@ public class RecipesController : ControllerBase
         [FromQuery] string? search = null,
         CancellationToken ct = default)
     {
-        var result = await _recipeService.GetRecipesAsync(page, pageSize, search, ct);
+        var result = await _recipeService.GetRecipesAsync(page, pageSize, search, GetUserId(), ct);
         return Ok(result);
     }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<RecipeResponse>> GetRecipe(Guid id, CancellationToken ct = default)
     {
-        var recipe = await _recipeService.GetRecipeByIdAsync(id, ct);
+        var recipe = await _recipeService.GetRecipeByIdAsync(id, GetUserId(), ct);
         if (recipe == null) return NotFound();
         return Ok(recipe);
     }
@@ -43,7 +50,7 @@ public class RecipesController : ControllerBase
     {
         try
         {
-            var recipe = await _recipeService.CreateRecipeAsync(request, ct);
+            var recipe = await _recipeService.CreateRecipeAsync(request, GetUserId(), ct);
             return CreatedAtAction(nameof(GetRecipe), new { id = recipe.Id }, recipe);
         }
         catch (ArgumentException ex)
@@ -58,7 +65,7 @@ public class RecipesController : ControllerBase
         [FromBody] UpdateRecipeRequest request,
         CancellationToken ct = default)
     {
-        var recipe = await _recipeService.UpdateRecipeAsync(id, request, ct);
+        var recipe = await _recipeService.UpdateRecipeAsync(id, request, GetUserId(), ct);
         if (recipe == null) return NotFound();
         return Ok(recipe);
     }
@@ -66,7 +73,7 @@ public class RecipesController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteRecipe(Guid id, CancellationToken ct = default)
     {
-        var deleted = await _recipeService.DeleteRecipeAsync(id, ct);
+        var deleted = await _recipeService.DeleteRecipeAsync(id, GetUserId(), ct);
         if (!deleted) return NotFound();
         return NoContent();
     }
@@ -93,7 +100,7 @@ public class RecipesController : ControllerBase
         [FromQuery] int factor = 1,
         CancellationToken ct = default)
     {
-        var scaled = await _recipeService.ScaleRecipeAsync(id, factor, ct);
+        var scaled = await _recipeService.ScaleRecipeAsync(id, factor, GetUserId(), ct);
         if (scaled == null) return NotFound();
         return Ok(scaled);
     }
@@ -101,7 +108,7 @@ public class RecipesController : ControllerBase
     [HttpPost("{id}/duplicate")]
     public async Task<ActionResult<RecipeResponse>> DuplicateRecipe(Guid id, CancellationToken ct = default)
     {
-        var recipe = await _recipeService.DuplicateRecipeAsync(id, ct);
+        var recipe = await _recipeService.DuplicateRecipeAsync(id, GetUserId(), ct);
         if (recipe == null) return NotFound();
         return CreatedAtAction(nameof(GetRecipe), new { id = recipe.Id }, recipe);
     }
@@ -114,7 +121,7 @@ public class RecipesController : ControllerBase
     {
         try
         {
-            var recipeItem = await _recipeService.AddItemToRecipeAsync(id, request, ct);
+            var recipeItem = await _recipeService.AddItemToRecipeAsync(id, request, GetUserId(), ct);
             if (recipeItem == null) return NotFound();
             return CreatedAtAction(nameof(GetRecipe), new { id }, recipeItem);
         }
@@ -131,7 +138,7 @@ public class RecipesController : ControllerBase
         [FromBody] UpdateRecipeItemRequest request,
         CancellationToken ct = default)
     {
-        var recipeItem = await _recipeService.UpdateRecipeItemAsync(id, itemId, request, ct);
+        var recipeItem = await _recipeService.UpdateRecipeItemAsync(id, itemId, request, GetUserId(), ct);
         if (recipeItem == null) return NotFound();
         return Ok(recipeItem);
     }
@@ -142,7 +149,7 @@ public class RecipesController : ControllerBase
         Guid itemId,
         CancellationToken ct = default)
     {
-        var deleted = await _recipeService.RemoveItemFromRecipeAsync(id, itemId, ct);
+        var deleted = await _recipeService.RemoveItemFromRecipeAsync(id, itemId, GetUserId(), ct);
         if (!deleted) return NotFound();
         return NoContent();
     }

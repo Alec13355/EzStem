@@ -8,6 +8,8 @@ namespace EzStem.Tests.Services;
 
 public class RecipeServiceTests
 {
+    private const string TestOwnerId = "test-user-123";
+
     private EzStemDbContext CreateInMemoryContext()
     {
         var options = new DbContextOptionsBuilder<EzStemDbContext>()
@@ -26,12 +28,7 @@ public class RecipeServiceTests
         var item2 = new Item { Id = Guid.NewGuid(), Name = "Tulip", CostPerStem = 0.3m, BundleSize = 10 };
         context.Items.AddRange(item1, item2);
 
-        var recipe = new Recipe
-        {
-            Id = Guid.NewGuid(),
-            Name = "Bridal Bouquet",
-            LaborCost = 10.0m
-        };
+        var recipe = new Recipe { Id = Guid.NewGuid(), Name = "Bridal Bouquet", LaborCost = 10.0m, OwnerId = TestOwnerId };
         context.Recipes.Add(recipe);
 
         context.RecipeItems.AddRange(
@@ -58,12 +55,7 @@ public class RecipeServiceTests
         var item = new Item { Id = Guid.NewGuid(), Name = "Rose", CostPerStem = 0.5m, BundleSize = 25 };
         context.Items.Add(item);
 
-        var recipe = new Recipe
-        {
-            Id = Guid.NewGuid(),
-            Name = "Bridal Bouquet",
-            LaborCost = 10.0m
-        };
+        var recipe = new Recipe { Id = Guid.NewGuid(), Name = "Bridal Bouquet", LaborCost = 10.0m, OwnerId = TestOwnerId };
         context.Recipes.Add(recipe);
 
         context.RecipeItems.Add(
@@ -72,7 +64,7 @@ public class RecipeServiceTests
 
         await context.SaveChangesAsync();
 
-        var result = await service.ScaleRecipeAsync(recipe.Id, 5);
+        var result = await service.ScaleRecipeAsync(recipe.Id, 5, TestOwnerId);
 
         Assert.NotNull(result);
         Assert.Equal(5, result.ScaleFactor);
@@ -96,22 +88,19 @@ public class RecipeServiceTests
             Name = "Bridal Bouquet",
             Description = "Classic bridal",
             LaborCost = 15.0m,
+            OwnerId = TestOwnerId,
             CreatedAt = DateTime.UtcNow
         };
         context.Recipes.Add(original);
 
         context.RecipeItems.Add(new RecipeItem
         {
-            Id = Guid.NewGuid(),
-            RecipeId = original.Id,
-            ItemId = item.Id,
-            Quantity = 10,
-            CostPerStem = 0.5m
+            Id = Guid.NewGuid(), RecipeId = original.Id, ItemId = item.Id, Quantity = 10, CostPerStem = 0.5m
         });
 
         await context.SaveChangesAsync();
 
-        var result = await service.DuplicateRecipeAsync(original.Id);
+        var result = await service.DuplicateRecipeAsync(original.Id, TestOwnerId);
 
         Assert.NotNull(result);
         Assert.Equal("Copy of Bridal Bouquet", result.Name);
@@ -121,7 +110,6 @@ public class RecipeServiceTests
         Assert.Equal(10, result.RecipeItems.First().Quantity);
         Assert.Equal(0.5m, result.RecipeItems.First().CostPerStem);
 
-        // Original is unchanged
         var reloaded = await context.Recipes.FindAsync(original.Id);
         Assert.NotNull(reloaded);
         Assert.Equal("Bridal Bouquet", reloaded!.Name);
@@ -133,7 +121,7 @@ public class RecipeServiceTests
         using var context = CreateInMemoryContext();
         var service = new RecipeService(context);
 
-        var result = await service.DuplicateRecipeAsync(Guid.NewGuid());
+        var result = await service.DuplicateRecipeAsync(Guid.NewGuid(), TestOwnerId);
 
         Assert.Null(result);
     }

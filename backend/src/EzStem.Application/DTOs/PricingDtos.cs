@@ -1,19 +1,20 @@
 namespace EzStem.Application.DTOs;
 
 public record PricingConfigRequest(
-    decimal MarkupFactor,
-    decimal? OverheadPercent,
-    decimal? LaborDefaultCost
+    decimal DefaultMarkupPercentage,
+    decimal DefaultLaborRate
 );
 
 public record PricingConfigResponse(
-    decimal MarkupFactor, decimal OverheadPercent, decimal LaborDefaultCost);
+    string Id,
+    decimal DefaultMarkupPercentage,
+    decimal DefaultLaborRate);
 
 public record PricingCalculateRequest(
-    decimal CostOfGoods, decimal LaborCost, decimal MarkupFactor, decimal OverheadPercent);
+    decimal CostOfGoods, decimal LaborCost, decimal MarkupPercentage);
 
 public record PricingResult(
-    decimal StemCost, decimal LaborCost, decimal OverheadCost,
+    decimal StemCost, decimal LaborCost,
     decimal TotalCost, decimal RetailPrice, decimal Profit,
     decimal MarginPercent);
 

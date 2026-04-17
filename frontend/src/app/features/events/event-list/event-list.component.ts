@@ -115,6 +115,11 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
         <div class="loading-spinner">
           <mat-spinner></mat-spinner>
         </div>
+      } @else if (errorMessage) {
+        <div class="error-state">
+          <span>⚠️ {{ errorMessage }}</span>
+          <button mat-button color="primary" (click)="loadEvents()">Retry</button>
+        </div>
       } @else if (filteredEvents.length > 0) {
       <table mat-table [dataSource]="filteredEvents" class="mat-elevation-z2">
         <ng-container matColumnDef="name">
@@ -203,6 +208,16 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
     .status-confirmed { background-color: #81c784; }
     .status-ordered { background-color: #64b5f6; }
     .status-completed { background-color: #9e9e9e; }
+
+    .error-state {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 24px;
+      background: #fff3e0;
+      border-left: 4px solid #ff9800;
+      border-radius: 4px;
+    }
   `]
 })
 export class EventListComponent implements OnInit, OnDestroy {
@@ -216,6 +231,7 @@ export class EventListComponent implements OnInit, OnDestroy {
   createNewEvent = () => this.createEvent();
   displayedColumns = ['name', 'date', 'client', 'status', 'actions'];
   isLoading = true;
+  errorMessage: string | null = null;
   private destroy$ = new Subject<void>();
 
   constructor(
@@ -264,6 +280,7 @@ export class EventListComponent implements OnInit, OnDestroy {
 
   loadEvents() {
     this.isLoading = true;
+    this.errorMessage = null;
     this.eventService.getEvents()
       .pipe(finalize(() => this.isLoading = false))
       .subscribe({
@@ -273,6 +290,7 @@ export class EventListComponent implements OnInit, OnDestroy {
         },
         error: (err) => {
           console.error('Error loading events:', err);
+          this.errorMessage = 'Failed to load events. Please try again.';
         }
       });
   }

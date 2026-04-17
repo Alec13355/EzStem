@@ -129,6 +129,11 @@ export interface PricingConfig {
   defaultLaborRate: number;
 }
 
+export interface PricingConfigSaveRequest {
+  defaultMarkupPercentage: number;
+  defaultLaborRate: number;
+}
+
 export interface RecipePricing {
   recipeId: string;
   recipeName: string;

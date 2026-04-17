@@ -43,7 +43,8 @@ public record ItemResponse(
     int? SeasonalEndMonth,
     int? LeadTimeDays,
     DateTime CreatedAt,
-    DateTime UpdatedAt
+    DateTime UpdatedAt,
+    bool IsActive = true
 );
 
 public record SeasonalWarning(
