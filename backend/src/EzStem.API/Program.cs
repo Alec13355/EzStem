@@ -50,6 +50,14 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseExceptionHandler(errorApp => errorApp.Run(async ctx =>
+{
+    var ex = ctx.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>()?.Error;
+    ctx.Response.ContentType = "application/json";
+    ctx.Response.StatusCode = ex is UnauthorizedAccessException ? 401 : 500;
+    await ctx.Response.WriteAsJsonAsync(new { error = ex?.Message ?? "An unexpected error occurred." });
+}));
+
 app.UseCors("AllowAngular");
 app.UseAuthentication();
 app.UseAuthorization();

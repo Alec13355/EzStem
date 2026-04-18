@@ -24,6 +24,7 @@ public class EventsController : ControllerBase
         User.FindFirstValue("oid")
         ?? User.FindFirstValue("http://schemas.microsoft.com/identity/claims/objectidentifier")
         ?? User.FindFirstValue(ClaimTypes.NameIdentifier)
+        ?? User.FindFirstValue("sub")
         ?? throw new UnauthorizedAccessException("User identifier not found in token");
 
     [HttpGet]
