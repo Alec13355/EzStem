@@ -6,19 +6,38 @@ on:
       - main
 
 jobs:
-  test-backend:
+  build-backend:
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ./backend
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.0.x'
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('backend/**/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-
+
       - run: dotnet restore
       - run: dotnet build --configuration Release --no-restore
       - run: dotnet test --configuration Release --no-build
+
+      - name: Publish
+        run: dotnet publish src/EzStem.API/EzStem.API.csproj --configuration Release --no-build --output ./publish
+
+      - name: Upload backend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-publish
+          path: backend/publish
+          retention-days: 1
 
   test-frontend:
     runs-on: ubuntu-latest
@@ -27,15 +46,24 @@ jobs:
         working-directory: ./frontend
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: frontend/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-node-
+
       - run: npm ci
       - run: npx ng build --configuration production
 
   infra:
     runs-on: ubuntu-latest
-    needs: [test-backend, test-frontend]
+    needs: [build-backend, test-frontend]
     permissions:
       id-token: write
       contents: read
@@ -124,77 +152,53 @@ jobs:
     permissions:
       id-token: write
       contents: read
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
-      - name: Setup .NET 9
-        uses: actions/setup-dotnet@v4
+
+      - name: Download backend artifact
+        uses: actions/download-artifact@v4
         with:
-          dotnet-version: '9.0.x'
-      
+          name: backend-publish
+          path: ./publish
+
       - name: Azure login (OIDC)
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      
-      - name: Publish .NET application
-        working-directory: ./backend
-        run: |
-          dotnet publish src/EzStem.API/EzStem.API.csproj \
-            --configuration Release \
-            --output ./publish
-      
+
       - name: Create deployment package
-        working-directory: ./backend/publish
-        run: zip -r ../deploy.zip .
-      
-      - name: Verify App Service settings
-        run: |
-          echo "=== Verifying App Service connection string is set ==="
-          HAS_CONN=$(az webapp config appsettings list \
-            --name ${{ secrets.AZURE_WEBAPP_NAME }} \
-            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
-            --query "[?name=='ConnectionStrings__DefaultConnection'] | length(@)" \
-            -o tsv)
-          echo "ConnectionStrings__DefaultConnection key count: $HAS_CONN"
-          if [ "$HAS_CONN" = "0" ]; then
-            echo "ERROR: ConnectionStrings__DefaultConnection is NOT set!"
-            exit 1
-          fi
+        run: zip -r deploy.zip ./publish
 
       - name: Deploy to Azure Web App
         run: |
-          # Stream container logs in background so we capture .NET stdout/stderr in real-time
-          az webapp log tail \
-            --name ${{ secrets.AZURE_WEBAPP_NAME }} \
-            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
-            --timeout 720 > /tmp/streaming-logs.txt 2>&1 &
-          STREAM_PID=$!
-          sleep 3  # brief pause to let streaming connect
-
           az webapp deploy \
             --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
             --name ${{ secrets.AZURE_WEBAPP_NAME }} \
-            --src-path ./backend/deploy.zip \
+            --src-path ./deploy.zip \
             --type zip
-          DEPLOY_EXIT=$?
 
-          sleep 5
-          kill $STREAM_PID 2>/dev/null || true
+      - name: Smoke test (retry up to 2 min)
+        run: |
+          URL="https://${{ secrets.AZURE_WEBAPP_NAME }}.azurewebsites.net/health"
+          for i in {1..8}; do
+            echo "Attempt $i/8..."
+            if curl --fail --silent --max-time 10 "$URL"; then
+              echo ""
+              echo "Health check passed"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "Health check failed after 8 attempts"
+          exit 1
 
-          echo "=== Streaming container logs (real-time .NET stdout) ==="
-          cat /tmp/streaming-logs.txt || true
-
-          exit $DEPLOY_EXIT
-      
       - name: Capture App Service logs on failure
         if: failure()
         run: |
-          echo "=== App Service runtime logs ==="
           LOG_DIR="./app-logs"
           mkdir -p "$LOG_DIR"
           az webapp log download \
@@ -203,20 +207,15 @@ jobs:
             --log-file "$LOG_DIR/app-logs.zip" 2>&1 || true
           if [ -f "$LOG_DIR/app-logs.zip" ]; then
             unzip -o "$LOG_DIR/app-logs.zip" -d "$LOG_DIR" 2>/dev/null || true
-            echo "=== Application logs (stdout/stderr) ==="
+            echo "=== Application logs ==="
             find "$LOG_DIR" -path "*/Application/*.txt" -type f | sort | tail -3 \
               | xargs -I{} sh -c 'echo "--- {} ---"; tail -400 {}' 2>/dev/null \
               || echo "(no Application/*.txt logs found)"
-            echo "=== Docker container state logs ==="
+            echo "=== Docker logs ==="
             find "$LOG_DIR" -name "*docker.log" -type f | sort | tail -2 \
               | xargs -I{} sh -c 'echo "--- {} ---"; tail -150 {}' 2>/dev/null \
               || echo "(no docker.log found)"
           fi
-      
-      - name: Smoke test
-        run: |
-          sleep 45
-          curl --fail https://${{ secrets.AZURE_WEBAPP_NAME }}.azurewebsites.net/health || exit 1
 
   deploy-frontend:
     runs-on: ubuntu-latest
@@ -224,11 +223,18 @@ jobs:
     permissions:
       id-token: write
       contents: read
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: frontend/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-node-
+
       - name: Deploy to Azure Static Web Apps
         uses: Azure/static-web-apps-deploy@v1
         with:
@@ -238,4 +244,3 @@ jobs:
           app_location: frontend
           output_location: dist/frontend/browser
           app_build_command: npx ng build --configuration production
-

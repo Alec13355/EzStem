@@ -38,17 +38,21 @@ conn_str = (
 try:
     conn   = pyodbc.connect(conn_str, attrs_before={1256: token_struct})
     cursor = conn.cursor()
+    # Drop and recreate unconditionally — if the App Service was redeployed the MI
+    # gets a new AAD SID, making any existing SQL user stale and unresolvable.
     cursor.execute(f"""
-IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'{mi_name}')
+IF EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'{mi_name}')
 BEGIN
-    EXEC('CREATE USER [{mi_name}] FROM EXTERNAL PROVIDER')
-    EXEC('ALTER ROLE db_owner ADD MEMBER [{mi_name}]')
-    PRINT 'SQL user created'
+    ALTER ROLE db_owner DROP MEMBER [{mi_name}]
+    DROP USER [{mi_name}]
+    PRINT 'Dropped stale SQL user'
 END
-ELSE PRINT 'SQL user already exists'
+CREATE USER [{mi_name}] FROM EXTERNAL PROVIDER
+ALTER ROLE db_owner ADD MEMBER [{mi_name}]
+PRINT 'SQL user created and granted db_owner'
 """)
     conn.commit()
     print(f"SQL user provisioned: {mi_name}")
 except pyodbc.Error as e:
-    print(f"ERROR connecting to SQL: {e}", file=sys.stderr)
+    print(f"ERROR provisioning SQL user: {e}", file=sys.stderr)
     sys.exit(1)
