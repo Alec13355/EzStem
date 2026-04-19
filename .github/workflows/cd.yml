@@ -123,23 +123,49 @@ jobs:
             --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
             --name main \
             --query "properties.outputs.sqlServerName.value" -o tsv)
-          APP_MI_NAME="${{ secrets.AZURE_WEBAPP_NAME }}"
-          # Get the App Service MI's Object ID directly — passed to the script so it
-          # can build the SID without needing FROM EXTERNAL PROVIDER (which requires
-          # Directory Readers on the SQL Server identity).
-          APP_MI_OID=$(az webapp identity show \
+          BASE_MI_NAME="${{ secrets.AZURE_WEBAPP_NAME }}"
+          IDENTITY_JSON=$(az webapp identity show \
             --name "${{ secrets.AZURE_WEBAPP_NAME }}" \
-            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
-            --query principalId -o tsv)
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}")
           ACCESS_TOKEN=$(az account get-access-token \
             --resource https://database.windows.net/ \
             --query accessToken -o tsv)
           DB_NAME="${SQL_SERVER%-sql}-db"
           pip install pyodbc --quiet
-          SQL_SERVER="$SQL_SERVER" DB_NAME="$DB_NAME" \
-            APP_MI_NAME="$APP_MI_NAME" APP_MI_OID="$APP_MI_OID" \
-            ACCESS_TOKEN="$ACCESS_TOKEN" \
-            python3 .github/scripts/provision_sql_user.py
+
+          # Provision system-assigned MI
+          SYS_OID=$(echo "$IDENTITY_JSON" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+v=d.get('principalId','')
+if v and v!='None': print(v)
+" 2>/dev/null || true)
+          if [ -n "$SYS_OID" ]; then
+            echo "Provisioning system-assigned MI: $SYS_OID"
+            SQL_SERVER="$SQL_SERVER" DB_NAME="$DB_NAME" \
+              APP_MI_NAME="$BASE_MI_NAME" APP_MI_OID="$SYS_OID" \
+              ACCESS_TOKEN="$ACCESS_TOKEN" \
+              python3 .github/scripts/provision_sql_user.py
+          fi
+
+          # Provision any user-assigned MIs (they take IMDS priority over system-assigned
+          # when both are present, so they also need SQL access)
+          UA_OIDS=$(echo "$IDENTITY_JSON" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+for v in (d.get('userAssignedIdentities') or {}).values():
+    p=v.get('principalId','')
+    if p: print(p)
+" 2>/dev/null || true)
+          IDX=1
+          for UA_OID in $UA_OIDS; do
+            echo "Provisioning user-assigned MI ($IDX): $UA_OID"
+            SQL_SERVER="$SQL_SERVER" DB_NAME="$DB_NAME" \
+              APP_MI_NAME="${BASE_MI_NAME}-ua${IDX}" APP_MI_OID="$UA_OID" \
+              ACCESS_TOKEN="$ACCESS_TOKEN" \
+              python3 .github/scripts/provision_sql_user.py
+            IDX=$((IDX + 1))
+          done
 
       - name: Get SWA deployment token
         id: swa-key
