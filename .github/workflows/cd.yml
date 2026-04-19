@@ -134,12 +134,7 @@ jobs:
           pip install pyodbc --quiet
 
           # Provision system-assigned MI
-          SYS_OID=$(echo "$IDENTITY_JSON" | python3 -c "
-import json,sys
-d=json.load(sys.stdin)
-v=d.get('principalId','')
-if v and v!='None': print(v)
-" 2>/dev/null || true)
+          SYS_OID=$(echo "$IDENTITY_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); v=d.get('principalId',''); print(v) if v and v not in ('None','null') else None" 2>/dev/null || true)
           if [ -n "$SYS_OID" ]; then
             echo "Provisioning system-assigned MI: $SYS_OID"
             SQL_SERVER="$SQL_SERVER" DB_NAME="$DB_NAME" \
@@ -150,13 +145,7 @@ if v and v!='None': print(v)
 
           # Provision any user-assigned MIs (they take IMDS priority over system-assigned
           # when both are present, so they also need SQL access)
-          UA_OIDS=$(echo "$IDENTITY_JSON" | python3 -c "
-import json,sys
-d=json.load(sys.stdin)
-for v in (d.get('userAssignedIdentities') or {}).values():
-    p=v.get('principalId','')
-    if p: print(p)
-" 2>/dev/null || true)
+          UA_OIDS=$(echo "$IDENTITY_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); [print(v.get('principalId','')) for v in (d.get('userAssignedIdentities') or {}).values() if v.get('principalId')]" 2>/dev/null || true)
           IDX=1
           for UA_OID in $UA_OIDS; do
             echo "Provisioning user-assigned MI ($IDX): $UA_OID"
