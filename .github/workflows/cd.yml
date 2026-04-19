@@ -134,11 +134,13 @@ jobs:
           pip install pyodbc --quiet
 
           # Provision system-assigned MI
+          # SQL Server matches the 'appid' claim (Client ID) from MI tokens, not 'oid'.
           SYS_OID=$(echo "$IDENTITY_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); v=d.get('principalId',''); print(v) if v and v not in ('None','null') else None" 2>/dev/null || true)
           if [ -n "$SYS_OID" ]; then
-            echo "Provisioning system-assigned MI: $SYS_OID"
+            SYS_CLIENT_ID=$(az ad sp show --id "$SYS_OID" --query appId -o tsv)
+            echo "Provisioning system-assigned MI: OID=$SYS_OID ClientID=$SYS_CLIENT_ID"
             SQL_SERVER="$SQL_SERVER" DB_NAME="$DB_NAME" \
-              APP_MI_NAME="$BASE_MI_NAME" APP_MI_OID="$SYS_OID" \
+              APP_MI_NAME="$BASE_MI_NAME" APP_MI_CLIENT_ID="$SYS_CLIENT_ID" \
               ACCESS_TOKEN="$ACCESS_TOKEN" \
               python3 .github/scripts/provision_sql_user.py
           fi
@@ -148,9 +150,10 @@ jobs:
           UA_OIDS=$(echo "$IDENTITY_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); [print(v.get('principalId','')) for v in (d.get('userAssignedIdentities') or {}).values() if v.get('principalId')]" 2>/dev/null || true)
           IDX=1
           for UA_OID in $UA_OIDS; do
-            echo "Provisioning user-assigned MI ($IDX): $UA_OID"
+            UA_CLIENT_ID=$(az ad sp show --id "$UA_OID" --query appId -o tsv)
+            echo "Provisioning user-assigned MI ($IDX): OID=$UA_OID ClientID=$UA_CLIENT_ID"
             SQL_SERVER="$SQL_SERVER" DB_NAME="$DB_NAME" \
-              APP_MI_NAME="${BASE_MI_NAME}-ua${IDX}" APP_MI_OID="$UA_OID" \
+              APP_MI_NAME="${BASE_MI_NAME}-ua${IDX}" APP_MI_CLIENT_ID="$UA_CLIENT_ID" \
               ACCESS_TOKEN="$ACCESS_TOKEN" \
               python3 .github/scripts/provision_sql_user.py
             IDX=$((IDX + 1))

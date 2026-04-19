@@ -4,18 +4,17 @@ Connects using an Azure AD access token (provided via env vars).
 
 Uses CREATE USER ... WITH SID=<bytes>, TYPE=E instead of FROM EXTERNAL PROVIDER
 so the SQL Server does NOT need Directory Readers on its own AAD identity.
-SQL Server's token auth matches the incoming MI token's 'oid' claim against this SID.
-The SID is the MI object ID GUID in mixed-endian (Windows / SQL Server) byte order.
+SQL Server matches the incoming MI token's 'appid' claim (Client ID) against the SID —
+NOT the 'oid' (Object ID). The SID must be the Client ID GUID in mixed-endian byte order.
 
-Always drops and recreates so a re-deployed App Service (new MI SID) never keeps
-a stale principal.
+Always drops and recreates so a re-deployed App Service (new MI) never keeps a stale principal.
 
 Required env vars:
-  SQL_SERVER   - short server name (e.g. ezstem-dev-sql)
-  DB_NAME      - database name    (e.g. ezstem-dev-db)
-  APP_MI_NAME  - managed identity display name (e.g. ezstem-dev-api)
-  APP_MI_OID   - object ID (GUID) of the App Service managed identity
-  ACCESS_TOKEN - Azure AD token for https://database.windows.net/
+  SQL_SERVER      - short server name (e.g. ezstem-dev-sql)
+  DB_NAME         - database name    (e.g. ezstem-dev-db)
+  APP_MI_NAME     - managed identity display name (e.g. ezstem-dev-api)
+  APP_MI_CLIENT_ID - client ID (appId) of the App Service managed identity
+  ACCESS_TOKEN    - Azure AD token for https://database.windows.net/
 """
 import pyodbc
 import struct
@@ -23,16 +22,16 @@ import uuid
 import os
 import sys
 
-server   = os.environ["SQL_SERVER"]
-db       = os.environ["DB_NAME"]
-mi_name  = os.environ["APP_MI_NAME"]
-mi_oid   = os.environ["APP_MI_OID"]
-token    = os.environ["ACCESS_TOKEN"]
+server    = os.environ["SQL_SERVER"]
+db        = os.environ["DB_NAME"]
+mi_name   = os.environ["APP_MI_NAME"]
+client_id = os.environ["APP_MI_CLIENT_ID"]
+token     = os.environ["ACCESS_TOKEN"]
 
-# Build the SQL SID from the MI object ID.
-# uuid.bytes_le gives the Windows mixed-endian layout that SQL Server uses
-# for AAD principals — Data1/2/3 little-endian, Data4 big-endian.
-sid_hex = "0x" + uuid.UUID(mi_oid).bytes_le.hex().upper()
+# Build the SQL SID from the MI client ID (appId).
+# SQL Server matches the 'appid' claim from the managed identity token, not 'oid'.
+# uuid.bytes_le gives the Windows mixed-endian layout SQL Server expects.
+sid_hex = "0x" + uuid.UUID(client_id).bytes_le.hex().upper()
 
 token_bytes  = token.encode("utf-16-le")
 token_struct = struct.pack(f"<I{len(token_bytes)}s", len(token_bytes), token_bytes)
@@ -43,7 +42,7 @@ if not drivers:
     sys.exit(1)
 driver = drivers[-1]
 print(f"Using driver: {driver}")
-print(f"Provisioning MI '{mi_name}' (OID: {mi_oid})")
+print(f"Provisioning MI '{mi_name}' (Client ID: {client_id})")
 
 conn_str = (
     f"DRIVER={{{driver}}};"
