@@ -124,13 +124,21 @@ jobs:
             --name main \
             --query "properties.outputs.sqlServerName.value" -o tsv)
           APP_MI_NAME="${{ secrets.AZURE_WEBAPP_NAME }}"
+          # Get the App Service MI's Object ID directly — passed to the script so it
+          # can build the SID without needing FROM EXTERNAL PROVIDER (which requires
+          # Directory Readers on the SQL Server identity).
+          APP_MI_OID=$(az webapp identity show \
+            --name "${{ secrets.AZURE_WEBAPP_NAME }}" \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --query principalId -o tsv)
           ACCESS_TOKEN=$(az account get-access-token \
             --resource https://database.windows.net/ \
             --query accessToken -o tsv)
           DB_NAME="${SQL_SERVER%-sql}-db"
           pip install pyodbc --quiet
           SQL_SERVER="$SQL_SERVER" DB_NAME="$DB_NAME" \
-            APP_MI_NAME="$APP_MI_NAME" ACCESS_TOKEN="$ACCESS_TOKEN" \
+            APP_MI_NAME="$APP_MI_NAME" APP_MI_OID="$APP_MI_OID" \
+            ACCESS_TOKEN="$ACCESS_TOKEN" \
             python3 .github/scripts/provision_sql_user.py
 
       - name: Get SWA deployment token
