@@ -62,4 +62,4 @@ resource firewallRule 'Microsoft.Sql/servers/firewallRules@2023-05-01-preview' =
 
 output sqlServerName string = sqlServer.name
 output sqlDatabaseName string = sqlDatabase.name
-output connectionString string = 'Server=tcp:${sqlServer.properties.fullyQualifiedDomainName},1433;Initial Catalog=${sqlDatabaseName};Authentication=Active Directory Default;Encrypt=True;Connection Timeout=30;'
+output connectionString string = 'Server=tcp:${sqlServer.properties.fullyQualifiedDomainName},1433;Initial Catalog=${sqlDatabaseName};Authentication=Active Directory Managed Identity;Encrypt=True;Connection Timeout=30;'
