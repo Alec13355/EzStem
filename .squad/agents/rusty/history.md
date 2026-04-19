@@ -402,3 +402,13 @@
 - **Verified Components:** `item-list`, `vendor-list`, `event-list`, `order-list`, `recipe-list` all use `finalize(() => this.isLoading = false)` pattern and proper template structure `@if (loading) { spinner } @else if (data.length > 0) { table } @else { empty-state }`.
 - **Root Cause:** The bug described in the reported symptom was already fixed in a previous session (2025). All current components correctly handle empty arrays by always setting loading to false and always assigning data even when `response.items = []`.
 - **Pattern Confirmation:** `finalize()` ensures loading clears on both success AND error, template structure ensures empty state shows when `loading = false` AND `data.length === 0`.
+
+### 2026-04-19: Auth Interceptor Silent-Failure Fix
+
+**Bug:** Auth interceptor was forwarding requests without a token in two cases:
+1. `getToken()` throws → `catchError(() => of(null))` → null → unauthenticated request sent → 401
+2. `getToken()` returns null (MSAL fires `acquireTokenRedirect`) → unauthenticated request sent → 401
+
+**Fix Pattern:** Check `authService.isAuthenticated()` first. If not authenticated, pass through (public routes). If authenticated but token is null/unavailable, return `EMPTY` to suppress the in-flight request silently — the MSAL redirect is already handling re-auth. Happy path unchanged: attach Bearer token and forward.
+
+**Key rule:** Use `EMPTY` (not `throwError`) for suppression to avoid HTTP error handler noise. Three branches: unauthenticated → pass through, authenticated + token → attach Bearer, authenticated + no token → `EMPTY`.
