@@ -1,3 +1,4 @@
+using EzStem.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EzStem.API;
@@ -7,8 +8,23 @@ namespace EzStem.API;
 public class HealthController : ControllerBase
 {
     [HttpGet]
-    public IActionResult Get()
+    public async Task<IActionResult> Get([FromServices] EzStemDbContext dbContext)
     {
+        try
+        {
+            await dbContext.Database.CanConnectAsync();
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(503, new
+            {
+                status = "unhealthy",
+                database = "unreachable",
+                detail = ex.Message,
+                timestamp = DateTime.UtcNow.ToString("o")
+            });
+        }
+
         return Ok(new
         {
             status = "healthy",

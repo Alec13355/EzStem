@@ -11,11 +11,12 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(connectionString))
+    throw new InvalidOperationException("Connection string 'DefaultConnection' is missing or empty. Set ConnectionStrings__DefaultConnection in app settings.");
+
 builder.Services.AddDbContext<EzStemDbContext>(options =>
-    options.UseSqlServer(
-        builder.Configuration.GetConnectionString("DefaultConnection")
-            ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found. See appsettings.Development.json.")
-    ));
+    options.UseSqlServer(connectionString));
 
 builder.Services.AddScoped<IItemService, ItemService>();
 builder.Services.AddScoped<IVendorService, VendorService>();
