@@ -188,13 +188,14 @@ jobs:
             --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
             --name ${{ secrets.AZURE_WEBAPP_NAME }} \
             --src-path ./deploy.zip \
-            --type zip
+            --type zip \
+            --async true
 
-      - name: Smoke test (retry up to 2 min)
+      - name: Smoke test (retry up to 4 min)
         run: |
           URL="https://${{ secrets.AZURE_WEBAPP_NAME }}.azurewebsites.net/health"
-          for i in {1..8}; do
-            echo "Attempt $i/8..."
+          for i in {1..16}; do
+            echo "Attempt $i/16..."
             if curl --fail --silent --max-time 10 "$URL"; then
               echo ""
               echo "Health check passed"
@@ -202,7 +203,7 @@ jobs:
             fi
             sleep 15
           done
-          echo "Health check failed after 8 attempts"
+          echo "Health check failed after 16 attempts"
           exit 1
 
       - name: Capture App Service logs on failure
