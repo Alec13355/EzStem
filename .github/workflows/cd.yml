@@ -171,7 +171,8 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Create deployment package
-        run: zip -r deploy.zip ./publish
+        working-directory: ./publish
+        run: zip -r ../deploy.zip .
 
       - name: Deploy to Azure Web App
         run: |
