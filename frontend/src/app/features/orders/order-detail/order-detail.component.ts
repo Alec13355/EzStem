@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
@@ -8,6 +8,8 @@ import { MatTableModule } from '@angular/material/table';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { finalize } from 'rxjs';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { OrderService } from '../../../core/services/order.service';
 import { Order, OrderLineItem, VendorOrderGroup, WasteSummary } from '../../../shared/models/api.models';
@@ -23,7 +25,8 @@ import { Order, OrderLineItem, VendorOrderGroup, WasteSummary } from '../../../s
     MatCardModule,
     MatFormFieldModule,
     MatInputModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    MatProgressSpinnerModule
   ],
   template: `
     <div class="container">
@@ -49,7 +52,11 @@ import { Order, OrderLineItem, VendorOrderGroup, WasteSummary } from '../../../s
         </div>
       </div>
 
-      @if (order) {
+      @if (isLoading()) {
+        <div style="display:flex;justify-content:center;padding:32px 0">
+          <mat-spinner></mat-spinner>
+        </div>
+      } @else if (order) {
         <mat-card class="mb-3">
           <mat-card-header>
             <mat-card-title>Order Information</mat-card-title>
@@ -284,6 +291,7 @@ import { Order, OrderLineItem, VendorOrderGroup, WasteSummary } from '../../../s
 })
 export class OrderDetailComponent implements OnInit {
   order: Order | null = null;
+  isLoading = signal(false);
   vendorGroups: VendorOrderGroup[] = [];
   lineItemColumns = ['itemName', 'quantityNeeded', 'bundleInfo', 'quantityOrdered', 'cost'];
   actualStemsUsedControl = new FormControl<number | null>(null);
@@ -305,15 +313,18 @@ export class OrderDetailComponent implements OnInit {
   }
 
   loadOrder(id: string) {
-    this.orderService.getOrder(id).subscribe({
-      next: (order) => {
-        this.order = order;
-        this.groupByVendor();
-      },
-      error: (err) => {
-        console.error('Error loading order:', err);
-      }
-    });
+    this.isLoading.set(true);
+    this.orderService.getOrder(id)
+      .pipe(finalize(() => this.isLoading.set(false)))
+      .subscribe({
+        next: (order) => {
+          this.order = order;
+          this.groupByVendor();
+        },
+        error: (err) => {
+          console.error('Error loading order:', err);
+        }
+      });
   }
 
   groupByVendor() {

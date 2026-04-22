@@ -30,8 +30,6 @@ builder.Services.AddScoped<IImageStorageService, AzureImageStorageService>();
 builder.Services.AddAuthentication()
     .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"));
 
-builder.Services.AddHostedService<DatabaseMigrationService>();
-
 var allowedOrigins= builder.Configuration.GetSection("AllowedOrigins").Get<string[]>()
     ?? new[] { "http://localhost:4200" };
 
@@ -44,6 +42,8 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+await DatabaseMigrationService.RunMigrationsAsync(app.Services, app.Logger);
 
 if (app.Environment.IsDevelopment())
 {

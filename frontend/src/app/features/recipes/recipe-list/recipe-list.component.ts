@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, Inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, Inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, ActivatedRoute } from '@angular/router';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
@@ -50,17 +50,17 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
         }
       </mat-form-field>
 
-      @if (isLoading) {
+      @if (isLoading()) {
         <div class="loading-spinner">
           <mat-spinner></mat-spinner>
         </div>
-      } @else if (errorMessage) {
+      } @else if (errorMessage()) {
         <div class="error-state">
-          <span>⚠️ {{ errorMessage }}</span>
+          <span>⚠️ {{ errorMessage() }}</span>
           <button mat-button color="primary" (click)="loadRecipes()">Retry</button>
         </div>
-      } @else if (filteredRecipes.length > 0) {
-      <table mat-table [dataSource]="filteredRecipes" class="mat-elevation-z2">
+      } @else if (filteredRecipes().length > 0) {
+      <table mat-table [dataSource]="filteredRecipes()" class="mat-elevation-z2">
         <ng-container matColumnDef="name">
           <th mat-header-cell *matHeaderCellDef>Name</th>
           <td mat-cell *matCellDef="let recipe">{{ recipe.name }}</td>
@@ -106,7 +106,7 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
         <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
         <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
       </table>
-      } @else {
+      } @else if (!isLoading()) {
         <app-empty-state
           [icon]="'📋'"
           [title]="'No recipes yet'"
@@ -159,13 +159,13 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
 })
 export class RecipeListComponent implements OnInit, OnDestroy {
   recipes: Recipe[] = [];
-  filteredRecipes: Recipe[] = [];
+  filteredRecipes = signal<Recipe[]>([]);
   searchControl = new FormControl('');
   createNewRecipe = () => this.createRecipe();
   displayedColumns = ['name', 'laborCost', 'totalCost', 'itemCount', 'actions'];
   duplicatingId: string | null = null;
-  isLoading = true;
-  errorMessage: string | null = null;
+  isLoading = signal(false);
+  errorMessage = signal<string | null>(null);
   private destroy$ = new Subject<void>();
 
   constructor(
@@ -196,18 +196,18 @@ export class RecipeListComponent implements OnInit, OnDestroy {
 
   applyFilter() {
     const q = (this.searchControl.value || '').toLowerCase();
-    this.filteredRecipes = q
+    this.filteredRecipes.set(q
       ? this.recipes.filter(r => r.name.toLowerCase().includes(q))
-      : [...this.recipes];
+      : [...this.recipes]);
   }
 
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
 
   loadRecipes() {
-    this.isLoading = true;
-    this.errorMessage = null;
+    this.isLoading.set(true);
+    this.errorMessage.set(null);
     this.recipeService.getRecipes()
-      .pipe(finalize(() => this.isLoading = false))
+      .pipe(finalize(() => this.isLoading.set(false)))
       .subscribe({
         next: (response) => {
           this.recipes = response.items ?? [];
@@ -215,7 +215,7 @@ export class RecipeListComponent implements OnInit, OnDestroy {
         },
         error: (err) => {
           console.error('Error loading recipes:', err);
-          this.errorMessage = 'Failed to load recipes. Please try again.';
+          this.errorMessage.set('Failed to load recipes. Please try again.');
         }
       });
   }

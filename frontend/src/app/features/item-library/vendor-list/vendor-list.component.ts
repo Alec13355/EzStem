@@ -50,6 +50,11 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
         <div class="loading-spinner">
           <mat-spinner></mat-spinner>
         </div>
+      } @else if (errorMessage) {
+        <div class="error-state">
+          <span>⚠️ {{ errorMessage }}</span>
+          <button mat-button color="primary" (click)="loadVendors()">Retry</button>
+        </div>
       } @else {
         @if (vendors.length > 0) {
         <table mat-table [dataSource]="vendors" class="mat-elevation-z2">
@@ -136,13 +141,24 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
       display: flex;
       gap: 8px;
     }
+
+    .error-state {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 24px;
+      background: #fff3e0;
+      border-left: 4px solid #ff9800;
+      border-radius: 4px;
+    }
   `]
 })
 export class VendorListComponent implements OnInit {
   vendors: Vendor[] = [];
   openAddVendorDialog = () => this.addVendor();
   displayedColumns = ['name', 'contactEmail', 'notes', 'actions'];
-  loading = true;
+  loading = false;
+  errorMessage: string | null = null;
   totalCount = 0;
   pageSize = 10;
   pageNumber = 1;
@@ -170,6 +186,7 @@ export class VendorListComponent implements OnInit {
 
   loadVendors() {
     this.loading = true;
+    this.errorMessage = null;
     this.vendorService.getVendors(this.pageNumber, this.pageSize)
       .pipe(finalize(() => this.loading = false))
       .subscribe({
@@ -179,6 +196,7 @@ export class VendorListComponent implements OnInit {
         },
         error: (err) => {
           console.error('Error loading vendors:', err);
+          this.errorMessage = 'Failed to load vendors. Please try again.';
         }
       });
   }

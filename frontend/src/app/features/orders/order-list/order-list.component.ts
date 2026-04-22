@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { MatTableModule } from '@angular/material/table';
@@ -28,17 +28,17 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
         <h1>Orders</h1>
       </div>
 
-      @if (isLoading) {
+      @if (isLoading()) {
         <div class="loading-spinner">
           <mat-spinner></mat-spinner>
         </div>
-      } @else if (errorMessage) {
+      } @else if (errorMessage()) {
         <div class="error-state">
-          <span>⚠️ {{ errorMessage }}</span>
+          <span>⚠️ {{ errorMessage() }}</span>
           <button mat-button color="primary" (click)="loadOrders()">Retry</button>
         </div>
-      } @else if (orders.length > 0) {
-      <table mat-table [dataSource]="orders" class="mat-elevation-z2">
+      } @else if (orders().length > 0) {
+      <table mat-table [dataSource]="orders()" class="mat-elevation-z2">
         <ng-container matColumnDef="eventId">
           <th mat-header-cell *matHeaderCellDef>Event</th>
           <td mat-cell *matCellDef="let order">{{ order.eventName || order.eventId }}</td>
@@ -118,10 +118,10 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
   `]
 })
 export class OrderListComponent implements OnInit {
-  orders: Order[] = [];
+  orders = signal<Order[]>([]);
   displayedColumns = ['eventId', 'status', 'totalCost', 'createdAt', 'actions'];
-  isLoading = true;
-  errorMessage: string | null = null;
+  isLoading = signal(false);
+  errorMessage = signal<string | null>(null);
 
   constructor(
     private orderService: OrderService,
@@ -133,17 +133,17 @@ export class OrderListComponent implements OnInit {
   }
 
   loadOrders() {
-    this.isLoading = true;
-    this.errorMessage = null;
+    this.isLoading.set(true);
+    this.errorMessage.set(null);
     this.orderService.getOrders()
-      .pipe(finalize(() => this.isLoading = false))
+      .pipe(finalize(() => this.isLoading.set(false)))
       .subscribe({
         next: (response) => {
-          this.orders = response.items ?? [];
+          this.orders.set(response.items ?? []);
         },
         error: (err) => {
           console.error('Error loading orders:', err);
-          this.errorMessage = 'Failed to load orders. Please try again.';
+          this.errorMessage.set('Failed to load orders. Please try again.');
         }
       });
   }

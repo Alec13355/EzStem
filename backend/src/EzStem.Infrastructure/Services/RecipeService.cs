@@ -9,6 +9,7 @@ namespace EzStem.Infrastructure.Services;
 public class RecipeService : IRecipeService
 {
     private readonly EzStemDbContext _context;
+    private const string DeletedItemLabel = "Deleted item";
 
     public RecipeService(EzStemDbContext context)
     {
@@ -114,7 +115,7 @@ public class RecipeService : IRecipeService
         if (recipe == null) return null;
 
         var scaledItems = recipe.RecipeItems.Select(ri => new RecipeItemResponse(
-            ri.Id, ri.ItemId, ri.Item.Name,
+            ri.Id, ri.ItemId, ri.Item?.Name ?? DeletedItemLabel,
             ri.Quantity * scaleFactor, ri.CostPerStem,
             ri.Quantity * scaleFactor * ri.CostPerStem)).ToList();
 
@@ -145,7 +146,7 @@ public class RecipeService : IRecipeService
         await _context.Entry(recipeItem).Reference(ri => ri.Item).LoadAsync(ct);
 
         return new RecipeItemResponse(
-            recipeItem.Id, recipeItem.ItemId, recipeItem.Item.Name,
+            recipeItem.Id, recipeItem.ItemId, recipeItem.Item?.Name ?? DeletedItemLabel,
             recipeItem.Quantity, recipeItem.CostPerStem,
             recipeItem.Quantity * recipeItem.CostPerStem);
     }
@@ -165,7 +166,7 @@ public class RecipeService : IRecipeService
         await _context.SaveChangesAsync(ct);
 
         return new RecipeItemResponse(
-            recipeItem.Id, recipeItem.ItemId, recipeItem.Item.Name,
+            recipeItem.Id, recipeItem.ItemId, recipeItem.Item?.Name ?? DeletedItemLabel,
             recipeItem.Quantity, recipeItem.CostPerStem,
             recipeItem.Quantity * recipeItem.CostPerStem);
     }
@@ -231,7 +232,7 @@ public class RecipeService : IRecipeService
     private RecipeResponse MapToRecipeResponse(Recipe recipe)
     {
         var recipeItems = recipe.RecipeItems.Select(ri => new RecipeItemResponse(
-            ri.Id, ri.ItemId, ri.Item.Name,
+            ri.Id, ri.ItemId, ri.Item?.Name ?? DeletedItemLabel,
             ri.Quantity, ri.CostPerStem,
             ri.Quantity * ri.CostPerStem)).ToList();
 

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, Inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, Inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, ActivatedRoute } from '@angular/router';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
@@ -111,17 +111,17 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
         </mat-chip-set>
       }
 
-      @if (isLoading) {
+      @if (isLoading()) {
         <div class="loading-spinner">
           <mat-spinner></mat-spinner>
         </div>
-      } @else if (errorMessage) {
+      } @else if (errorMessage()) {
         <div class="error-state">
-          <span>⚠️ {{ errorMessage }}</span>
+          <span>⚠️ {{ errorMessage() }}</span>
           <button mat-button color="primary" (click)="loadEvents()">Retry</button>
         </div>
-      } @else if (filteredEvents.length > 0) {
-      <table mat-table [dataSource]="filteredEvents" class="mat-elevation-z2">
+      } @else if (filteredEvents().length > 0) {
+      <table mat-table [dataSource]="filteredEvents()" class="mat-elevation-z2">
         <ng-container matColumnDef="name">
           <th mat-header-cell *matHeaderCellDef>Name</th>
           <td mat-cell *matCellDef="let event">{{ event.name }}</td>
@@ -222,7 +222,7 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
 })
 export class EventListComponent implements OnInit, OnDestroy {
   events: FloristEvent[] = [];
-  filteredEvents: FloristEvent[] = [];
+  filteredEvents = signal<FloristEvent[]>([]);
   searchControl = new FormControl('');
   statusFilter = new FormControl('');
   dateFromFilter = new FormControl<Date | null>(null);
@@ -230,8 +230,8 @@ export class EventListComponent implements OnInit, OnDestroy {
   readonly eventStatuses = ['Draft', 'Confirmed', 'Ordered', 'Completed'];
   createNewEvent = () => this.createEvent();
   displayedColumns = ['name', 'date', 'client', 'status', 'actions'];
-  isLoading = true;
-  errorMessage: string | null = null;
+  isLoading = signal(false);
+  errorMessage = signal<string | null>(null);
   private destroy$ = new Subject<void>();
 
   constructor(
@@ -266,23 +266,23 @@ export class EventListComponent implements OnInit, OnDestroy {
     const status = this.statusFilter.value || '';
     const dateFrom = this.dateFromFilter.value;
     const dateTo = this.dateToFilter.value;
-    this.filteredEvents = this.events.filter(e => {
+    this.filteredEvents.set(this.events.filter(e => {
       const matchesSearch = !q || e.name.toLowerCase().includes(q) || (e.clientName || '').toLowerCase().includes(q);
       const matchesStatus = !status || e.status === status;
       const eventDate = new Date(e.eventDate);
       const matchesFrom = !dateFrom || eventDate >= dateFrom;
       const matchesTo = !dateTo || eventDate <= dateTo;
       return matchesSearch && matchesStatus && matchesFrom && matchesTo;
-    });
+    }));
   }
 
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
 
   loadEvents() {
-    this.isLoading = true;
-    this.errorMessage = null;
+    this.isLoading.set(true);
+    this.errorMessage.set(null);
     this.eventService.getEvents()
-      .pipe(finalize(() => this.isLoading = false))
+      .pipe(finalize(() => this.isLoading.set(false)))
       .subscribe({
         next: (response) => {
           this.events = response.items ?? [];
@@ -290,7 +290,7 @@ export class EventListComponent implements OnInit, OnDestroy {
         },
         error: (err) => {
           console.error('Error loading events:', err);
-          this.errorMessage = 'Failed to load events. Please try again.';
+          this.errorMessage.set('Failed to load events. Please try again.');
         }
       });
   }

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -58,7 +58,7 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
           <mat-label>Vendor</mat-label>
           <mat-select [formControl]="vendorFilter">
             <mat-option value="">All Vendors</mat-option>
-            @for (v of vendors; track v.id) {
+            @for (v of vendors(); track v.id) {
               <mat-option [value]="v.id">{{ v.name }}</mat-option>
             }
           </mat-select>
@@ -106,18 +106,18 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
         </mat-chip-set>
       }
 
-      @if (loading) {
+      @if (loading()) {
         <div class="loading-spinner">
           <mat-spinner></mat-spinner>
         </div>
-      } @else if (errorMessage) {
+      } @else if (errorMessage()) {
         <div class="error-state">
-          <span>⚠️ {{ errorMessage }}</span>
+          <span>⚠️ {{ errorMessage() }}</span>
           <button mat-button color="primary" (click)="loadItems()">Retry</button>
         </div>
       } @else {
-        @if (filteredItems.length > 0) {
-        <table mat-table [dataSource]="filteredItems" class="mat-elevation-z2">
+        @if (filteredItems().length > 0) {
+        <table mat-table [dataSource]="filteredItems()" class="mat-elevation-z2">
           <ng-container matColumnDef="image">
             <th mat-header-cell *matHeaderCellDef>Image</th>
             <td mat-cell *matCellDef="let item">
@@ -247,17 +247,19 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
   `]
 })
 export class ItemListComponent implements OnInit, OnDestroy {
-  items: Item[] = [];
-  filteredItems: Item[] = [];
-  vendors: Vendor[] = [];
+  items = signal<Item[]>([]);
+  filteredItems = signal<Item[]>([]);
+  vendors = signal<Vendor[]>([]);
   searchControl = new FormControl('');
   vendorFilter = new FormControl('');
   seasonalFilter = new FormControl('');
   activeFilter = new FormControl('');
   openAddItemDialog = () => this.addItem();
   displayedColumns = ['image', 'name', 'costPerStem', 'vendor', 'actions'];
-  loading = true;
-  errorMessage: string | null = null;
+  itemsLoading = signal(false);
+  vendorsLoading = signal(false);
+  loading = computed(() => this.itemsLoading());
+  errorMessage = signal<string | null>(null);
   totalCount = 0;
   pageSize = 10;
   pageNumber = 1;
@@ -290,26 +292,27 @@ export class ItemListComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
+    this.vendorsLoading.set(true);
+    this.vendorService.getVendors(1, 100)
+      .pipe(finalize(() => this.vendorsLoading.set(false)))
+      .subscribe({ next: (r) => { this.vendors.set(r.items ?? []); } });
     this.loadItems();
-    this.vendorService.getVendors(1, 100).subscribe({
-      next: (r) => { this.vendors = r.items; }
-    });
   }
 
   loadItems() {
-    this.loading = true;
-    this.errorMessage = null;
+    this.itemsLoading.set(true);
+    this.errorMessage.set(null);
     this.itemService.getItems(this.pageNumber, this.pageSize, this.searchControl.value || '')
-      .pipe(finalize(() => this.loading = false))
+      .pipe(finalize(() => this.itemsLoading.set(false)))
       .subscribe({
         next: (response) => {
-          this.items = response.items ?? [];
+          this.items.set(response.items ?? []);
           this.totalCount = response.totalCount;
           this.applyClientFilters();
         },
         error: (err) => {
           console.error('Error loading items:', err);
-          this.errorMessage = 'Failed to load items. Please try again.';
+          this.errorMessage.set('Failed to load items. Please try again.');
         }
       });
   }
@@ -318,7 +321,7 @@ export class ItemListComponent implements OnInit, OnDestroy {
     const vendor = this.vendorFilter.value || '';
     const seasonal = this.seasonalFilter.value || '';
     const active = this.activeFilter.value || '';
-    this.filteredItems = this.items.filter(item => {
+    this.filteredItems.set(this.items().filter(item => {
       const matchesVendor = !vendor || item.vendorId === vendor;
       const matchesSeasonal = !seasonal ||
         (seasonal === 'seasonal' && item.isSeasonalItem === true) ||
@@ -327,11 +330,11 @@ export class ItemListComponent implements OnInit, OnDestroy {
         (active === 'active' && item.isActive !== false) ||
         (active === 'inactive' && item.isActive === false);
       return matchesVendor && matchesSeasonal && matchesActive;
-    });
+    }));
   }
 
   getVendorName(vendorId: string): string {
-    return this.vendors.find(v => v.id === vendorId)?.name ?? vendorId;
+    return this.vendors().find(v => v.id === vendorId)?.name ?? vendorId;
   }
 
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }

@@ -1,6 +1,6 @@
 export const environment = {
   production: false,
-  apiUrl: 'http://localhost:5000/api',
+  apiUrl: 'http://localhost:5001/api',
   msalConfig: {
     auth: {
       clientId: 'fd7e9b53-7b8f-4cd4-bfea-7c0a00209448',

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, CanDeactivateFn } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
@@ -11,6 +11,8 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatCardModule } from '@angular/material/card';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { finalize } from 'rxjs';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { EventService } from '../../../core/services/event.service';
 import { RecipeService } from '../../../core/services/recipe.service';
@@ -33,7 +35,8 @@ import { FloristEvent, Recipe, EventSummary, FlexItem, Item } from '../../../sha
     MatCardModule,
     MatDatepickerModule,
     MatNativeDateModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    MatProgressSpinnerModule
   ],
   template: `
     <div class="container">
@@ -54,6 +57,12 @@ import { FloristEvent, Recipe, EventSummary, FlexItem, Item } from '../../../sha
           </button>
         </div>
       </div>
+
+      @if (loading()) {
+        <div style="display:flex;justify-content:center;padding:32px 0">
+          <mat-spinner></mat-spinner>
+        </div>
+      } @else {
 
       @if (seasonalWarnings.length > 0) {
         <mat-card class="warning-card mb-3">
@@ -299,6 +308,7 @@ import { FloristEvent, Recipe, EventSummary, FlexItem, Item } from '../../../sha
           </mat-card>
         }
       }
+      }
     </div>
   `,
   styles: [`
@@ -399,6 +409,8 @@ export class EventDetailComponent implements OnInit {
   event: FloristEvent | null = null;
   eventForm: FormGroup;
   isNew = false;
+  eventLoading = signal(false);
+  loading = this.eventLoading;
   availableRecipes: Recipe[] = [];
   availableItems: Item[] = [];
   selectedRecipeId: string = '';
@@ -451,24 +463,27 @@ export class EventDetailComponent implements OnInit {
   }
 
   loadEvent(id: string) {
-    this.eventService.getEvent(id).subscribe({
-      next: (event) => {
-        this.event = event;
-        this.eventForm.patchValue({
-          name: event.name,
-          eventDate: event.eventDate,
-          clientName: event.clientName,
-          status: event.status,
-          notes: event.notes
-        });
-        this.eventForm.markAsPristine();
-        this.checkSeasonalItems();
-        this.loadFlexItems();
-      },
-      error: (err) => {
-        console.error('Error loading event:', err);
-      }
-    });
+    this.eventLoading.set(true);
+    this.eventService.getEvent(id)
+      .pipe(finalize(() => this.eventLoading.set(false)))
+      .subscribe({
+        next: (event) => {
+          this.event = event;
+          this.eventForm.patchValue({
+            name: event.name,
+            eventDate: event.eventDate,
+            clientName: event.clientName,
+            status: event.status,
+            notes: event.notes
+          });
+          this.eventForm.markAsPristine();
+          this.checkSeasonalItems();
+          this.loadFlexItems();
+        },
+        error: (err) => {
+          console.error('Error loading event:', err);
+        }
+      });
   }
 
   loadRecipes() {

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -27,7 +27,7 @@ import { PricingConfig } from '../../../shared/models/api.models';
     <div class="container">
       <h1>Pricing Settings</h1>
 
-      @if (loading) {
+      @if (loading()) {
         <div class="loading-spinner">
           <mat-spinner></mat-spinner>
         </div>
@@ -94,8 +94,8 @@ import { PricingConfig } from '../../../shared/models/api.models';
                   mat-raised-button 
                   color="primary" 
                   (click)="onSave()" 
-                  [disabled]="form.invalid || saving">
-                  @if (saving) {
+                  [disabled]="form.invalid || saving()">
+                  @if (saving()) {
                     <span>Saving...</span>
                   } @else {
                     <span>Save Settings</span>
@@ -185,8 +185,8 @@ import { PricingConfig } from '../../../shared/models/api.models';
 })
 export class PricingSettingsComponent implements OnInit {
   form!: FormGroup;
-  loading = false;
-  saving = false;
+  loading = signal(false);
+  saving = signal(false);
   configId?: string;
 
   constructor(
@@ -213,9 +213,9 @@ export class PricingSettingsComponent implements OnInit {
   }
 
   private loadConfig(): void {
-    this.loading = true;
+    this.loading.set(true);
     this.pricingService.getPricingConfig()
-      .pipe(finalize(() => this.loading = false))
+      .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: (config: PricingConfig) => {
           this.configId = config.id;
@@ -234,14 +234,14 @@ export class PricingSettingsComponent implements OnInit {
   onSave(): void {
     if (this.form.invalid) return;
 
-    this.saving = true;
+    this.saving.set(true);
     const payload = {
       defaultMarkupPercentage: this.form.value.defaultMarkupPercentage,
       defaultLaborRate: this.form.value.defaultLaborRate
     };
 
     this.pricingService.updatePricingConfig(payload)
-      .pipe(finalize(() => this.saving = false))
+      .pipe(finalize(() => this.saving.set(false)))
       .subscribe({
         next: (config: PricingConfig) => {
           this.configId = config.id;

@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
@@ -9,10 +9,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { MatSelectModule } from '@angular/material/select';
 import { MatCardModule } from '@angular/material/card';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { firstValueFrom } from 'rxjs';
+import { finalize, firstValueFrom } from 'rxjs';
 import { RecipeService } from '../../../core/services/recipe.service';
 import { ItemService } from '../../../core/services/item.service';
 import { Recipe, Item, RecipeItem, ScaleRecipeResponse, UpdateRecipeItemRequest } from '../../../shared/models/api.models';
@@ -31,10 +32,10 @@ import { ItemPickerDialogComponent } from '../../../shared/components/item-picke
     MatTableModule,
     MatSelectModule,
     MatCardModule,
+    MatProgressSpinnerModule,
     MatSnackBarModule,
     MatTooltipModule,
-    MatDialogModule,
-    ItemPickerDialogComponent
+    MatDialogModule
   ],
   template: `
     <div class="container">
@@ -45,6 +46,19 @@ import { ItemPickerDialogComponent } from '../../../shared/components/item-picke
           Back
         </button>
       </div>
+
+      @if (loading()) {
+        <div class="loading-spinner">
+          <mat-spinner></mat-spinner>
+        </div>
+      } @else if (errorMessage()) {
+        <div class="error-state">
+          <span>⚠️ {{ errorMessage() }}</span>
+          @if (!isNew && recipe?.id) {
+            <button mat-button color="primary" (click)="loadRecipe(recipe!.id)">Retry</button>
+          }
+        </div>
+      } @else {
 
       <mat-card class="mb-3">
         <mat-card-content>
@@ -231,6 +245,7 @@ import { ItemPickerDialogComponent } from '../../../shared/components/item-picke
           </mat-card>
         }
       }
+      }
     </div>
   `,
   styles: [`
@@ -274,12 +289,32 @@ import { ItemPickerDialogComponent } from '../../../shared/components/item-picke
       display: flex;
       align-items: center;
     }
+
+    .loading-spinner {
+      display: flex;
+      justify-content: center;
+      padding: 32px 0;
+    }
+
+    .error-state {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 24px;
+      background: #fff3e0;
+      border-left: 4px solid #ff9800;
+      border-radius: 4px;
+    }
   `]
 })
 export class RecipeDetailComponent implements OnInit {
   recipe: Recipe | null = null;
   scaledPreview = signal<ScaleRecipeResponse | null>(null);
   isScaling = signal(false);
+  recipeLoading = signal(false);
+  itemsLoading = signal(false);
+  loading = computed(() => this.recipeLoading());
+  errorMessage = signal<string | null>(null);
   recipeForm: FormGroup;
   isNew = false;
   availableItems: Item[] = [];
@@ -308,6 +343,7 @@ export class RecipeDetailComponent implements OnInit {
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
     this.isNew = id === 'new';
+    this.errorMessage.set(null);
 
     if (!this.isNew && id) {
       this.loadRecipe(id);
@@ -317,7 +353,11 @@ export class RecipeDetailComponent implements OnInit {
   }
 
   loadRecipe(id: string) {
-    this.recipeService.getRecipe(id).subscribe({
+    this.recipeLoading.set(true);
+    this.errorMessage.set(null);
+    this.recipeService.getRecipe(id)
+      .pipe(finalize(() => this.recipeLoading.set(false)))
+      .subscribe({
       next: (recipe) => {
         this.recipe = recipe;
         this.recipeForm.patchValue({
@@ -328,14 +368,18 @@ export class RecipeDetailComponent implements OnInit {
       },
       error: (err) => {
         console.error('Error loading recipe:', err);
+        this.errorMessage.set('Failed to load recipe. Please try again.');
       }
     });
   }
 
   loadItems() {
-    this.itemService.getItems(1, 100).subscribe({
+    this.itemsLoading.set(true);
+    this.itemService.getItems(1, 100)
+      .pipe(finalize(() => this.itemsLoading.set(false)))
+      .subscribe({
       next: (response) => {
-        this.availableItems = response.items;
+        this.availableItems = response.items ?? [];
       },
       error: (err) => {
         console.error('Error loading items:', err);
