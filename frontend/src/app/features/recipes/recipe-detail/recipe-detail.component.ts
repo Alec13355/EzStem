@@ -78,9 +78,23 @@ import { ItemPickerDialogComponent } from '../../../shared/components/item-picke
               <input matInput type="number" formControlName="laborCost" required step="0.01" min="0">
             </mat-form-field>
 
-            <button mat-raised-button color="primary" (click)="saveRecipe()" [disabled]="!recipeForm.valid">
-              Save Recipe
-            </button>
+            @if (isNew) {
+              <div class="form-actions">
+                <button mat-raised-button color="primary" (click)="saveRecipe(false)" [disabled]="!recipeForm.valid">
+                  <mat-icon>save</mat-icon>
+                  Save
+                </button>
+                <button mat-stroked-button color="primary" (click)="saveRecipe(true)" [disabled]="!recipeForm.valid">
+                  <mat-icon>add</mat-icon>
+                  Save & Add Another
+                </button>
+              </div>
+            } @else {
+              <button mat-raised-button color="primary" (click)="saveRecipe(false)" [disabled]="!recipeForm.valid">
+                <mat-icon>save</mat-icon>
+                Save Recipe
+              </button>
+            }
           </form>
         </mat-card-content>
       </mat-card>
@@ -305,6 +319,12 @@ import { ItemPickerDialogComponent } from '../../../shared/components/item-picke
       border-left: 4px solid #ff9800;
       border-radius: 4px;
     }
+
+    .form-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
   `]
 })
 export class RecipeDetailComponent implements OnInit {
@@ -387,26 +407,33 @@ export class RecipeDetailComponent implements OnInit {
     });
   }
 
-  saveRecipe() {
-    if (this.recipeForm.valid) {
-      const recipeData = this.recipeForm.value;
-      const request = this.isNew
-        ? this.recipeService.createRecipe(recipeData)
-        : this.recipeService.updateRecipe(this.recipe!.id, recipeData);
+  saveRecipe(continueAdding: boolean = false) {
+    if (!this.recipeForm.valid) return;
 
-      request.subscribe({
-        next: (recipe) => {
-          if (this.isNew) {
-            this.router.navigate(['/recipes', recipe.id]);
+    const recipeData = this.recipeForm.value;
+    const request = this.isNew
+      ? this.recipeService.createRecipe(recipeData)
+      : this.recipeService.updateRecipe(this.recipe!.id, recipeData);
+
+    request.subscribe({
+      next: (recipe) => {
+        if (this.isNew) {
+          this.snackBar.open('Recipe created', 'Dismiss', { duration: 3000 });
+          if (continueAdding) {
+            this.recipeForm.reset({ name: '', description: '', laborCost: 0 });
           } else {
-            this.loadRecipe(this.recipe!.id);
+            this.router.navigate(['/recipes']);
           }
-        },
-        error: (err) => {
-          console.error('Error saving recipe:', err);
+        } else {
+          this.snackBar.open('Recipe updated', 'Dismiss', { duration: 3000 });
+          this.loadRecipe(this.recipe!.id);
         }
-      });
-    }
+      },
+      error: (err) => {
+        console.error('Error saving recipe:', err);
+        this.snackBar.open('Failed to save recipe. Please try again.', 'Dismiss', { duration: 4000 });
+      }
+    });
   }
 
   addItemToRecipe() {

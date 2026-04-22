@@ -412,3 +412,22 @@
 **Fix Pattern:** Check `authService.isAuthenticated()` first. If not authenticated, pass through (public routes). If authenticated but token is null/unavailable, return `EMPTY` to suppress the in-flight request silently — the MSAL redirect is already handling re-auth. Happy path unchanged: attach Bearer token and forward.
 
 **Key rule:** Use `EMPTY` (not `throwError`) for suppression to avoid HTTP error handler noise. Three branches: unauthenticated → pass through, authenticated + token → attach Bearer, authenticated + no token → `EMPTY`.
+
+### 2026-04-22: Recipe New — Dual Save Buttons & UX Feedback
+
+**Bug Fixed:** `saveRecipe()` on `/recipes/new` navigated to `/recipes/{id}` (detail) instead of `/recipes` (list) after create.
+
+**Changes (recipe-detail.component.ts):**
+- `saveRecipe(continueAdding: boolean = false)` — replaced single `saveRecipe()` with parameterised version
+  - New recipe + `continueAdding=false` → snackBar "Recipe created" → navigate to `/recipes`
+  - New recipe + `continueAdding=true` → snackBar "Recipe created" → `recipeForm.reset({ name: '', description: '', laborCost: 0 })`, stay on `/recipes/new`
+  - Edit mode → snackBar "Recipe updated" → reload (unchanged)
+  - Error branch → `console.error` + snackBar "Failed to save recipe. Please try again."
+- Template buttons — conditional on `isNew`:
+  - `@if (isNew)` → two buttons in `.form-actions` flex container: "Save" (`mat-raised-button`, calls `saveRecipe(false)`) and "Save & Add Another" (`mat-stroked-button`, calls `saveRecipe(true)`)
+  - `@else` → single "Save Recipe" (`mat-raised-button`, calls `saveRecipe(false)`)
+- `.form-actions` CSS: `display: flex; gap: 12px; flex-wrap: wrap`
+
+**Pattern:** `mat-raised-button` for primary action, `mat-stroked-button` for secondary action in the same button group — consistent with existing codebase (e.g. item-form "Add & Add More" pattern).
+
+**Build:** ✅ 0 errors. Pre-existing budget/CommonJS warnings unchanged.
