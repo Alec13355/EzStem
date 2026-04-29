@@ -297,3 +297,34 @@ Could not load type 'Microsoft.OpenApi.Any.IOpenApiAny' from assembly 'Microsoft
 **Key decisions:**
 - EventItemFlower → EventFlower uses `DeleteBehavior.NoAction` to avoid cascade conflicts
 - ProfitMultiple defaults to `1.0` for existing rows during migration
+
+### 2026-04-29: Event-Centric API Layer & Services
+
+**What was built:**
+- Dedicated services: `EventItemService`, `EventFlowerService`, `EventItemFlowerService`
+- Controllers: `/api/events/{eventId}/event-items`, `/event-flowers`, `/event-items/{itemId}/recipe`
+- Endpoints include CRUD operations and `GET /from-last-event` for prepopulation
+- `GET /api/events/{id}/recipe-summary` returns budget-aware recipe totals
+
+**Service behavior:**
+- All endpoints owner-scoped via event ownership checks
+- Validation errors throw `ArgumentException` (400)
+- Recipe summary calculation: `FlowerBudget = TotalBudget / ProfitMultiple`
+- Bunch rounding: `BunchesNeeded = ceil(TotalStemsNeeded / BunchSize)`
+
+### 2026-04-29: Event-Centric Tests & Bug Fixes
+
+**Tests written (16 new, 53 total passing):**
+- EventItemServiceTests.cs — CRUD, ownership validation, `from-last-event` prepopulation
+- EventFlowerServiceTests.cs — CRUD, ownership validation, bundle rounding
+- EventItemFlowerServiceTests.cs — recipe junction CRUD, budget calculations, cost aggregation
+- EventRecipeSummaryTests.cs — recipe summary DTO, budget-aware line items
+
+**Bugs fixed (per Danny's review):**
+1. ✅ **AddFloristEventUpdatedAt migration** — Added `UpdatedAt` field to FloristEvent; wired on all mutations
+2. ✅ **FlowerInUseException + 409 Conflict** — Added guard in `DeleteFlowerAsync` checking for in-use flowers, throws exception caught as 409
+3. ✅ **Pooled FlowerProcurement** — Implemented per-flower pooling: stems summed across all items before rounding bunches via `SelectMany + GroupBy` on `EventFlowerId`; TotalFlowerCost = sum of pooled lines (not per-item sums)
+
+**Design decision:** Alec approved pooled calculation as more accurate procurement cost.
+
+**Verification:** All 53 tests pass. Build 0 warnings/errors. Danny issued final APPROVED sign-off.

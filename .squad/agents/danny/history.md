@@ -83,6 +83,17 @@
 - Linus UX fixes: context card, grey (not red) low-margin colour, "Pricing Settings" nav label ✅
 - Rusty vendor fixes: 44px touch targets, MatDialog confirmation ✅
 
+### P0 Final Review — Re-Review (2026-04-15)
+
+**Summary:** Final verification after Linus fixed HTTP method bug.
+
+**Verified:**
+- `pricing.service.ts` now uses `api.post` (not `api.put`) — Linus fix confirmed ✅
+- 18/18 backend tests pass ✅
+- Frontend production build passes (budget warning pre-existing) ✅
+- Linus UX fixes: context card, grey (not red) low-margin colour, "Pricing Settings" nav label ✅
+- Rusty vendor fixes: 44px touch targets, MatDialog confirmation ✅
+
 **Sign-off:** APPROVED. Merged to main as commit `84f318a`.
 
 **Commit message:**
@@ -98,3 +109,33 @@ feat: complete P0 vendor CRUD UI and pricing settings
 - All 18 backend tests passing, frontend build clean
 ```
 
+### Event-Centric Backend Review (2026-04-29)
+
+**Summary:** Initial code review of Linus's event-centric backend (EventItem/EventFlower/EventItemFlower services + endpoints). Issued **NEEDS FIXES** with 3 issues.
+
+**Issues found:**
+1. 🔴 Missing `UpdatedAt` field on FloristEvent — `from-last-event` endpoint sorts by CreatedAt instead of most recently updated
+2. 🔴 `DeleteFlowerAsync` unguarded — deleting in-use flowers throws unhandled DbUpdateException (500)
+3. 🟡 Design concern — bundle cost pooled per-flower or per-item? (Deferred to Alec)
+
+**Architecture verification (✅ correct):**
+- FlowerBudget = TotalBudget / ProfitMultiple calculation correct
+- Event-scoped validation (ownership checks) in all endpoints
+- Bundle rounding: `BunchesNeeded = ceil(TotalStemsNeeded / BunchSize)`
+- Cascade rules: EventItem→EventItemFlower (Cascade), EventFlower→EventItemFlower (NoAction)
+- Authorization: All controllers use [Authorize], 4-tier claim fallback for user ID
+
+**Action:** Linus to apply fixes; re-review after completion.
+
+### Event-Centric Backend — Final Review & Approval (2026-04-29)
+
+**Summary:** Re-review after Linus applied all fixes. Verdict: **APPROVED**.
+
+**Verified:**
+- ✅ `UpdatedAt` field added to FloristEvent, wired on all mutations
+- ✅ `DeleteFlowerAsync` guards against in-use flowers; throws exception caught as 409 Conflict
+- ✅ Procurement pooling verified: SelectMany + GroupBy on EventFlowerId, bunches rounded on pooled total, TotalFlowerCost from pooled lines (not per-item sum)
+- ✅ All 53 tests pass (16 new event-centric tests + 37 existing)
+- ✅ No remaining issues
+
+**Sign-off:** Clear to ship to main.
