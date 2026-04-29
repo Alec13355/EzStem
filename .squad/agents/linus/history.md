@@ -59,6 +59,20 @@
 - Delete existing item removes and returns true
 - Update persists new quantity + notes, recalculates LineTotalCost
 
+### 2026-04-29: Event-Centric API Layer
+
+**What was built:**
+- Event-centric DTOs for EventItem/EventFlower/EventItemFlower + recipe summary records
+- Services: `EventItemService`, `EventFlowerService`, `EventItemFlowerService` with owner-scoped CRUD
+- Controllers: `/api/events/{eventId}/event-items`, `/event-flowers`, `/event-items/{itemId}/recipe`
+- `GET /api/events/{id}/recipe-summary` returns budget-aware recipe totals
+- Events API now accepts/returns `TotalBudget` + `ProfitMultiple`
+
+**Key decisions:**
+- Recipe summary computes `FlowerBudget = TotalBudget / ProfitMultiple`
+- Bunch rounding uses `Math.Ceiling(totalStems / bunchSize)` per line item
+- Event-scoped endpoints validate ownership before CRUD
+
 ### 2026-04-14: P0 Backend APIs Implemented
 
 **What was built:**
@@ -272,3 +286,14 @@ Could not load type 'Microsoft.OpenApi.Any.IOpenApiAny' from assembly 'Microsoft
 - `backend/tests/EzStem.Tests/Services/ProductionSheetTests.cs` — new test file (4 tests)
 
 **Note:** Release build had a stale incremental cache issue (pre-existing) — `dotnet clean -c Release` before rebuild resolved it. Debug build was unaffected.
+
+### 2026-04-29: Event-Centric Domain Entities
+
+**What was built:**
+- Added `TotalBudget` + `ProfitMultiple` to `FloristEvent` with decimal(18,4) precision
+- New event-centric entities: `EventItem`, `EventFlower`, `EventItemFlower` (recipe junction)
+- EF migration `AddEventItemsAndFlowers` adds the three tables and new columns on Events
+
+**Key decisions:**
+- EventItemFlower → EventFlower uses `DeleteBehavior.NoAction` to avoid cascade conflicts
+- ProfitMultiple defaults to `1.0` for existing rows during migration

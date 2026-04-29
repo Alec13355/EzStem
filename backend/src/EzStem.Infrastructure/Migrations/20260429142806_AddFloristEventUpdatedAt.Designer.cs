@@ -4,6 +4,7 @@ using EzStem.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace EzStem.Infrastructure.Migrations
 {
     [DbContext(typeof(EzStemDbContext))]
-    partial class EzStemDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260429142806_AddFloristEventUpdatedAt")]
+    partial class AddFloristEventUpdatedAt
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

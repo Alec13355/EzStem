@@ -13,11 +13,13 @@ public class EventsController : ControllerBase
 {
     private readonly IEventService _eventService;
     private readonly IOrderService _orderService;
+    private readonly IEventItemFlowerService _eventItemFlowerService;
 
-    public EventsController(IEventService eventService, IOrderService orderService)
+    public EventsController(IEventService eventService, IOrderService orderService, IEventItemFlowerService eventItemFlowerService)
     {
         _eventService = eventService;
         _orderService = orderService;
+        _eventItemFlowerService = eventItemFlowerService;
     }
 
     private string GetUserId() =>
@@ -68,9 +70,16 @@ public class EventsController : ControllerBase
         [FromBody] UpdateEventRequest request,
         CancellationToken ct = default)
     {
-        var evt = await _eventService.UpdateEventAsync(id, request, GetUserId(), ct);
-        if (evt == null) return NotFound();
-        return Ok(evt);
+        try
+        {
+            var evt = await _eventService.UpdateEventAsync(id, request, GetUserId(), ct);
+            if (evt == null) return NotFound();
+            return Ok(evt);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     [HttpDelete("{id}")]
@@ -95,6 +104,20 @@ public class EventsController : ControllerBase
         var sheet = await _eventService.GetProductionSheetAsync(id, GetUserId(), ct);
         if (sheet == null) return NotFound();
         return Ok(sheet);
+    }
+
+    [HttpGet("{id}/recipe-summary")]
+    public async Task<ActionResult<EventRecipeSummaryResponse>> GetEventRecipeSummary(Guid id, CancellationToken ct = default)
+    {
+        try
+        {
+            var summary = await _eventItemFlowerService.GetEventRecipeSummaryAsync(id, GetUserId(), ct);
+            return Ok(summary);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
     }
 
     [HttpPost("{id}/recipes")]

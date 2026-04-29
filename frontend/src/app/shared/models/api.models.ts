@@ -62,6 +62,8 @@ export interface FloristEvent {
   notes?: string;
   status: 'Draft' | 'Confirmed' | 'Ordered' | 'Completed';
   eventRecipes: EventRecipe[];
+  totalBudget?: number;
+  profitMultiple?: number;
   createdAt: string;
 }
 
@@ -220,4 +222,127 @@ export interface UpdateRecipeItemRequest {
   itemId?: string;
   quantity?: number;
   costPerStem?: number;
+}
+
+export interface CreateEventRequest {
+  name: string;
+  totalBudget?: number;
+  profitMultiple?: number;
+}
+
+export interface UpdateEventRequest {
+  name?: string;
+  totalBudget?: number;
+  profitMultiple?: number;
+}
+
+// New event-centric models
+export interface EventItem {
+  id: string;
+  eventId: string;
+  name: string;
+  price: number;
+  quantity: number;
+  createdAt: string;
+  updatedAt: string;
+  recipeFlowers?: EventItemFlower[];
+}
+
+export interface EventFlower {
+  id: string;
+  eventId: string;
+  name: string;
+  pricePerStem: number;
+  bunchSize: number;
+  createdAt: string;
+}
+
+export interface EventItemFlower {
+  id: string;
+  eventItemId: string;
+  eventFlowerId: string;
+  eventFlowerName?: string;
+  pricePerStem?: number;
+  bunchSize?: number;
+  stemsNeeded: number;
+  createdAt: string;
+}
+
+export interface CreateEventItemRequest {
+  name: string;
+  price: number;
+  quantity: number;
+}
+
+export interface UpdateEventItemRequest {
+  name?: string;
+  price?: number;
+  quantity?: number;
+}
+
+export interface CreateEventFlowerRequest {
+  name: string;
+  pricePerStem: number;
+  bunchSize: number;
+}
+
+export interface UpdateEventFlowerRequest {
+  name?: string;
+  pricePerStem?: number;
+  bunchSize?: number;
+}
+
+export interface CreateEventItemFlowerRequest {
+  eventFlowerId: string;
+  stemsNeeded: number;
+}
+
+export interface UpdateEventItemFlowerRequest {
+  stemsNeeded: number;
+}
+
+export interface RecipeLineItem {
+  eventItemFlowerId: string;
+  eventFlowerId: string;
+  flowerName: string;
+  pricePerStem: number;
+  bunchSize: number;
+  stemsPerUnit: number;
+  itemQuantity: number;
+  totalStemsNeeded: number;
+  bunchesNeeded: number;
+  totalCost: number;
+}
+
+export interface FlowerProcurementLine {
+  eventFlowerId: string;
+  flowerName: string;
+  pricePerStem: number;
+  bunchSize: number;
+  totalStemsNeeded: number;
+  bunchesNeeded: number;
+  totalCost: number;
+}
+
+export interface RecipeItemSummary {
+  eventItemId: string;
+  itemName: string;
+  customerPrice: number;
+  quantity: number;
+  totalRevenue: number;
+  totalRawCost: number;
+  flowers: RecipeLineItem[];
+}
+
+export interface EventRecipeSummaryResponse {
+  eventId: string;
+  eventName: string;
+  totalBudget: number;
+  profitMultiple: number;
+  flowerBudget: number;
+  totalRevenue: number;
+  totalFlowerCost: number;
+  isOverBudget: boolean;
+  items: RecipeItemSummary[];
+  flowerProcurement?: FlowerProcurementLine[];
 }

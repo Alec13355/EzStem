@@ -1,17 +1,13 @@
 import { Component, OnInit, OnDestroy, Inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, ActivatedRoute } from '@angular/router';
-import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
+import { FormControl, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatChipsModule } from '@angular/material/chips';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
-import { MatDialog, MatDialogModule, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatDialog, MatDialogModule, MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Subject, debounceTime, distinctUntilChanged, finalize, takeUntil } from 'rxjs';
@@ -27,12 +23,8 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
     MatTableModule,
     MatButtonModule,
     MatIconModule,
-    MatChipsModule,
     MatFormFieldModule,
     MatInputModule,
-    MatSelectModule,
-    MatDatepickerModule,
-    MatNativeDateModule,
     MatDialogModule,
     MatSnackBarModule,
     MatProgressSpinnerModule,
@@ -51,65 +43,12 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
       <div class="filter-row">
         <mat-form-field appearance="outline" style="flex:1; max-width:300px">
           <mat-label>Search</mat-label>
-          <input matInput [formControl]="searchControl" placeholder="Name or client...">
+          <input matInput [formControl]="searchControl" placeholder="Event name...">
           @if (searchControl.value) {
             <button matSuffix mat-icon-button (click)="searchControl.setValue('')"><mat-icon>close</mat-icon></button>
           }
         </mat-form-field>
-
-        <mat-form-field appearance="outline" style="width:160px">
-          <mat-label>Status</mat-label>
-          <mat-select [formControl]="statusFilter">
-            <mat-option value="">All Statuses</mat-option>
-            @for (s of eventStatuses; track s) {
-              <mat-option [value]="s">{{ s }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" style="width:160px">
-          <mat-label>From Date</mat-label>
-          <input matInput [matDatepicker]="fromPicker" [formControl]="dateFromFilter">
-          <mat-datepicker-toggle matSuffix [for]="fromPicker"></mat-datepicker-toggle>
-          <mat-datepicker #fromPicker></mat-datepicker>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" style="width:160px">
-          <mat-label>To Date</mat-label>
-          <input matInput [matDatepicker]="toPicker" [formControl]="dateToFilter">
-          <mat-datepicker-toggle matSuffix [for]="toPicker"></mat-datepicker-toggle>
-          <mat-datepicker #toPicker></mat-datepicker>
-        </mat-form-field>
       </div>
-
-      @if (searchControl.value || statusFilter.value || dateFromFilter.value || dateToFilter.value) {
-        <mat-chip-set style="margin-bottom:12px">
-          @if (searchControl.value) {
-            <mat-chip (removed)="searchControl.setValue('')">
-              Search: {{ searchControl.value }}
-              <button matChipRemove><mat-icon>cancel</mat-icon></button>
-            </mat-chip>
-          }
-          @if (statusFilter.value) {
-            <mat-chip (removed)="statusFilter.setValue('')">
-              Status: {{ statusFilter.value }}
-              <button matChipRemove><mat-icon>cancel</mat-icon></button>
-            </mat-chip>
-          }
-          @if (dateFromFilter.value) {
-            <mat-chip (removed)="dateFromFilter.setValue(null)">
-              From: {{ dateFromFilter.value | date:'shortDate' }}
-              <button matChipRemove><mat-icon>cancel</mat-icon></button>
-            </mat-chip>
-          }
-          @if (dateToFilter.value) {
-            <mat-chip (removed)="dateToFilter.setValue(null)">
-              To: {{ dateToFilter.value | date:'shortDate' }}
-              <button matChipRemove><mat-icon>cancel</mat-icon></button>
-            </mat-chip>
-          }
-        </mat-chip-set>
-      }
 
       @if (isLoading()) {
         <div class="loading-spinner">
@@ -127,22 +66,17 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
           <td mat-cell *matCellDef="let event">{{ event.name }}</td>
         </ng-container>
 
-        <ng-container matColumnDef="date">
-          <th mat-header-cell *matHeaderCellDef>Date</th>
-          <td mat-cell *matCellDef="let event">{{ event.eventDate | date:'short' }}</td>
-        </ng-container>
-
-        <ng-container matColumnDef="client">
-          <th mat-header-cell *matHeaderCellDef>Client</th>
-          <td mat-cell *matCellDef="let event">{{ event.clientName || 'N/A' }}</td>
-        </ng-container>
-
-        <ng-container matColumnDef="status">
-          <th mat-header-cell *matHeaderCellDef>Status</th>
+        <ng-container matColumnDef="budget">
+          <th mat-header-cell *matHeaderCellDef>Total Budget</th>
           <td mat-cell *matCellDef="let event">
-            <mat-chip [class]="'status-' + event.status.toLowerCase()">
-              {{ event.status }}
-            </mat-chip>
+            {{ event.totalBudget != null ? (event.totalBudget | currency) : '—' }}
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="profitMultiple">
+          <th mat-header-cell *matHeaderCellDef>Profit Multiple</th>
+          <td mat-cell *matCellDef="let event">
+            {{ event.profitMultiple != null ? (event.profitMultiple + 'x') : '—' }}
           </td>
         </ng-container>
 
@@ -150,8 +84,8 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
           <th mat-header-cell *matHeaderCellDef>Actions</th>
           <td mat-cell *matCellDef="let event">
             <div class="action-buttons">
-              <button mat-icon-button color="accent" class="action-btn" (click)="editEvent(event.id)" aria-label="Edit event">
-                <mat-icon>edit</mat-icon>
+              <button mat-button color="primary" class="action-btn" (click)="openEvent(event.id)">
+                Open
               </button>
               <button mat-icon-button color="warn" class="action-btn" (click)="deleteEvent(event)" aria-label="Delete event">
                 <mat-icon>delete</mat-icon>
@@ -197,17 +131,12 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
     .action-buttons {
       display: flex;
       gap: 4px;
+      align-items: center;
     }
 
     .action-btn {
-      width: 44px !important;
       height: 44px !important;
     }
-
-    .status-draft { background-color: #e0e0e0; }
-    .status-confirmed { background-color: #81c784; }
-    .status-ordered { background-color: #64b5f6; }
-    .status-completed { background-color: #9e9e9e; }
 
     .error-state {
       display: flex;
@@ -224,56 +153,28 @@ export class EventListComponent implements OnInit, OnDestroy {
   events: FloristEvent[] = [];
   filteredEvents = signal<FloristEvent[]>([]);
   searchControl = new FormControl('');
-  statusFilter = new FormControl('');
-  dateFromFilter = new FormControl<Date | null>(null);
-  dateToFilter = new FormControl<Date | null>(null);
-  readonly eventStatuses = ['Draft', 'Confirmed', 'Ordered', 'Completed'];
-  createNewEvent = () => this.createEvent();
-  displayedColumns = ['name', 'date', 'client', 'status', 'actions'];
+  displayedColumns = ['name', 'budget', 'profitMultiple', 'actions'];
   isLoading = signal(false);
   errorMessage = signal<string | null>(null);
+  createNewEvent = () => this.createEvent();
   private destroy$ = new Subject<void>();
 
   constructor(
     private eventService: EventService,
     private router: Router,
-    private route: ActivatedRoute,
     private dialog: MatDialog,
     private snackBar: MatSnackBar
   ) {}
 
   ngOnInit() {
     this.loadEvents();
-
-    this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
-      if (params['q']) this.searchControl.setValue(params['q'], { emitEvent: false });
-      if (params['status']) this.statusFilter.setValue(params['status'], { emitEvent: false });
-      this.applyFilters();
-    });
-
     this.searchControl.valueChanges.pipe(debounceTime(200), distinctUntilChanged(), takeUntil(this.destroy$))
-      .subscribe(() => this.applyFilters());
-    this.statusFilter.valueChanges.pipe(debounceTime(200), distinctUntilChanged(), takeUntil(this.destroy$))
-      .subscribe(() => this.applyFilters());
-    this.dateFromFilter.valueChanges.pipe(debounceTime(200), takeUntil(this.destroy$))
-      .subscribe(() => this.applyFilters());
-    this.dateToFilter.valueChanges.pipe(debounceTime(200), takeUntil(this.destroy$))
       .subscribe(() => this.applyFilters());
   }
 
   applyFilters() {
     const q = (this.searchControl.value || '').toLowerCase();
-    const status = this.statusFilter.value || '';
-    const dateFrom = this.dateFromFilter.value;
-    const dateTo = this.dateToFilter.value;
-    this.filteredEvents.set(this.events.filter(e => {
-      const matchesSearch = !q || e.name.toLowerCase().includes(q) || (e.clientName || '').toLowerCase().includes(q);
-      const matchesStatus = !status || e.status === status;
-      const eventDate = new Date(e.eventDate);
-      const matchesFrom = !dateFrom || eventDate >= dateFrom;
-      const matchesTo = !dateTo || eventDate <= dateTo;
-      return matchesSearch && matchesStatus && matchesFrom && matchesTo;
-    }));
+    this.filteredEvents.set(this.events.filter(e => !q || e.name.toLowerCase().includes(q)));
   }
 
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
@@ -296,10 +197,21 @@ export class EventListComponent implements OnInit, OnDestroy {
   }
 
   createEvent() {
-    this.router.navigate(['/events', 'new']);
+    const dialogRef = this.dialog.open(CreateEventDialogComponent, { width: '400px' });
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.eventService.createEvent(result).subscribe({
+          next: (event) => this.router.navigate(['/events', event.id]),
+          error: (err) => {
+            console.error('Error creating event:', err);
+            this.snackBar.open('Failed to create event. Please try again.', 'Dismiss', { duration: 4000 });
+          }
+        });
+      }
+    });
   }
 
-  editEvent(id: string) {
+  openEvent(id: string) {
     this.router.navigate(['/events', id]);
   }
 
@@ -321,6 +233,63 @@ export class EventListComponent implements OnInit, OnDestroy {
         });
       }
     });
+  }
+}
+
+@Component({
+  selector: 'app-create-event-dialog',
+  standalone: true,
+  imports: [ReactiveFormsModule, MatButtonModule, MatDialogModule, MatFormFieldModule, MatInputModule],
+  template: `
+    <h2 mat-dialog-title>New Event</h2>
+    <mat-dialog-content>
+      <form [formGroup]="form" class="form">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Name</mat-label>
+          <input matInput formControlName="name" placeholder="Event name">
+          @if (form.get('name')?.hasError('required') && form.get('name')?.touched) {
+            <mat-error>Name is required</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Total Budget</mat-label>
+          <input matInput type="number" formControlName="totalBudget" placeholder="0.00">
+          <span matTextPrefix>$&nbsp;</span>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Profit Multiple</mat-label>
+          <input matInput type="number" formControlName="profitMultiple" placeholder="1.0" step="0.1">
+          <span matTextSuffix>&nbsp;x</span>
+        </mat-form-field>
+      </form>
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
+      <button mat-button mat-dialog-close>Cancel</button>
+      <button mat-raised-button color="primary" [disabled]="form.invalid" (click)="submit()">Create</button>
+    </mat-dialog-actions>
+  `,
+  styles: [`.form { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; } .full-width { width: 100%; }`]
+})
+export class CreateEventDialogComponent {
+  form = new FormGroup({
+    name: new FormControl('', [Validators.required]),
+    totalBudget: new FormControl<number | null>(null),
+    profitMultiple: new FormControl<number>(1.0)
+  });
+
+  constructor(private dialogRef: MatDialogRef<CreateEventDialogComponent>) {}
+
+  submit() {
+    if (this.form.valid) {
+      const { name, totalBudget, profitMultiple } = this.form.value;
+      this.dialogRef.close({
+        name,
+        ...(totalBudget != null ? { totalBudget } : {}),
+        ...(profitMultiple != null ? { profitMultiple } : {})
+      });
+    }
   }
 }
 

@@ -431,3 +431,22 @@
 **Pattern:** `mat-raised-button` for primary action, `mat-stroked-button` for secondary action in the same button group — consistent with existing codebase (e.g. item-form "Add & Add More" pattern).
 
 **Build:** ✅ 0 errors. Pre-existing budget/CommonJS warnings unchanged.
+
+### 2026-04-29: Nav Cleanup — Event-Centric Redesign
+
+**Changes made:**
+- `app.html` — removed Items, Recipes, Orders, Pricing Settings nav buttons; kept only Events
+- `app.routes.ts` — removed routes for /items, /vendors, /recipes, /recipes/:id, /orders, /orders/:id, /settings/pricing; removed `eventDetailCanDeactivate` import; kept landing, /events, /events/:id, wildcard
+- `event-list.component.ts` — full rewrite:
+  - Removed date/status/client filters; kept name-only search
+  - Updated table columns to: name, budget (totalBudget | currency), profitMultiple (Nx), actions (Open + Delete)
+  - Replaced `editEvent()` navigation with `openEvent()` for clarity
+  - Added inline `CreateEventDialogComponent` with fields: Name (required), Total Budget (optional), Profit Multiple (default 1.0)
+  - `createEvent()` now opens dialog → calls `eventService.createEvent()` → navigates to new event
+  - Removed: MatDatepickerModule, MatNativeDateModule, MatChipsModule, MatSelectModule, ActivatedRoute
+- `api.models.ts` — added `totalBudget?` and `profitMultiple?` to `FloristEvent`; added `CreateEventRequest`, `UpdateEventRequest`; added full event-centric model suite: `EventItem`, `EventFlower`, `EventItemFlower`, and all Create/Update request interfaces
+
+**Patterns:**
+- Inline dialog components (same file, standalone) work well for simple CRUD operations in event-list
+- `FormGroup` with typed `FormControl<number | null>` for optional number fields; spread conditional properties for clean API payload
+- Build: ✅ 0 errors. Pre-existing budget/CommonJS warnings unchanged.

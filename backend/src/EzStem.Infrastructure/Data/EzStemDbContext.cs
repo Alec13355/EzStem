@@ -17,6 +17,9 @@ public class EzStemDbContext : DbContext
     public DbSet<OrderLineItem> OrderLineItems => Set<OrderLineItem>();
     public DbSet<PricingConfig> PricingConfigs => Set<PricingConfig>();
     public DbSet<FlexItem> FlexItems => Set<FlexItem>();
+    public DbSet<EventItem> EventItems => Set<EventItem>();
+    public DbSet<EventFlower> EventFlowers => Set<EventFlower>();
+    public DbSet<EventItemFlower> EventItemFlowers => Set<EventItemFlower>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -61,6 +64,9 @@ public class EzStemDbContext : DbContext
         // FloristEvent configuration
         modelBuilder.Entity<FloristEvent>(entity =>
         {
+            entity.Property(e => e.TotalBudget).HasPrecision(18, 4);
+            entity.Property(e => e.ProfitMultiple).HasPrecision(18, 4);
+            entity.Property(e => e.UpdatedAt);
             entity.HasQueryFilter(e => !e.IsDeleted);
             entity.HasIndex(e => e.Name);
             entity.HasIndex(e => e.EventDate);
@@ -99,6 +105,43 @@ public class EzStemDbContext : DbContext
         {
             entity.Property(f => f.QuantityNeeded).HasPrecision(18, 4);
             entity.HasIndex(f => f.EventId);
+        });
+
+        // EventItem configuration
+        modelBuilder.Entity<EventItem>(entity =>
+        {
+            entity.Property(e => e.Price).HasPrecision(18, 4);
+            entity.HasOne(e => e.Event)
+                .WithMany()
+                .HasForeignKey(e => e.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.EventId);
+        });
+
+        // EventFlower configuration
+        modelBuilder.Entity<EventFlower>(entity =>
+        {
+            entity.Property(e => e.PricePerStem).HasPrecision(18, 4);
+            entity.HasOne(e => e.Event)
+                .WithMany()
+                .HasForeignKey(e => e.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.EventId);
+        });
+
+        // EventItemFlower configuration
+        modelBuilder.Entity<EventItemFlower>(entity =>
+        {
+            entity.HasOne(e => e.EventItem)
+                .WithMany(i => i.RecipeFlowers)
+                .HasForeignKey(e => e.EventItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.EventFlower)
+                .WithMany(f => f.UsedInItems)
+                .HasForeignKey(e => e.EventFlowerId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasIndex(e => e.EventItemId);
+            entity.HasIndex(e => e.EventFlowerId);
         });
     }
 }

@@ -51,6 +51,12 @@ public class EventService : IEventService
         if (string.IsNullOrWhiteSpace(request.Name))
             throw new ArgumentException("Name is required", nameof(request.Name));
 
+        if (request.TotalBudget < 0)
+            throw new ArgumentException("TotalBudget must be zero or greater", nameof(request.TotalBudget));
+
+        if (request.ProfitMultiple <= 0)
+            throw new ArgumentException("ProfitMultiple must be greater than zero", nameof(request.ProfitMultiple));
+
         var evt = new FloristEvent
         {
             Id = Guid.NewGuid(),
@@ -58,9 +64,12 @@ public class EventService : IEventService
             EventDate = request.EventDate,
             ClientName = request.ClientName,
             Notes = request.Notes,
+            TotalBudget = request.TotalBudget,
+            ProfitMultiple = request.ProfitMultiple,
             Status = EventStatus.Draft,
             OwnerId = ownerId,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
         };
 
         _context.Events.Add(evt);
@@ -82,7 +91,20 @@ public class EventService : IEventService
         if (request.Notes != null) evt.Notes = request.Notes;
         if (request.Status != null && Enum.TryParse<EventStatus>(request.Status, true, out var newStatus))
             evt.Status = newStatus;
+        if (request.TotalBudget.HasValue)
+        {
+            if (request.TotalBudget.Value < 0)
+                throw new ArgumentException("TotalBudget must be zero or greater");
+            evt.TotalBudget = request.TotalBudget.Value;
+        }
+        if (request.ProfitMultiple.HasValue)
+        {
+            if (request.ProfitMultiple.Value <= 0)
+                throw new ArgumentException("ProfitMultiple must be greater than zero");
+            evt.ProfitMultiple = request.ProfitMultiple.Value;
+        }
 
+        evt.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync(ct);
         return MapToEventResponse(evt);
     }
@@ -226,6 +248,9 @@ public class EventService : IEventService
     private EventResponse MapToEventResponse(FloristEvent evt)
     {
         var eventRecipes = evt.EventRecipes.Select(MapToEventRecipeResponse);
-        return new EventResponse(evt.Id, evt.Name, evt.EventDate, evt.ClientName, evt.Notes, evt.Status.ToString(), eventRecipes, evt.CreatedAt);
+        return new EventResponse(
+            evt.Id, evt.Name, evt.EventDate, evt.ClientName, evt.Notes,
+            evt.Status.ToString(), evt.TotalBudget, evt.ProfitMultiple,
+            eventRecipes, evt.CreatedAt);
     }
 }
