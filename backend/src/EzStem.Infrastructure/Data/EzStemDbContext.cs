@@ -20,6 +20,7 @@ public class EzStemDbContext : DbContext
     public DbSet<EventItem> EventItems => Set<EventItem>();
     public DbSet<EventFlower> EventFlowers => Set<EventFlower>();
     public DbSet<EventItemFlower> EventItemFlowers => Set<EventItemFlower>();
+    public DbSet<MasterFlower> MasterFlowers => Set<MasterFlower>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -122,11 +123,22 @@ public class EzStemDbContext : DbContext
         modelBuilder.Entity<EventFlower>(entity =>
         {
             entity.Property(e => e.PricePerStem).HasPrecision(18, 4);
+            entity.Property(e => e.MasterFlowerId);  // nullable Guid, no FK
             entity.HasOne(e => e.Event)
                 .WithMany()
                 .HasForeignKey(e => e.EventId)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(e => e.EventId);
+        });
+
+        // MasterFlower configuration
+        modelBuilder.Entity<MasterFlower>(entity =>
+        {
+            entity.Property(m => m.CostPerUnit).HasPrecision(18, 4);
+            entity.HasQueryFilter(m => m.IsActive);  // soft-delete via IsActive
+            entity.HasIndex(m => m.OwnerId);
+            entity.HasIndex(m => m.Category);
+            entity.HasIndex(m => m.Name);
         });
 
         // EventItemFlower configuration

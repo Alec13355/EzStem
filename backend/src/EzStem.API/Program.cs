@@ -26,6 +26,8 @@ builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddScoped<IEventItemService, EventItemService>();
 builder.Services.AddScoped<IEventFlowerService, EventFlowerService>();
 builder.Services.AddScoped<IEventItemFlowerService, EventItemFlowerService>();
+builder.Services.AddScoped<IMasterFlowerService, MasterFlowerService>();
+builder.Services.AddScoped<IOcrService, AzureOcrService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IFlexItemService, FlexItemService>();
 builder.Services.AddScoped<IImageStorageService, AzureImageStorageService>();

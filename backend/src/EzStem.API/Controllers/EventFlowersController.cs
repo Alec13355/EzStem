@@ -107,4 +107,21 @@ public class EventFlowersController : ControllerBase
             return Conflict(ex.Message);
         }
     }
+
+    [HttpPost("from-master")]
+    public async Task<ActionResult<IEnumerable<EventFlowerResponse>>> AddFromMaster(
+        Guid eventId,
+        [FromBody] AddFlowersFromMasterRequest request,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var results = await _eventFlowerService.AddFlowersFromMasterAsync(eventId, request, GetUserId(), ct);
+            return Ok(results);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+    }
 }

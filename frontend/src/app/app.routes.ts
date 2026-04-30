@@ -18,6 +18,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/events/event-detail/event-detail.component').then(m => m.EventDetailComponent)
   },
   {
+    path: 'master-flowers',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/master-flowers/master-flower-list.component').then(m => m.MasterFlowerListComponent)
+  },
+  {
     path: '**',
     redirectTo: ''
   }

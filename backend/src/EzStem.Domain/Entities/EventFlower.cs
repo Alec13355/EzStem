@@ -8,6 +8,7 @@ public class EventFlower
     public string Name { get; set; } = string.Empty;
     public decimal PricePerStem { get; set; }
     public int BunchSize { get; set; } = 1;  // how many stems per bunch
+    public Guid? MasterFlowerId { get; set; }  // optional reference for sync-back feature
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public ICollection<EventItemFlower> UsedInItems { get; set; } = new List<EventItemFlower>();
 }

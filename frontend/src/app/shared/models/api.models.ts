@@ -255,6 +255,7 @@ export interface EventFlower {
   pricePerStem: number;
   bunchSize: number;
   createdAt: string;
+  masterFlowerId?: string;
 }
 
 export interface EventItemFlower {
@@ -345,4 +346,49 @@ export interface EventRecipeSummaryResponse {
   isOverBudget: boolean;
   items: RecipeItemSummary[];
   flowerProcurement?: FlowerProcurementLine[];
+}
+
+export interface MasterFlower {
+  id: string;
+  name: string;
+  unit: 'Bunch' | 'Stem';
+  costPerUnit: number;
+  unitsPerBunch: number;
+  category: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateMasterFlowerRequest {
+  name: string;
+  unit: 'Bunch' | 'Stem';
+  costPerUnit: number;
+  unitsPerBunch: number;
+  category: string;
+}
+
+export interface UpdateMasterFlowerRequest {
+  name?: string;
+  unit?: 'Bunch' | 'Stem';
+  costPerUnit?: number;
+  unitsPerBunch?: number;
+  category?: string;
+}
+
+export interface MasterFlowerSelection {
+  masterFlowerId: string;
+  pricePerStemOverride?: number;
+  bunchSizeOverride?: number;
+}
+
+export interface AddFlowersFromMasterRequest {
+  selections: MasterFlowerSelection[];
+}
+
+export interface OcrImportResult {
+  imported: number;
+  skipped: number;
+  errors: string[];
+  flowers: MasterFlower[];
 }

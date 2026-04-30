@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
-import { EventFlower, CreateEventFlowerRequest, UpdateEventFlowerRequest } from '../../shared/models/api.models';
+import { EventFlower, CreateEventFlowerRequest, UpdateEventFlowerRequest, AddFlowersFromMasterRequest } from '../../shared/models/api.models';
 
 @Injectable({
   providedIn: 'root'
@@ -23,5 +23,9 @@ export class EventFlowerService {
 
   deleteFlower(eventId: string, flowerId: string): Observable<void> {
     return this.api.delete<void>(`events/${eventId}/event-flowers/${flowerId}`);
+  }
+
+  addFromMaster(eventId: string, request: AddFlowersFromMasterRequest): Observable<EventFlower[]> {
+    return this.api.post<EventFlower[]>(`events/${eventId}/event-flowers/from-master`, request);
   }
 }

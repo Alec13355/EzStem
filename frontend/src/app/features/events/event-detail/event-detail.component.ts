@@ -12,14 +12,18 @@ import { MatCardModule } from '@angular/material/card';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatDialogModule } from '@angular/material/dialog';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatExpansionModule } from '@angular/material/expansion';
 import { EventService } from '../../../core/services/event.service';
 import { EventItemService } from '../../../core/services/event-item.service';
 import { EventFlowerService } from '../../../core/services/event-flower.service';
 import { EventRecipeService } from '../../../core/services/event-recipe.service';
+import { MasterFlowerService } from '../../../core/services/master-flower.service';
 import { 
   FloristEvent, 
   EventItem, 
   EventFlower,
+  MasterFlower,
   CreateEventItemRequest,
   UpdateEventItemRequest,
   CreateEventFlowerRequest,
@@ -46,6 +50,8 @@ import {
     MatSnackBarModule,
     MatTabsModule,
     MatDialogModule,
+    MatCheckboxModule,
+    MatExpansionModule,
     RouterModule
   ],
   template: `
@@ -219,10 +225,90 @@ import {
             <div class="tab-content">
               <div class="tab-header">
                 <h2>Event Flowers</h2>
-                <button mat-raised-button color="primary" (click)="toggleAddFlower()">
-                  {{ showAddFlower() ? 'Cancel' : 'Add Flower' }}
-                </button>
+                <div class="action-buttons">
+                  <button mat-raised-button color="accent" (click)="toggleMasterPicker()">
+                    <mat-icon>{{ showMasterPicker() ? 'close' : 'list' }}</mat-icon>
+                    {{ showMasterPicker() ? 'Cancel' : 'Add from Master List' }}
+                  </button>
+                  <button mat-raised-button color="primary" (click)="toggleAddFlower()">
+                    {{ showAddFlower() ? 'Cancel' : 'Add Flower' }}
+                  </button>
+                </div>
               </div>
+
+              @if (showMasterPicker()) {
+                <mat-card class="master-picker">
+                  <mat-card-header>
+                    <mat-card-title>Select from Master Flower List</mat-card-title>
+                  </mat-card-header>
+                  <mat-card-content>
+                    @if (loadingMaster()) {
+                      <div class="loading-container">
+                        <p>Loading master flowers...</p>
+                      </div>
+                    } @else {
+                      @for (category of masterCategories(); track category) {
+                        <div class="master-category">
+                          <h4>{{ category }}</h4>
+                          <table mat-table [dataSource]="masterFlowersByCategory()[category]" class="master-flowers-table">
+                            <ng-container matColumnDef="select">
+                              <th mat-header-cell *matHeaderCellDef>Select</th>
+                              <td mat-cell *matCellDef="let flower">
+                                <mat-checkbox 
+                                  [checked]="selectedMasterIds().has(flower.id)"
+                                  (change)="toggleMasterSelection(flower.id)">
+                                </mat-checkbox>
+                              </td>
+                            </ng-container>
+
+                            <ng-container matColumnDef="name">
+                              <th mat-header-cell *matHeaderCellDef>Name</th>
+                              <td mat-cell *matCellDef="let flower">{{ flower.name }}</td>
+                            </ng-container>
+
+                            <ng-container matColumnDef="unit">
+                              <th mat-header-cell *matHeaderCellDef>Unit</th>
+                              <td mat-cell *matCellDef="let flower">{{ flower.unit }}</td>
+                            </ng-container>
+
+                            <ng-container matColumnDef="cost">
+                              <th mat-header-cell *matHeaderCellDef>Cost/Unit</th>
+                              <td mat-cell *matCellDef="let flower">{{ formatCurrency(flower.costPerUnit) }}</td>
+                            </ng-container>
+
+                            <ng-container matColumnDef="priceOverride">
+                              <th mat-header-cell *matHeaderCellDef>Price Override</th>
+                              <td mat-cell *matCellDef="let flower">
+                                @if (selectedMasterIds().has(flower.id)) {
+                                  <input matInput 
+                                    type="number" 
+                                    step="0.01" 
+                                    placeholder="Optional"
+                                    class="price-override-input"
+                                    [value]="masterPriceOverrides()[flower.id] || ''"
+                                    (input)="updatePriceOverride(flower.id, $event)">
+                                }
+                              </td>
+                            </ng-container>
+
+                            <tr mat-header-row *matHeaderRowDef="masterPickerColumns"></tr>
+                            <tr mat-row *matRowDef="let row; columns: masterPickerColumns;"></tr>
+                          </table>
+                        </div>
+                      }
+                      
+                      <div class="master-picker-actions">
+                        <button mat-raised-button 
+                          color="primary" 
+                          (click)="addSelectedFromMaster()" 
+                          [disabled]="selectedMasterIds().size === 0">
+                          Add Selected ({{ selectedMasterIds().size }})
+                        </button>
+                      </div>
+                    }
+                  </mat-card-content>
+                </mat-card>
+              }
 
               @if (showAddFlower()) {
                 <mat-card class="add-form">
@@ -254,6 +340,9 @@ import {
                       <input matInput [(ngModel)]="editFlower.name" class="inline-edit">
                     } @else {
                       {{ flower.name }}
+                      @if (flower.masterFlowerId) {
+                        <mat-icon class="master-indicator" title="From master list">bookmark</mat-icon>
+                      }
                     }
                   </td>
                 </ng-container>
@@ -284,6 +373,11 @@ import {
                   <th mat-header-cell *matHeaderCellDef>Actions</th>
                   <td mat-cell *matCellDef="let flower">
                     @if (editingFlowerId() === flower.id) {
+                      @if (flower.masterFlowerId) {
+                        <mat-checkbox [(ngModel)]="syncToMaster" class="sync-checkbox">
+                          Sync to master
+                        </mat-checkbox>
+                      }
                       <button mat-icon-button (click)="saveFlowerEdit(flower.id)">
                         <mat-icon>save</mat-icon>
                       </button>
@@ -591,6 +685,48 @@ import {
       background: #e8f5e9;
       color: #2e7d32;
     }
+
+    .master-picker {
+      margin-bottom: 24px;
+    }
+
+    .master-category {
+      margin-bottom: 24px;
+    }
+
+    .master-category h4 {
+      margin: 16px 0 8px 0;
+      color: #666;
+    }
+
+    .master-flowers-table {
+      width: 100%;
+    }
+
+    .price-override-input {
+      width: 100px;
+      border: 1px solid #ccc;
+      padding: 4px;
+      border-radius: 4px;
+    }
+
+    .master-picker-actions {
+      margin-top: 24px;
+      text-align: right;
+    }
+
+    .master-indicator {
+      font-size: 18px;
+      height: 18px;
+      width: 18px;
+      vertical-align: middle;
+      margin-left: 8px;
+      color: #4caf50;
+    }
+
+    .sync-checkbox {
+      margin-right: 8px;
+    }
   `]
 })
 export class EventDetailComponent implements OnInit {
@@ -610,10 +746,28 @@ export class EventDetailComponent implements OnInit {
   editingFlowerId = signal<string | null>(null);
   showingAddFlowerForItem = signal<string | null>(null);
 
+  // Master flower picker state
+  showMasterPicker = signal(false);
+  masterFlowers = signal<MasterFlower[]>([]);
+  masterCategories = computed(() => [...new Set(this.masterFlowers().map(f => f.category))].sort());
+  masterFlowersByCategory = computed(() => {
+    const grouped: Record<string, MasterFlower[]> = {};
+    for (const f of this.masterFlowers()) {
+      if (!grouped[f.category]) grouped[f.category] = [];
+      grouped[f.category].push(f);
+    }
+    return grouped;
+  });
+  selectedMasterIds = signal<Set<string>>(new Set());
+  masterPriceOverrides = signal<Record<string, number>>({});
+  loadingMaster = signal(false);
+  syncToMaster = false;
+
   // Table columns
   itemColumns = ['name', 'price', 'quantity', 'actions'];
   flowerColumns = ['name', 'pricePerStem', 'bunchSize', 'actions'];
   recipeColumns = ['flower', 'stemsPerUnit', 'totalStems', 'bunchSize', 'bunchesNeeded', 'costPerBunch', 'lineCost', 'actions'];
+  masterPickerColumns = ['select', 'name', 'unit', 'cost', 'priceOverride'];
 
   // Form data
   eventId: string = '';
@@ -637,6 +791,7 @@ export class EventDetailComponent implements OnInit {
     private eventItemService: EventItemService,
     private eventFlowerService: EventFlowerService,
     private eventRecipeService: EventRecipeService,
+    private masterFlowerService: MasterFlowerService,
     private snackBar: MatSnackBar
   ) {}
 
@@ -868,14 +1023,33 @@ export class EventDetailComponent implements OnInit {
       pricePerStem: flower.pricePerStem,
       bunchSize: flower.bunchSize
     };
+    this.syncToMaster = false;
   }
 
   saveFlowerEdit(flowerId: string) {
+    const currentFlower = this.flowers().find(f => f.id === flowerId);
+    
     this.eventFlowerService.updateFlower(this.eventId, flowerId, this.editFlower).subscribe({
       next: (updatedFlower) => {
         this.flowers.set(this.flowers().map(f => f.id === flowerId ? updatedFlower : f));
         this.showSuccess('Flower updated successfully');
+        
+        // Sync to master list if checkbox was checked and flower has masterFlowerId
+        if (this.syncToMaster && currentFlower?.masterFlowerId && this.editFlower.pricePerStem != null) {
+          this.masterFlowerService.update(currentFlower.masterFlowerId, { 
+            costPerUnit: this.editFlower.pricePerStem 
+          }).subscribe({
+            next: () => {
+              this.showSuccess('Master list updated');
+            },
+            error: () => {
+              this.showError('Flower updated but failed to sync to master list');
+            }
+          });
+        }
+        
         this.editingFlowerId.set(null);
+        this.syncToMaster = false;
       },
       error: (err) => {
         this.showError('Failed to update flower');
@@ -951,6 +1125,79 @@ export class EventDetailComponent implements OnInit {
       },
       error: (err) => {
         this.showError('Failed to remove flower from recipe');
+      }
+    });
+  }
+
+  // Master flower picker methods
+  toggleMasterPicker() {
+    if (!this.showMasterPicker()) {
+      this.loadMasterFlowers();
+    }
+    this.showMasterPicker.update(v => !v);
+  }
+
+  loadMasterFlowers() {
+    this.loadingMaster.set(true);
+    this.masterFlowerService.getAll().subscribe({
+      next: (flowers) => {
+        this.masterFlowers.set(flowers.filter(f => f.isActive));
+        this.loadingMaster.set(false);
+      },
+      error: () => {
+        this.showError('Failed to load master flowers');
+        this.loadingMaster.set(false);
+      }
+    });
+  }
+
+  toggleMasterSelection(id: string) {
+    const current = new Set(this.selectedMasterIds());
+    if (current.has(id)) {
+      current.delete(id);
+      // Also remove price override
+      const overrides = { ...this.masterPriceOverrides() };
+      delete overrides[id];
+      this.masterPriceOverrides.set(overrides);
+    } else {
+      current.add(id);
+    }
+    this.selectedMasterIds.set(current);
+  }
+
+  updatePriceOverride(id: string, event: Event) {
+    const input = event.target as HTMLInputElement;
+    const value = parseFloat(input.value);
+    const overrides = { ...this.masterPriceOverrides() };
+    if (isNaN(value) || value <= 0) {
+      delete overrides[id];
+    } else {
+      overrides[id] = value;
+    }
+    this.masterPriceOverrides.set(overrides);
+  }
+
+  addSelectedFromMaster() {
+    const selections = Array.from(this.selectedMasterIds()).map(id => ({
+      masterFlowerId: id,
+      pricePerStemOverride: this.masterPriceOverrides()[id]
+    }));
+    
+    if (selections.length === 0) {
+      this.showError('Please select at least one flower');
+      return;
+    }
+    
+    this.eventFlowerService.addFromMaster(this.eventId, { selections }).subscribe({
+      next: (flowers) => {
+        this.flowers.update(f => [...f, ...flowers]);
+        this.selectedMasterIds.set(new Set());
+        this.masterPriceOverrides.set({});
+        this.showMasterPicker.set(false);
+        this.showSuccess(`Added ${flowers.length} flowers from master list`);
+      },
+      error: () => {
+        this.showError('Failed to add flowers from master list');
       }
     });
   }

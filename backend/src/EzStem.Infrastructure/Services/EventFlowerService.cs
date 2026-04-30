@@ -2,6 +2,7 @@ using EzStem.Application.DTOs;
 using EzStem.Application.Exceptions;
 using EzStem.Application.Interfaces;
 using EzStem.Domain.Entities;
+using EzStem.Domain.Enums;
 using EzStem.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -117,6 +118,49 @@ public class EventFlowerService : IEventFlowerService
         _context.EventFlowers.Remove(flower);
         await _context.SaveChangesAsync(ct);
         return true;
+    }
+
+    public async Task<IEnumerable<EventFlowerResponse>> AddFlowersFromMasterAsync(
+        Guid eventId, AddFlowersFromMasterRequest request, string ownerId, CancellationToken ct = default)
+    {
+        var eventExists = await _context.Events.AnyAsync(e => e.Id == eventId && e.OwnerId == ownerId, ct);
+        if (!eventExists) throw new KeyNotFoundException("Event not found");
+
+        // Load master flowers — ignore query filter to allow looking up by ID
+        var masterIds = request.Selections.Select(s => s.MasterFlowerId).ToList();
+        var masterFlowers = await _context.MasterFlowers
+            .IgnoreQueryFilters()
+            .Where(m => masterIds.Contains(m.Id) && m.OwnerId == ownerId)
+            .ToListAsync(ct);
+
+        var created = new List<EventFlower>();
+        foreach (var sel in request.Selections)
+        {
+            var master = masterFlowers.FirstOrDefault(m => m.Id == sel.MasterFlowerId);
+            if (master == null) continue;
+
+            // Calculate pricePerStem: if Unit=Bunch, pricePerStem = CostPerUnit / UnitsPerBunch
+            decimal pricePerStem = master.Unit == FlowerUnit.Stem
+                ? master.CostPerUnit
+                : master.CostPerUnit / master.UnitsPerBunch;
+
+            var flower = new EventFlower
+            {
+                Id = Guid.NewGuid(),
+                EventId = eventId,
+                Name = master.Name,
+                PricePerStem = sel.PricePerStemOverride ?? pricePerStem,
+                BunchSize = sel.BunchSizeOverride ?? master.UnitsPerBunch,
+                MasterFlowerId = master.Id,  // reference for sync-back
+                CreatedAt = DateTime.UtcNow
+            };
+            created.Add(flower);
+        }
+
+        _context.EventFlowers.AddRange(created);
+        await _context.SaveChangesAsync(ct);
+
+        return created.Select(f => MapToResponse(f));
     }
 
     private static EventFlowerResponse MapToResponse(EventFlower flower) => new(

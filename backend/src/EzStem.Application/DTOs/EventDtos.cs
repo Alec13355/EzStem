@@ -91,3 +91,15 @@ public record FlexItemResponse(
 
 public record AddFlexItemRequest(Guid ItemId, decimal QuantityNeeded, string? Notes);
 public record UpdateFlexItemRequest(decimal? QuantityNeeded, string? Notes);
+
+// Master Flower DTOs
+public record CreateMasterFlowerRequest(string Name, string Unit, decimal CostPerUnit, int UnitsPerBunch, string Category);
+public record UpdateMasterFlowerRequest(string? Name, string? Unit, decimal? CostPerUnit, int? UnitsPerBunch, string? Category);
+public record MasterFlowerResponse(Guid Id, string Name, string Unit, decimal CostPerUnit, int UnitsPerBunch, string Category, bool IsActive, DateTime CreatedAt, DateTime UpdatedAt);
+
+// Bulk add from master
+public record AddFlowersFromMasterRequest(IEnumerable<MasterFlowerSelection> Selections);
+public record MasterFlowerSelection(Guid MasterFlowerId, decimal? PricePerStemOverride, int? BunchSizeOverride);
+
+// OCR import result
+public record OcrImportResult(int Imported, int Skipped, IEnumerable<string> Errors, IEnumerable<MasterFlowerResponse> Flowers);
