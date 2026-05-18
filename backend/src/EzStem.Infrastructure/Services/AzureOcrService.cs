@@ -7,20 +7,32 @@ namespace EzStem.Infrastructure.Services;
 
 public class AzureOcrService : IOcrService
 {
-    private readonly DocumentAnalysisClient _client;
+    private readonly IConfiguration _config;
+    private DocumentAnalysisClient? _client;
 
     public AzureOcrService(IConfiguration config)
     {
-        var endpoint = config["AzureVision:Endpoint"] 
-            ?? throw new InvalidOperationException("AzureVision:Endpoint not configured");
-        var key = config["AzureVision:Key"]
-            ?? throw new InvalidOperationException("AzureVision:Key not configured");
+        _config = config;
+    }
+
+    private DocumentAnalysisClient GetClient()
+    {
+        if (_client != null) return _client;
+
+        var endpoint = _config["AzureVision:Endpoint"];
+        var key = _config["AzureVision:Key"];
+
+        if (string.IsNullOrEmpty(endpoint) || string.IsNullOrEmpty(key))
+            throw new InvalidOperationException("Azure Document Intelligence is not configured. Set AzureVision:Endpoint and AzureVision:Key.");
+
         _client = new DocumentAnalysisClient(new Uri(endpoint), new AzureKeyCredential(key));
+        return _client;
     }
 
     public async Task<IEnumerable<ParsedFlowerRow>> ParseFlowerPdfAsync(Stream pdfStream, CancellationToken ct = default)
     {
-        var operation = await _client.AnalyzeDocumentAsync(
+        var client = GetClient();
+        var operation = await client.AnalyzeDocumentAsync(
             WaitUntil.Completed,
             "prebuilt-layout",
             pdfStream,
