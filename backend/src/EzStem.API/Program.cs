@@ -7,6 +7,8 @@ using Microsoft.Identity.Web;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddHostedService<DatabaseMigrationService>();
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -47,8 +49,6 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
-
-await DatabaseMigrationService.RunMigrationsAsync(app.Services, app.Logger);
 
 if (app.Environment.IsDevelopment())
 {

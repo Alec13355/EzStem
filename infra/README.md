@@ -43,13 +43,7 @@ az login
 az account set --subscription <your-subscription-id>
 ```
 
-#### 2. Set SQL Admin Password
-
-```bash
-export SQL_ADMIN_PASSWORD='YourSecurePassword123!'
-```
-
-#### 3. Deploy Infrastructure
+#### 2. Deploy Infrastructure
 
 ```bash
 cd infra
