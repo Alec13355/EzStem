@@ -1,5 +1,5 @@
 using './main.bicep'
 
 param environment = 'dev'
-param location = 'eastus'
-param sqlAdminPassword = readEnvironmentVariable('SQL_ADMIN_PASSWORD')
+param location = 'centralus'
+// aadAdminObjectId, aadAdminName, principalType are passed at deploy time by deploy.sh

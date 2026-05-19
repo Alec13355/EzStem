@@ -206,8 +206,7 @@ jobs:
             --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
             --name ${{ secrets.AZURE_WEBAPP_NAME }} \
             --src-path ./deploy.zip \
-            --type zip \
-            --async true
+            --type zip
 
       - name: Smoke test (retry up to 4 min)
         run: |
