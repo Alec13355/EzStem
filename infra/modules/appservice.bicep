@@ -19,6 +19,13 @@ param swaHostname string = ''
 @description('Blob storage connection string for image uploads')
 param blobStorageConnectionString string
 
+@description('Azure Document Intelligence (Vision) endpoint URL')
+param azureVisionEndpoint string = ''
+
+@description('Azure Document Intelligence (Vision) API key')
+@secure()
+param azureVisionKey string = ''
+
 var appServicePlanName = '${appName}-plan'
 var webAppName = '${appName}-api'
 var sku = environment == 'prod' ? 'P2v3' : 'B1'
@@ -106,6 +113,14 @@ resource webApp 'Microsoft.Web/sites@2023-01-01' = {
         {
           name: 'AzureAd__Scopes'
           value: 'access_as_user'
+        }
+        {
+          name: 'AzureVision__Endpoint'
+          value: azureVisionEndpoint
+        }
+        {
+          name: 'AzureVision__Key'
+          value: azureVisionKey
         }
       ]
     }

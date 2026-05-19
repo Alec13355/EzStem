@@ -14,6 +14,13 @@ param aadAdminName string
 @description('Principal type: Application for service principals, User for interactive users')
 param principalType string = 'Application'
 
+@description('Azure Document Intelligence (Vision) endpoint URL')
+param azureVisionEndpoint string = ''
+
+@description('Azure Document Intelligence (Vision) API key')
+@secure()
+param azureVisionKey string = ''
+
 var resourceGroupName = 'ezstem-rg-${environment}'
 var appName = 'ezstem-${environment}'
 
@@ -27,6 +34,8 @@ module appService 'modules/appservice.bicep' = {
     appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
     swaHostname: staticWebApp.outputs.swaDefaultHostname
     blobStorageConnectionString: storage.outputs.connectionString
+    azureVisionEndpoint: azureVisionEndpoint
+    azureVisionKey: azureVisionKey
   }
 }
 
@@ -50,6 +59,7 @@ module keyVault 'modules/keyvault.bicep' = {
     appName: appName
     sqlConnectionString: database.outputs.connectionString
     blobStorageConnectionString: storage.outputs.connectionString
+    azureVisionKey: azureVisionKey
   }
 }
 

@@ -15,6 +15,10 @@ param sqlConnectionString string
 @secure()
 param blobStorageConnectionString string
 
+@description('Azure Document Intelligence (Vision) API key')
+@secure()
+param azureVisionKey string = ''
+
 var keyVaultName = 'ez-${environment}-kv-${substring(uniqueString(resourceGroup().id), 0, 8)}'
 
 resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
@@ -46,6 +50,14 @@ resource blobStorageConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets@20
   name: 'AzureBlobStorageConnectionString'
   properties: {
     value: blobStorageConnectionString
+  }
+}
+
+resource azureVisionKeySecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (!empty(azureVisionKey)) {
+  parent: keyVault
+  name: 'AzureVisionKey'
+  properties: {
+    value: azureVisionKey
   }
 }
 
