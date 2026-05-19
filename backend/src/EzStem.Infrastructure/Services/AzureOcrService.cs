@@ -75,12 +75,13 @@ public class AzureOcrService : IOcrService
                 var headers = headerRow.OrderBy(c => c.ColumnIndex).ToList();
                 for (int i = 0; i < headers.Count; i++)
                 {
-                    var headerText = headers[i].Content?.ToLower() ?? "";
-                    if (headerText.Contains("name") || headerText.Contains("item"))
+                    var headerText = headers[i].Content?.ToLower().Trim() ?? "";
+                    if (headerText == "item" || headerText.Contains("name"))
                         nameCol = i;
-                    else if (headerText.Contains("unit") || headerText.Contains("pack"))
+                    else if (headerText == "u.m." || headerText == "um" || headerText == "uom" ||
+                             (headerText.Contains("unit") && !headerText.Contains("/")))
                         unitCol = i;
-                    else if (headerText.Contains("price") || headerText.Contains("cost"))
+                    else if (headerText.Contains("rate") || headerText.Contains("price") || headerText.Contains("cost"))
                         priceCol = i;
                 }
             }
@@ -96,7 +97,12 @@ public class AzureOcrService : IOcrService
                 var cells = rowGroup.OrderBy(c => c.ColumnIndex).ToList();
                 if (cells.Count < 2) continue;
 
-                var nameText = cells.ElementAtOrDefault(nameCol)?.Content?.Trim() ?? "";
+                var rawName = cells.ElementAtOrDefault(nameCol)?.Content?.Trim() ?? "";
+                // Strip leading item codes (e.g. "608617 Rose Name" → "Rose Name") and take first line only
+                var nameText = System.Text.RegularExpressions.Regex.Replace(rawName, @"^\d+\s+", "");
+                var newlineIdx = nameText.IndexOfAny(new[] { '\n', '\r' });
+                if (newlineIdx > 0) nameText = nameText[..newlineIdx].Trim();
+
                 var unitText = cells.ElementAtOrDefault(unitCol)?.Content?.Trim() ?? "";
                 var priceText = cells.ElementAtOrDefault(priceCol)?.Content?.Trim() ?? "";
 
@@ -128,9 +134,9 @@ public class AzureOcrService : IOcrService
     private static bool TryParsePrice(string priceText, out decimal price)
     {
         price = 0;
-        // Remove currency symbols and whitespace
         var cleaned = priceText.Replace("$", "").Replace("£", "").Replace("€", "").Trim();
-        return decimal.TryParse(cleaned, out price);
+        return decimal.TryParse(cleaned, System.Globalization.NumberStyles.Any,
+            System.Globalization.CultureInfo.InvariantCulture, out price);
     }
 
     private static (string unit, int unitsPerBunch) ParseUnit(string unitText)
