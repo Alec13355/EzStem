@@ -1,12 +1,14 @@
 #!/bin/bash
 
 # Azure Infrastructure Deployment Script for EzStem
-# Usage: ./deploy.sh <environment>
-# Example: ./deploy.sh dev
+# Usage: ./deploy.sh <environment> [vision-endpoint] [vision-key]
+# Example: ./deploy.sh dev https://my-resource.cognitiveservices.azure.com/ abc123
 
 set -e
 
 ENVIRONMENT=${1:-dev}
+AZURE_VISION_ENDPOINT=${2:-}
+AZURE_VISION_KEY=${3:-}
 
 if [[ ! "$ENVIRONMENT" =~ ^(dev|staging|prod)$ ]]; then
   echo "Error: Invalid environment. Must be dev, staging, or prod."
@@ -55,6 +57,8 @@ DEPLOYMENT_OUTPUT=$(az deployment group create \
   --parameters aadAdminObjectId="${AAD_ADMIN_OID}" \
   --parameters aadAdminName="${AAD_ADMIN_NAME}" \
   --parameters principalType="${PRINCIPAL_TYPE}" \
+  --parameters azureVisionEndpoint="${AZURE_VISION_ENDPOINT}" \
+  --parameters azureVisionKey="${AZURE_VISION_KEY}" \
   --query 'properties.outputs' \
   --output json)
 

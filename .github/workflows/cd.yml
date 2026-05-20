@@ -105,7 +105,9 @@ jobs:
             --parameters environment=dev \
             --parameters aadAdminObjectId="${{ steps.sp.outputs.oid }}" \
             --parameters aadAdminName="${{ steps.sp.outputs.name }}" \
-            --parameters principalType=Application
+            --parameters principalType=Application \
+            --parameters azureVisionEndpoint="${{ secrets.AZURE_VISION_ENDPOINT }}" \
+            --parameters azureVisionKey="${{ secrets.AZURE_VISION_KEY }}"
 
       - name: Install MSSQL ODBC driver
         run: |
