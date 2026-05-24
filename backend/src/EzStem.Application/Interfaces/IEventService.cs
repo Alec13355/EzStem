@@ -14,4 +14,6 @@ public interface IEventService
     Task<bool> RemoveRecipeFromEventAsync(Guid eventId, Guid recipeId, string ownerId, CancellationToken ct = default);
     Task<EventSummaryResponse?> GetEventSummaryAsync(Guid eventId, string ownerId, CancellationToken ct = default);
     Task<ProductionSheetResponse?> GetProductionSheetAsync(Guid eventId, string ownerId, CancellationToken ct = default);
+    Task<EventResponse?> CompleteEventAsync(Guid eventId, CompleteEventRequest request, string ownerId, CancellationToken ct = default);
+    Task<PnlResponse> GetPnlAsync(string ownerId, CancellationToken ct = default);
 }

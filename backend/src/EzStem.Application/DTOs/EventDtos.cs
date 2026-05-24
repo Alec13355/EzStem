@@ -2,6 +2,7 @@ namespace EzStem.Application.DTOs;
 
 public record CreateEventRequest(string Name, DateTime EventDate, string? ClientName, string? Notes, decimal TotalBudget, decimal ProfitMultiple);
 public record UpdateEventRequest(string? Name, DateTime? EventDate, string? ClientName, string? Notes, string? Status, decimal? TotalBudget, decimal? ProfitMultiple);
+public record CompleteEventRequest(decimal ActualCost, string? ReceiptUrl);
 public record AddEventRecipeRequest(Guid RecipeId, int Quantity);
 public record UpdateEventRecipeRequest(int Quantity);
 
@@ -19,7 +20,19 @@ public record EventResponse(
     Guid Id, string Name, DateTime EventDate, string? ClientName,
     string? Notes, string Status, decimal TotalBudget, decimal ProfitMultiple,
     IEnumerable<EventRecipeResponse> EventRecipes,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    bool IsCompleted, decimal? ActualCost, DateTime? CompletedAt, string? ReceiptUrl);
+
+public record PnlEventItem(
+    Guid EventId, string EventName, DateTime EventDate, string Status,
+    decimal TotalRevenue, decimal ExpectedFlowerCost, decimal ExpectedProfit,
+    bool IsCompleted, decimal? ActualCost, decimal? ActualProfit, string? ReceiptUrl, DateTime? CompletedAt);
+
+public record PnlSummary(
+    decimal TotalExpectedRevenue, decimal TotalExpectedProfit,
+    decimal TotalActualRevenue, decimal TotalActualProfit, int CompletedEventsCount);
+
+public record PnlResponse(IEnumerable<PnlEventItem> All, IEnumerable<PnlEventItem> Completed, PnlSummary Summary);
 
 public record CreateEventItemRequest(string Name, decimal Price, int Quantity);
 public record UpdateEventItemRequest(string? Name, decimal? Price, int? Quantity);

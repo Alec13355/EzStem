@@ -14,12 +14,14 @@ public class EventsController : ControllerBase
     private readonly IEventService _eventService;
     private readonly IOrderService _orderService;
     private readonly IEventItemFlowerService _eventItemFlowerService;
+    private readonly IImageStorageService _imageStorageService;
 
-    public EventsController(IEventService eventService, IOrderService orderService, IEventItemFlowerService eventItemFlowerService)
+    public EventsController(IEventService eventService, IOrderService orderService, IEventItemFlowerService eventItemFlowerService, IImageStorageService imageStorageService)
     {
         _eventService = eventService;
         _orderService = orderService;
         _eventItemFlowerService = eventItemFlowerService;
+        _imageStorageService = imageStorageService;
     }
 
     private string GetUserId() =>
@@ -174,4 +176,35 @@ public class EventsController : ControllerBase
             return BadRequest(new { error = ex.Message });
         }
     }
+
+    [HttpPost("{id}/complete")]
+    public async Task<ActionResult<EventResponse>> CompleteEvent(Guid id, [FromBody] CompleteEventRequest request, CancellationToken ct = default)
+    {
+        var evt = await _eventService.CompleteEventAsync(id, request, GetUserId(), ct);
+        if (evt == null) return NotFound();
+        return Ok(evt);
+    }
+
+    [HttpPost("{id}/receipt")]
+    public async Task<ActionResult<UploadReceiptResponse>> UploadReceipt(Guid id, IFormFile file, CancellationToken ct = default)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest("No file uploaded.");
+
+        if (file.Length > 10 * 1024 * 1024)
+            return BadRequest("File size must be 10MB or less.");
+
+        await using var stream = file.OpenReadStream();
+        var url = await _imageStorageService.UploadImageAsync(stream, file.FileName, file.ContentType, ct);
+        return Ok(new UploadReceiptResponse(url));
+    }
+
+    [HttpGet("pnl")]
+    public async Task<ActionResult<PnlResponse>> GetPnl(CancellationToken ct = default)
+    {
+        var pnl = await _eventService.GetPnlAsync(GetUserId(), ct);
+        return Ok(pnl);
+    }
 }
+
+public record UploadReceiptResponse(string Url);

@@ -15,6 +15,7 @@ import { MatDialogModule } from '@angular/material/dialog';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { EventService } from '../../../core/services/event.service';
+import { MatDividerModule } from '@angular/material/divider';
 import { EventItemService } from '../../../core/services/event-item.service';
 import { EventFlowerService } from '../../../core/services/event-flower.service';
 import { EventRecipeService } from '../../../core/services/event-recipe.service';
@@ -53,7 +54,8 @@ import {
     MatDialogModule,
     MatCheckboxModule,
     MatExpansionModule,
-    RouterModule
+    RouterModule,
+    MatDividerModule
   ],
   template: `
     <div class="event-detail-container">
@@ -582,6 +584,81 @@ import {
               }
             </div>
           </mat-tab>
+          <!-- Tab 5: Complete -->
+          <mat-tab label="Complete">
+            <div class="tab-content">
+              @if (event()?.isCompleted) {
+                <mat-card class="complete-card complete-card--done">
+                  <mat-card-content>
+                    <div class="complete-status">
+                      <span class="complete-icon">✅</span>
+                      <div>
+                        <h2 style="margin:0">Event Completed</h2>
+                        <p style="margin:4px 0 0; color:#555">Completed on {{ event()!.completedAt | date:'mediumDate' }}</p>
+                      </div>
+                    </div>
+                    <mat-divider style="margin: 16px 0"></mat-divider>
+                    <div class="complete-summary">
+                      <div class="summary-row">
+                        <span>Actual Cost Paid:</span>
+                        <strong>{{ formatCurrency(event()!.actualCost ?? 0) }}</strong>
+                      </div>
+                      @if (event()!.receiptUrl) {
+                        <div class="summary-row">
+                          <span>Receipt:</span>
+                          <a [href]="event()!.receiptUrl" target="_blank" rel="noopener">View Receipt</a>
+                        </div>
+                      }
+                    </div>
+                    <button mat-stroked-button color="warn" (click)="reopenEvent()" style="margin-top:16px">
+                      <mat-icon>undo</mat-icon>
+                      Reopen Event
+                    </button>
+                  </mat-card-content>
+                </mat-card>
+              } @else {
+                <mat-card class="complete-card">
+                  <mat-card-header>
+                    <mat-card-title>Mark Event as Complete</mat-card-title>
+                    <mat-card-subtitle>Enter what you actually paid for flowers/materials</mat-card-subtitle>
+                  </mat-card-header>
+                  <mat-card-content>
+                    <mat-form-field class="full-width" style="margin-top:16px">
+                      <mat-label>Total Actual Cost Paid ($)</mat-label>
+                      <input matInput type="number" step="0.01" min="0" [(ngModel)]="actualCost">
+                      <span matSuffix>$</span>
+                    </mat-form-field>
+
+                    <div class="receipt-section">
+                      <p class="receipt-label">Receipt (optional)</p>
+                      <input #receiptInput type="file" style="display:none"
+                        accept=".pdf,.jpg,.jpeg,.png,.webp"
+                        (change)="onReceiptSelected($event)">
+                      <button mat-stroked-button (click)="receiptInput.click()" [disabled]="uploadingReceipt()">
+                        <mat-icon>upload_file</mat-icon>
+                        {{ uploadingReceipt() ? 'Uploading...' : (receiptUrl() ? 'Replace Receipt' : 'Upload Receipt') }}
+                      </button>
+                      @if (receiptUrl()) {
+                        <span class="receipt-uploaded">
+                          <mat-icon style="font-size:16px;height:16px;width:16px;vertical-align:middle;color:#388e3c">check_circle</mat-icon>
+                          Receipt uploaded
+                        </span>
+                      }
+                    </div>
+
+                    <mat-divider style="margin: 20px 0"></mat-divider>
+
+                    <button mat-raised-button color="primary"
+                      [disabled]="!actualCost || actualCost <= 0 || completingEvent()"
+                      (click)="completeEvent()">
+                      <mat-icon>check_circle</mat-icon>
+                      {{ completingEvent() ? 'Saving...' : 'Mark as Complete' }}
+                    </button>
+                  </mat-card-content>
+                </mat-card>
+              }
+            </div>
+          </mat-tab>
         </mat-tab-group>
       }
     </div>
@@ -801,6 +878,60 @@ import {
     .order-summary-table {
       width: 100%;
     }
+
+    .complete-card {
+      max-width: 560px;
+      margin-top: 8px;
+    }
+
+    .complete-card--done {
+      border-left: 4px solid #43a047;
+    }
+
+    .complete-status {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .complete-icon {
+      font-size: 40px;
+    }
+
+    .complete-summary {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 16px;
+    }
+
+    .receipt-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 4px;
+      flex-wrap: wrap;
+    }
+
+    .receipt-label {
+      margin: 0;
+      color: #555;
+      font-size: 14px;
+      width: 100%;
+    }
+
+    .receipt-uploaded {
+      color: #388e3c;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
   `]
 })
 export class EventDetailComponent implements OnInit {
@@ -819,6 +950,12 @@ export class EventDetailComponent implements OnInit {
   editingItemId = signal<string | null>(null);
   editingFlowerId = signal<string | null>(null);
   showingAddFlowerForItem = signal<string | null>(null);
+
+  // Complete tab state
+  actualCost: number = 0;
+  receiptUrl = signal<string | null>(null);
+  uploadingReceipt = signal(false);
+  completingEvent = signal(false);
 
   // Master flower picker state
   showMasterPicker = signal(false);
@@ -1299,6 +1436,48 @@ export class EventDetailComponent implements OnInit {
       error: () => {
         this.showError('Failed to add flowers from master list');
       }
+    });
+  }
+
+  // Complete tab methods
+  onReceiptSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (!input.files?.[0]) return;
+    const file = input.files[0];
+    this.uploadingReceipt.set(true);
+    this.eventService.uploadReceipt(this.eventId, file).subscribe({
+      next: (res) => {
+        this.receiptUrl.set(res.url);
+        this.uploadingReceipt.set(false);
+      },
+      error: () => {
+        this.showError('Receipt upload failed');
+        this.uploadingReceipt.set(false);
+        input.value = '';
+      }
+    });
+  }
+
+  completeEvent() {
+    if (!this.actualCost || this.actualCost <= 0) return;
+    this.completingEvent.set(true);
+    this.eventService.completeEvent(this.eventId, this.actualCost, this.receiptUrl() ?? undefined).subscribe({
+      next: (updated) => {
+        this.event.set(updated);
+        this.completingEvent.set(false);
+        this.showSuccess('Event marked as complete');
+      },
+      error: () => {
+        this.showError('Failed to complete event');
+        this.completingEvent.set(false);
+      }
+    });
+  }
+
+  reopenEvent() {
+    this.eventService.updateEvent(this.eventId, { status: 'Draft' } as any).subscribe({
+      next: () => this.loadEvent(),
+      error: () => this.showError('Failed to reopen event')
     });
   }
 

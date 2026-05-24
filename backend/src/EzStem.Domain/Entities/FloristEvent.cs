@@ -10,6 +10,10 @@ public class FloristEvent
     public decimal ProfitMultiple { get; set; } = 1.0m;
     public EventStatus Status { get; set; } = EventStatus.Draft;
     public string? OwnerId { get; set; }
+    public bool IsCompleted { get; set; } = false;
+    public decimal? ActualCost { get; set; }
+    public DateTime? CompletedAt { get; set; }
+    public string? ReceiptUrl { get; set; }
     public bool IsDeleted { get; set; } = false;
     public DateTime? DeletedAt { get; set; }
     public ICollection<EventRecipe> EventRecipes { get; set; } = new List<EventRecipe>();

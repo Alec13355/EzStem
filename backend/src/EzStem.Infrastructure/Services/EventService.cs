@@ -28,8 +28,10 @@ public class EventService : IEventService
             query = query.Where(e => e.Name.Contains(search) || (e.ClientName != null && e.ClientName.Contains(search)));
 
         var total = await query.CountAsync(ct);
+        // Completed events go to the bottom; within each group sort by event date descending
         var events = await query
-            .OrderByDescending(e => e.EventDate)
+            .OrderBy(e => e.IsCompleted ? 1 : 0)
+            .ThenByDescending(e => e.EventDate)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(ct);
@@ -245,12 +247,73 @@ public class EventService : IEventService
         return new EventRecipeResponse(er.Id, er.RecipeId, er.Recipe.Name, er.Quantity, unitCost, unitCost * er.Quantity);
     }
 
+    public async Task<EventResponse?> CompleteEventAsync(Guid eventId, CompleteEventRequest request, string ownerId, CancellationToken ct = default)
+    {
+        var evt = await _context.Events
+            .Include(e => e.EventRecipes).ThenInclude(er => er.Recipe)
+            .FirstOrDefaultAsync(e => e.Id == eventId && e.OwnerId == ownerId, ct);
+
+        if (evt == null) return null;
+
+        evt.IsCompleted = true;
+        evt.ActualCost = request.ActualCost;
+        evt.CompletedAt = DateTime.UtcNow;
+        if (request.ReceiptUrl != null) evt.ReceiptUrl = request.ReceiptUrl;
+        evt.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync(ct);
+        return MapToEventResponse(evt);
+    }
+
+    public async Task<PnlResponse> GetPnlAsync(string ownerId, CancellationToken ct = default)
+    {
+        var events = await _context.Events
+            .Where(e => e.OwnerId == ownerId)
+            .OrderByDescending(e => e.EventDate)
+            .ToListAsync(ct);
+
+        // Load revenue for all events from EventItems
+        var eventIds = events.Select(e => e.Id).ToList();
+        var revenueByEvent = await _context.EventItems
+            .Where(i => eventIds.Contains(i.EventId))
+            .GroupBy(i => i.EventId)
+            .Select(g => new { EventId = g.Key, Revenue = g.Sum(i => (decimal)i.Price * i.Quantity) })
+            .ToDictionaryAsync(x => x.EventId, x => x.Revenue, ct);
+
+        var allItems = events.Select(evt =>
+        {
+            var revenue = revenueByEvent.TryGetValue(evt.Id, out var r) ? r : 0m;
+            var multiple = evt.ProfitMultiple > 0 ? evt.ProfitMultiple : 2.5m;
+            var expectedFlowerCost = revenue / multiple;
+            var expectedProfit = revenue - expectedFlowerCost;
+            decimal? actualProfit = evt.IsCompleted && evt.ActualCost.HasValue
+                ? revenue - evt.ActualCost.Value : null;
+
+            return new PnlEventItem(
+                evt.Id, evt.Name, evt.EventDate, evt.Status.ToString(),
+                revenue, expectedFlowerCost, expectedProfit,
+                evt.IsCompleted, evt.ActualCost, actualProfit, evt.ReceiptUrl, evt.CompletedAt);
+        }).ToList();
+
+        var completedItems = allItems.Where(i => i.IsCompleted).ToList();
+
+        var summary = new PnlSummary(
+            TotalExpectedRevenue: allItems.Sum(i => i.TotalRevenue),
+            TotalExpectedProfit: allItems.Sum(i => i.ExpectedProfit),
+            TotalActualRevenue: completedItems.Sum(i => i.TotalRevenue),
+            TotalActualProfit: completedItems.Sum(i => i.ActualProfit ?? 0),
+            CompletedEventsCount: completedItems.Count);
+
+        return new PnlResponse(allItems, completedItems, summary);
+    }
+
     private EventResponse MapToEventResponse(FloristEvent evt)
     {
         var eventRecipes = evt.EventRecipes.Select(MapToEventRecipeResponse);
         return new EventResponse(
             evt.Id, evt.Name, evt.EventDate, evt.ClientName, evt.Notes,
             evt.Status.ToString(), evt.TotalBudget, evt.ProfitMultiple,
-            eventRecipes, evt.CreatedAt);
+            eventRecipes, evt.CreatedAt,
+            evt.IsCompleted, evt.ActualCost, evt.CompletedAt, evt.ReceiptUrl);
     }
 }

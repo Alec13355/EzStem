@@ -63,7 +63,12 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
       <table mat-table [dataSource]="filteredEvents()" class="mat-elevation-z2">
         <ng-container matColumnDef="name">
           <th mat-header-cell *matHeaderCellDef>Name</th>
-          <td mat-cell *matCellDef="let event">{{ event.name }}</td>
+          <td mat-cell *matCellDef="let event">
+            <span>{{ event.name }}</span>
+            @if (event.isCompleted) {
+              <span class="completed-badge">Completed</span>
+            }
+          </td>
         </ng-container>
 
         <ng-container matColumnDef="budget">
@@ -147,6 +152,18 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
 
     .action-btn {
       height: 44px !important;
+    }
+
+    .completed-badge {
+      display: inline-block;
+      margin-left: 8px;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: #e8f5e9;
+      color: #388e3c;
+      font-weight: 500;
+      vertical-align: middle;
     }
 
     .error-state {

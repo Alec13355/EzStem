@@ -28,6 +28,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/settings/settings.component').then(m => m.SettingsComponent)
   },
   {
+    path: 'pnl',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/pnl/pnl.component').then(m => m.PnlComponent)
+  },
+  {
     path: '**',
     redirectTo: ''
   }

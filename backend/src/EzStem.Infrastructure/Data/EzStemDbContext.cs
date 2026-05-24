@@ -68,6 +68,7 @@ public class EzStemDbContext : DbContext
         {
             entity.Property(e => e.TotalBudget).HasPrecision(18, 4);
             entity.Property(e => e.ProfitMultiple).HasPrecision(18, 4);
+            entity.Property(e => e.ActualCost).HasPrecision(18, 4);
             entity.Property(e => e.UpdatedAt);
             entity.HasQueryFilter(e => !e.IsDeleted);
             entity.HasIndex(e => e.Name);

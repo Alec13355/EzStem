@@ -65,6 +65,39 @@ export interface FloristEvent {
   totalBudget?: number;
   profitMultiple?: number;
   createdAt: string;
+  isCompleted: boolean;
+  actualCost?: number;
+  completedAt?: string;
+  receiptUrl?: string;
+}
+
+export interface PnlEventItem {
+  eventId: string;
+  eventName: string;
+  eventDate: string;
+  status: string;
+  totalRevenue: number;
+  expectedFlowerCost: number;
+  expectedProfit: number;
+  isCompleted: boolean;
+  actualCost?: number;
+  actualProfit?: number;
+  receiptUrl?: string;
+  completedAt?: string;
+}
+
+export interface PnlSummary {
+  totalExpectedRevenue: number;
+  totalExpectedProfit: number;
+  totalActualRevenue: number;
+  totalActualProfit: number;
+  completedEventsCount: number;
+}
+
+export interface PnlResponse {
+  all: PnlEventItem[];
+  completed: PnlEventItem[];
+  summary: PnlSummary;
 }
 
 export interface EventRecipe {

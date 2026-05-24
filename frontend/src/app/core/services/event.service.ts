@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
-import { FloristEvent, EventSummary, Order, PagedResponse, ProductionSheetResponse } from '../../shared/models/api.models';
+import { FloristEvent, EventSummary, Order, PagedResponse, ProductionSheetResponse, PnlResponse } from '../../shared/models/api.models';
 
 @Injectable({
   providedIn: 'root'
@@ -45,5 +45,19 @@ export class EventService {
 
   getProductionSheet(eventId: string): Observable<ProductionSheetResponse> {
     return this.api.get<ProductionSheetResponse>(`events/${eventId}/production-sheet`);
+  }
+
+  completeEvent(eventId: string, actualCost: number, receiptUrl?: string): Observable<FloristEvent> {
+    return this.api.post<FloristEvent>(`events/${eventId}/complete`, { actualCost, receiptUrl });
+  }
+
+  uploadReceipt(eventId: string, file: File): Observable<{ url: string }> {
+    const form = new FormData();
+    form.append('file', file);
+    return this.api.postForm<{ url: string }>(`events/${eventId}/receipt`, form);
+  }
+
+  getPnl(): Observable<PnlResponse> {
+    return this.api.get<PnlResponse>('events/pnl');
   }
 }
