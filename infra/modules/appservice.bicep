@@ -52,7 +52,7 @@ resource webApp 'Microsoft.Web/sites@2023-01-01' = {
     serverFarmId: appServicePlan.id
     httpsOnly: true
     siteConfig: {
-      linuxFxVersion: 'DOTNETCORE|9.0'
+      linuxFxVersion: 'DOTNETCORE|10.0'
       appCommandLine: 'dotnet EzStem.API.dll'
       alwaysOn: environment == 'prod' ? true : false
       httpLoggingEnabled: true
