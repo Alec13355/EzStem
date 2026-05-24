@@ -399,3 +399,23 @@ export interface EventFlowerImportResult {
   errors: string[];
   flowers: EventFlower[];
 }
+
+export interface PageTheme {
+  primaryBackground?: string;
+  cardBackground?: string;
+}
+
+export interface UserTheme {
+  pages: Record<string, PageTheme>;
+  globalFontSize?: number;  // px value, default 16
+}
+
+export interface UserSettingsResponse {
+  id: string;
+  theme: UserTheme;
+  updatedAt: string;
+}
+
+export interface UpdateUserSettingsRequest {
+  theme: UserTheme;
+}

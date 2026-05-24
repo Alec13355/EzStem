@@ -48,12 +48,12 @@ import { Item, Vendor } from '../../../shared/models/api.models';
 
         <mat-form-field class="full-width">
           <mat-label>Cost Per Stem</mat-label>
-          <input matInput type="number" formControlName="costPerStem" required step="0.01" min="0.01">
+          <input matInput type="number" formControlName="costPerStem" required step="0.01" min="0">
           @if (form.get('costPerStem')?.hasError('required') && form.get('costPerStem')?.touched) {
             <mat-error>Cost per stem is required</mat-error>
           }
           @if (form.get('costPerStem')?.hasError('min')) {
-            <mat-error>Cost must be at least $0.01</mat-error>
+            <mat-error>Cost cannot be negative</mat-error>
           }
         </mat-form-field>
 
@@ -237,7 +237,7 @@ export class ItemFormComponent implements OnInit {
     this.form = this.fb.group({
       name: [data?.name || '', Validators.required],
       description: [data?.description || ''],
-      costPerStem: [data?.costPerStem || 0, [Validators.required, Validators.min(0.01)]],
+      costPerStem: [data?.costPerStem || 0, [Validators.required, Validators.min(0)]],
       bundleSize: [data?.bundleSize || 1, [Validators.required, Validators.min(1)]],
       vendorId: [data?.vendorId || null],
       imageUrl: [data?.imageUrl ?? null],

@@ -118,6 +118,16 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
     </div>
   `,
   styles: [`
+    :host {
+      display: block;
+      background: var(--page-recipes-bg-primary, #f5f7f5);
+      min-height: 100vh;
+    }
+
+    .container {
+      padding: 24px;
+    }
+
     .header {
       display: flex;
       justify-content: space-between;
@@ -127,6 +137,7 @@ import { EmptyStateComponent } from '../../../shared/components/empty-state/empt
 
     table {
       width: 100%;
+      background: var(--page-recipes-bg-card, #ffffff);
     }
 
     .loading-spinner {

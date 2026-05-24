@@ -33,6 +33,7 @@ builder.Services.AddScoped<IOcrService, AzureOcrService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IFlexItemService, FlexItemService>();
 builder.Services.AddScoped<IImageStorageService, AzureImageStorageService>();
+builder.Services.AddScoped<IUserSettingsService, UserSettingsService>();
 
 builder.Services.AddAuthentication()
     .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"));

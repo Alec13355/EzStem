@@ -56,8 +56,8 @@ public class ItemService : IItemService
         if (string.IsNullOrWhiteSpace(request.Name))
             throw new ArgumentException("Name is required", nameof(request.Name));
 
-        if (request.CostPerStem <= 0)
-            throw new ArgumentException("Cost per stem must be greater than 0", nameof(request.CostPerStem));
+        if (request.CostPerStem < 0)
+            throw new ArgumentException("Cost per stem cannot be negative", nameof(request.CostPerStem));
 
         if (request.BundleSize <= 0)
             throw new ArgumentException("Bundle size must be greater than 0", nameof(request.BundleSize));
@@ -102,8 +102,8 @@ public class ItemService : IItemService
         if (request.Description != null) item.Description = request.Description;
         if (request.CostPerStem.HasValue)
         {
-            if (request.CostPerStem.Value <= 0)
-                throw new ArgumentException("Cost per stem must be greater than 0");
+            if (request.CostPerStem.Value < 0)
+                throw new ArgumentException("Cost per stem cannot be negative");
             item.CostPerStem = request.CostPerStem.Value;
         }
         if (request.BundleSize.HasValue)

@@ -21,6 +21,7 @@ public class EzStemDbContext : DbContext
     public DbSet<EventFlower> EventFlowers => Set<EventFlower>();
     public DbSet<EventItemFlower> EventItemFlowers => Set<EventItemFlower>();
     public DbSet<MasterFlower> MasterFlowers => Set<MasterFlower>();
+    public DbSet<UserSettings> UserSettings => Set<UserSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -154,6 +155,12 @@ public class EzStemDbContext : DbContext
                 .OnDelete(DeleteBehavior.NoAction);
             entity.HasIndex(e => e.EventItemId);
             entity.HasIndex(e => e.EventFlowerId);
+        });
+
+        // UserSettings configuration
+        modelBuilder.Entity<UserSettings>(entity =>
+        {
+            entity.HasIndex(u => u.OwnerId).IsUnique();
         });
     }
 }

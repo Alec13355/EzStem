@@ -109,6 +109,12 @@ import { PricingConfig } from '../../../shared/models/api.models';
     </div>
   `,
   styles: [`
+    :host {
+      display: block;
+      background: var(--page-pricing-bg-primary, #f5f7f5);
+      min-height: 100vh;
+    }
+
     .container {
       padding: 24px;
       max-width: 800px;
@@ -123,6 +129,7 @@ import { PricingConfig } from '../../../shared/models/api.models';
 
     mat-card {
       margin-bottom: 24px;
+      background: var(--page-pricing-bg-card, #ffffff);
     }
 
     mat-card-content {

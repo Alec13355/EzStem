@@ -5,6 +5,9 @@
   @if (authService.isAuthenticated()) {
     <button mat-button routerLink="/events" routerLinkActive="active">Events</button>
     <button mat-button routerLink="/master-flowers" routerLinkActive="active">Master Flowers</button>
+    <button mat-icon-button routerLink="/settings" routerLinkActive="active" title="Settings">
+      <mat-icon>settings</mat-icon>
+    </button>
     <button mat-icon-button (click)="signOut()" title="Sign out">
       <mat-icon>logout</mat-icon>
     </button>

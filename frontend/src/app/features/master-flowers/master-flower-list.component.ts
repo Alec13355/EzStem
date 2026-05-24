@@ -180,6 +180,12 @@ import { MasterFlower, CreateMasterFlowerRequest } from '../../shared/models/api
     </div>
   `,
   styles: [`
+    :host {
+      display: block;
+      background: var(--page-masterFlowers-bg-primary, #f5f7f5);
+      min-height: 100vh;
+    }
+
     .container {
       max-width: 1400px;
       margin: 0 auto;
@@ -214,6 +220,7 @@ import { MasterFlower, CreateMasterFlowerRequest } from '../../shared/models/api
 
     .add-form {
       margin-bottom: 24px;
+      background: var(--page-masterFlowers-bg-card, #ffffff);
     }
 
     .form-row {
@@ -236,6 +243,7 @@ import { MasterFlower, CreateMasterFlowerRequest } from '../../shared/models/api
 
     .category-section {
       margin-bottom: 24px;
+      background: var(--page-masterFlowers-bg-card, #ffffff);
     }
 
     .flowers-table {

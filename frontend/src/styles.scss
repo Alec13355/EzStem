@@ -32,6 +32,7 @@ html, body {
 body {
   margin: 0;
   background-color: #fafafa;
+  font-size: var(--app-font-size, 16px);
 }
 
 .container {

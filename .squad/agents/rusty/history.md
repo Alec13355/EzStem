@@ -536,3 +536,42 @@
 - Backend persistence over localStorage for cross-device sync
 - Eager theme load to prevent visual flicker on page load
 - Native color input (no third-party color library needed)
+
+### 2026-05-24: Font Size Customization
+
+**Feature Added:**
+- Global font size customization in Settings page
+- Font size range: 12px–24px (default 16px)
+- Live preview via CSS custom property `--app-font-size`
+
+**Files Modified:**
+1. `frontend/src/app/shared/models/api.models.ts`
+   - Extended `UserTheme` interface with `globalFontSize?: number` field
+
+2. `frontend/src/app/core/services/theme.service.ts`
+   - Added `FONT_SIZE_DEFAULT`, `FONT_SIZE_MIN`, `FONT_SIZE_MAX` constants
+   - Extended `applyTheme()` to set `--app-font-size` CSS variable
+
+3. `frontend/src/styles.scss`
+   - Applied `font-size: var(--app-font-size, 16px)` to body element
+
+4. `frontend/src/app/features/settings/settings.component.ts`
+   - Added Typography section with range slider above color customization
+   - Added `onFontSizeChange()` method for live preview
+   - Changed `draftTheme` from private to public (required for template binding)
+   - Styled slider with Material green theme (#43a047)
+
+**UX Pattern:**
+- Slider updates `localTheme.globalFontSize` on input
+- Live preview via `themeService.applyTheme()` (no page refresh)
+- Value persists on Save alongside color settings
+- Reset to Defaults restores 16px font size
+
+**Build Output:**
+- Successful build with settings chunk at 9.14 kB (2.35 kB gzipped)
+- No TypeScript errors
+
+**Notes:**
+- Font size applies globally via CSS custom property
+- Slider uses native HTML `<input type="range">` with custom Material styling
+- Compatible with existing color customization workflow
