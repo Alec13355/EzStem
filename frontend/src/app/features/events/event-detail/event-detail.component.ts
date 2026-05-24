@@ -425,13 +425,15 @@ import {
                   @for (itemSummary of recipeSummary()!.items; track itemSummary.eventItemId; let i = $index) {
                     <mat-card class="recipe-card">
                       <mat-card-header>
-                        <div class="budget-status-bar" [class.over-budget]="getRunningTotal(i) > (recipeSummary()?.flowerBudget ?? 0)">
-                          <span class="budget-label">💰 Budget: {{ formatCurrency(recipeSummary()!.flowerBudget) }}</span>
-                          <span class="budget-divider">|</span>
-                          <span class="running-label">Running: {{ formatCurrency(getRunningTotal(i)) }}</span>
-                          <span class="budget-divider">|</span>
-                          <span class="status-label">{{ getRunningTotal(i) > (recipeSummary()?.flowerBudget ?? 0) ? '❌ Over Budget' : '✅ In Budget' }}</span>
-                        </div>
+                        @if (itemSummary.flowers.length > 0) {
+                          <div class="budget-status-bar" [class.over-budget]="itemSummary.totalRawCost > getItemBudget(itemSummary)">
+                            <span class="budget-label">💰 Budget: {{ formatCurrency(getItemBudget(itemSummary)) }}</span>
+                            <span class="budget-divider">|</span>
+                            <span class="running-label">Running: {{ formatCurrency(itemSummary.totalRawCost) }}</span>
+                            <span class="budget-divider">|</span>
+                            <span class="status-label">{{ itemSummary.totalRawCost > getItemBudget(itemSummary) ? '❌ Over Budget' : '✅ In Budget' }}</span>
+                          </div>
+                        }
                         <mat-card-title>{{ itemSummary.itemName }}</mat-card-title>
                         <mat-card-subtitle>
                           Customer Price: {{ formatCurrency(itemSummary.customerPrice) }} × {{ itemSummary.quantity }} = {{ formatCurrency(itemSummary.totalRevenue) }}
@@ -1301,9 +1303,8 @@ export class EventDetailComponent implements OnInit {
   }
 
   // Utility methods
-  getRunningTotal(upToIndex: number): number {
-    const items = this.recipeSummary()?.items || [];
-    return items.slice(0, upToIndex + 1).reduce((sum, item) => sum + (item.totalRawCost || 0), 0);
+  getItemBudget(item: RecipeItemSummary): number {
+    return item.totalRevenue / (this.profitMultiple || 2.5);
   }
 
   formatCurrency(value: number): string {
