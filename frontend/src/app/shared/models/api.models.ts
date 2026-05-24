@@ -392,3 +392,10 @@ export interface OcrImportResult {
   errors: string[];
   flowers: MasterFlower[];
 }
+
+export interface EventFlowerImportResult {
+  imported: number;
+  skipped: number;
+  errors: string[];
+  flowers: EventFlower[];
+}

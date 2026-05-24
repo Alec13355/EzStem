@@ -170,4 +170,59 @@ public class EventFlowerService : IEventFlowerService
         flower.PricePerStem,
         flower.BunchSize,
         flower.CreatedAt);
+
+    public async Task<EventFlowerImportResult> ImportFromPdfAsync(
+        Guid eventId, Stream pdfStream, string ownerId, IOcrService ocrService, CancellationToken ct = default)
+    {
+        var eventExists = await _context.Events.AnyAsync(e => e.Id == eventId && e.OwnerId == ownerId, ct);
+        if (!eventExists) throw new KeyNotFoundException("Event not found");
+
+        var parsedRows = await ocrService.ParseFlowerPdfAsync(pdfStream, ct);
+
+        var imported = 0;
+        var skipped = 0;
+        var errors = new List<string>();
+        var resultFlowers = new List<EventFlowerResponse>();
+
+        foreach (var row in parsedRows)
+        {
+            try
+            {
+                var existing = await _context.EventFlowers
+                    .FirstOrDefaultAsync(f => f.EventId == eventId && f.Name == row.Name, ct);
+
+                if (existing != null)
+                {
+                    existing.PricePerStem = row.CostPerUnit;
+                    existing.BunchSize = row.UnitsPerBunch > 0 ? row.UnitsPerBunch : existing.BunchSize;
+                    await _context.SaveChangesAsync(ct);
+                    resultFlowers.Add(MapToResponse(existing));
+                    imported++;
+                }
+                else
+                {
+                    var flower = new EventFlower
+                    {
+                        Id = Guid.NewGuid(),
+                        EventId = eventId,
+                        Name = row.Name,
+                        PricePerStem = row.CostPerUnit,
+                        BunchSize = row.UnitsPerBunch > 0 ? row.UnitsPerBunch : 10,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    _context.EventFlowers.Add(flower);
+                    await _context.SaveChangesAsync(ct);
+                    resultFlowers.Add(MapToResponse(flower));
+                    imported++;
+                }
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"Failed to import '{row.Name}': {ex.Message}");
+                skipped++;
+            }
+        }
+
+        return new EventFlowerImportResult(imported, skipped, errors, resultFlowers);
+    }
 }

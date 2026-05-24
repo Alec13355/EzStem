@@ -10,4 +10,5 @@ public interface IEventFlowerService
     Task<EventFlowerResponse?> UpdateFlowerAsync(Guid eventId, Guid flowerId, UpdateEventFlowerRequest request, string ownerId, CancellationToken ct = default);
     Task<bool> DeleteFlowerAsync(Guid eventId, Guid flowerId, string ownerId, CancellationToken ct = default);
     Task<IEnumerable<EventFlowerResponse>> AddFlowersFromMasterAsync(Guid eventId, AddFlowersFromMasterRequest request, string ownerId, CancellationToken ct = default);
+    Task<EventFlowerImportResult> ImportFromPdfAsync(Guid eventId, Stream pdfStream, string ownerId, IOcrService ocrService, CancellationToken ct = default);
 }

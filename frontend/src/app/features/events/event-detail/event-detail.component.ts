@@ -31,7 +31,8 @@ import {
   CreateEventItemFlowerRequest,
   EventRecipeSummaryResponse,
   RecipeItemSummary,
-  RecipeLineItem
+  RecipeLineItem,
+  EventFlowerImportResult
 } from '../../../shared/models/api.models';
 
 @Component({
@@ -226,9 +227,14 @@ import {
               <div class="tab-header">
                 <h2>Event Flowers</h2>
                 <div class="action-buttons">
+                  <input #pdfInput type="file" accept=".pdf" style="display: none" (change)="onPdfSelected($event)">
                   <button mat-raised-button color="accent" (click)="toggleMasterPicker()">
                     <mat-icon>{{ showMasterPicker() ? 'close' : 'list' }}</mat-icon>
                     {{ showMasterPicker() ? 'Cancel' : 'Add from Master List' }}
+                  </button>
+                  <button mat-raised-button color="accent" (click)="pdfInput.click()" [disabled]="uploadingPdf()">
+                    <mat-icon>upload_file</mat-icon>
+                    {{ uploadingPdf() ? 'Importing...' : 'Import PDF' }}
                   </button>
                   <button mat-raised-button color="primary" (click)="toggleAddFlower()">
                     {{ showAddFlower() ? 'Cancel' : 'Add Flower' }}
@@ -749,6 +755,7 @@ export class EventDetailComponent implements OnInit {
   // Master flower picker state
   showMasterPicker = signal(false);
   masterFlowers = signal<MasterFlower[]>([]);
+  uploadingPdf = signal(false);
   masterCategories = computed(() => [...new Set(this.masterFlowers().map(f => f.category))].sort());
   masterFlowersByCategory = computed(() => {
     const grouped: Record<string, MasterFlower[]> = {};
@@ -1012,6 +1019,30 @@ export class EventDetailComponent implements OnInit {
       },
       error: (err) => {
         this.showError('Failed to create flower');
+      }
+    });
+  }
+
+  onPdfSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (!input.files?.[0]) return;
+    const file = input.files[0];
+
+    this.uploadingPdf.set(true);
+    this.eventFlowerService.importFromPdf(this.eventId, file).subscribe({
+      next: (result: EventFlowerImportResult) => {
+        this.uploadingPdf.set(false);
+        const msg = result.errors.length > 0
+          ? `Imported ${result.imported}, skipped ${result.skipped}. Errors: ${result.errors.join(', ')}`
+          : `Imported ${result.imported} flower${result.imported !== 1 ? 's' : ''}, skipped ${result.skipped}`;
+        this.snackBar.open(msg, 'Close', { duration: 5000 });
+        this.loadFlowers();
+        input.value = '';
+      },
+      error: () => {
+        this.uploadingPdf.set(false);
+        this.showError('PDF import failed');
+        input.value = '';
       }
     });
   }

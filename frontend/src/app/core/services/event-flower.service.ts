@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
-import { EventFlower, CreateEventFlowerRequest, UpdateEventFlowerRequest, AddFlowersFromMasterRequest } from '../../shared/models/api.models';
+import { EventFlower, CreateEventFlowerRequest, UpdateEventFlowerRequest, AddFlowersFromMasterRequest, EventFlowerImportResult } from '../../shared/models/api.models';
 
 @Injectable({
   providedIn: 'root'
@@ -27,5 +27,11 @@ export class EventFlowerService {
 
   addFromMaster(eventId: string, request: AddFlowersFromMasterRequest): Observable<EventFlower[]> {
     return this.api.post<EventFlower[]>(`events/${eventId}/event-flowers/from-master`, request);
+  }
+
+  importFromPdf(eventId: string, file: File): Observable<EventFlowerImportResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.api.post<EventFlowerImportResult>(`events/${eventId}/event-flowers/import-pdf`, formData);
   }
 }

@@ -13,10 +13,12 @@ namespace EzStem.API.Controllers;
 public class EventFlowersController : ControllerBase
 {
     private readonly IEventFlowerService _eventFlowerService;
+    private readonly IOcrService _ocrService;
 
-    public EventFlowersController(IEventFlowerService eventFlowerService)
+    public EventFlowersController(IEventFlowerService eventFlowerService, IOcrService ocrService)
     {
         _eventFlowerService = eventFlowerService;
+        _ocrService = ocrService;
     }
 
     private string GetUserId() =>
@@ -122,6 +124,38 @@ public class EventFlowersController : ControllerBase
         catch (KeyNotFoundException)
         {
             return NotFound();
+        }
+    }
+
+    [HttpPost("import-pdf")]
+    public async Task<ActionResult<EventFlowerImportResult>> ImportPdf(
+        Guid eventId,
+        IFormFile file,
+        CancellationToken ct = default)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(new { error = "No file uploaded" });
+
+        if (!file.ContentType.Contains("pdf") && !file.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { error = "File must be a PDF" });
+
+        try
+        {
+            using var stream = file.OpenReadStream();
+            var result = await _eventFlowerService.ImportFromPdfAsync(eventId, stream, GetUserId(), _ocrService, ct);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = $"Import failed: {ex.Message}" });
         }
     }
 }

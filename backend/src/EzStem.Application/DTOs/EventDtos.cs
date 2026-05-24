@@ -103,3 +103,4 @@ public record MasterFlowerSelection(Guid MasterFlowerId, decimal? PricePerStemOv
 
 // OCR import result
 public record OcrImportResult(int Imported, int Skipped, IEnumerable<string> Errors, IEnumerable<MasterFlowerResponse> Flowers);
+public record EventFlowerImportResult(int Imported, int Skipped, IEnumerable<string> Errors, IEnumerable<EventFlowerResponse> Flowers);
