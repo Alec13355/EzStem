@@ -98,6 +98,30 @@
 **Domain constraints respected (from Saul):**
 - Bundle rounding algorithm: `bundlesNeeded = ceil(quantityNeeded / bundleSize)`, `quantityOrdered = bundlesNeeded * bundleSize`
 - 3x markup as default pricing factor (configurable via PricingConfig entity)
+
+### 2026-05-24: User Settings for Per-Page Color Customization
+
+**What was built:**
+- `UserSettings` domain entity: stores user theme preferences as JSON, indexed by OwnerId (unique)
+- `IUserSettingsService` + `UserSettingsService`: GetSettingsAsync (returns defaults if not found), UpsertSettingsAsync
+- `UserSettingsController`: `GET /api/user-settings` and `PUT /api/user-settings` — both use standard `GetUserId()` auth
+- DTOs in `UserSettingsDtos.cs`: `PageTheme` (PrimaryBackground, CardBackground), `UserTheme` (Pages dictionary), request/response records
+- EF migration `AddUserSettings` — table with unique index on OwnerId
+- `IUserSettingsService` registered in DI container in `Program.cs`
+
+**Key decisions:**
+- ThemeJson stores serialized `UserTheme` using `System.Text.Json.JsonSerializer` — simple, no need for complex blob storage
+- Pages dictionary keys match frontend routes: "recipes", "events", "masterFlowers", "pricing"
+- Colors are hex strings (e.g., "#ffffff") — no backend validation, frontend handles color picker
+- GetSettingsAsync returns `Guid.Empty` + default empty theme if user has no settings yet (no 404, easier for frontend)
+- UpsertSettingsAsync creates new record or updates existing — single endpoint for initial save and updates
+- UpdatedAt timestamp refreshed on every save for potential future conflict resolution
+
+**Why JSON storage:**
+- Theme structure is simple, no need to query individual pages
+- Frontend always works with full theme object
+- Flexibility for future schema changes without migrations
+
 - Recipe scaling: pure calculation, never saves scaled values (client decides whether to apply)
 - Margin warning: flags recipes with <25% margin as underpriced
 
@@ -328,3 +352,71 @@ Could not load type 'Microsoft.OpenApi.Any.IOpenApiAny' from assembly 'Microsoft
 **Design decision:** Alec approved pooled calculation as more accurate procurement cost.
 
 **Verification:** All 53 tests pass. Build 0 warnings/errors. Danny issued final APPROVED sign-off.
+
+## 2024-05-24 - Allow Items to Have $0 Cost
+
+**Issue:** Items were being blocked from having a $0 cost due to overly strict validation rules that required costs to be greater than 0. Free/comp items are a valid use case.
+
+**Changes Made:**
+
+### Backend (ItemService.cs)
+- Line 59: Changed validation from `<= 0` to `< 0` for CreateItemAsync
+- Line 105: Changed validation from `<= 0` to `< 0` for UpdateItemAsync
+- Updated error messages to "cannot be negative" instead of "must be greater than 0"
+
+### Frontend (item-form.component.ts)
+- Line 240: Changed `Validators.min(0.01)` to `Validators.min(0)`
+- Line 51: Changed HTML input `min="0.01"` to `min="0"`
+- Line 56: Updated error message from "$0.01" to "cannot be negative"
+
+**Result:**
+- Items can now have a $0 cost (for free/comp items)
+- Negative costs are still properly rejected
+- Quantity validation (bundleSize) remains unchanged at min=1
+- Both backend and frontend builds successful
+
+**Files Modified:**
+- backend/src/EzStem.Infrastructure/Services/ItemService.cs
+- frontend/src/app/features/item-library/item-form/item-form.component.ts
+
+### 2026-05-24: User Settings Backend Implementation
+
+**What was built:**
+- `UserSettings` domain entity (Id, OwnerId, ThemeJson, UpdatedAt)
+- `IUserSettingsService` + `UserSettingsService`: GetSettingsAsync, UpsertSettingsAsync
+- DTOs: `PageTheme`, `UserTheme`, `UserSettingsResponse`, `UpdateUserSettingsRequest`
+- `UserSettingsController`: GET/PUT `/api/user-settings` (both `[Authorize]`)
+- EF migration `20260524035250_AddUserSettings` with unique index on OwnerId
+
+**Key design patterns:**
+- JSON blob approach for flexible schema (no migration needed for new colors)
+- `GetSettingsAsync` returns default empty theme if no record (no 404)
+- `UpsertSettingsAsync` handles both create and update
+- OwnerId from `GetUserId()` with 4-tier claim fallback
+- `System.Text.Json` serialization
+
+**Files created/modified:**
+- Created: `Domain/Entities/UserSettings.cs`, `Application/Interfaces/IUserSettingsService.cs`, `Application/DTOs/UserSettingsDtos.cs`, `Infrastructure/Services/UserSettingsService.cs`, `API/Controllers/UserSettingsController.cs`
+- Modified: `Data/EzStemDbContext.cs`, `Program.cs` (DI registration)
+- Migration: `Migrations/20260524035250_AddUserSettings.cs`
+
+**Build status:** ✅ Clean
+
+### 2026-05-24: Zero-Cost Items Validation Fix
+
+**What was changed:**
+- `ItemService.cs`: Changed validation from `CostPerStem <= 0` to `CostPerStem < 0` (allows $0, rejects negatives)
+- Updated both `CreateItemAsync` and `UpdateItemAsync` methods
+- Error messages clarified to "cannot be negative"
+
+**Rationale:** Free/complimentary items are valid business use case; removing artificial minimum enables this without data integrity risks.
+
+**Files modified:**
+- `backend/src/EzStem.Infrastructure/Services/ItemService.cs` (2 methods)
+
+**Impact:**
+- 5 items updated to reflect zero-cost legitimacy
+- No breaking changes, backward compatible
+- No database migration needed
+
+**Build status:** ✅ Clean

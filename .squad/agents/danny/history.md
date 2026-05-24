@@ -139,3 +139,17 @@ feat: complete P0 vendor CRUD UI and pricing settings
 - ✅ No remaining issues
 
 **Sign-off:** Clear to ship to main.
+
+### ADR — User Color Customization (2026-04-29)
+
+**Summary:** Wrote architecture decision record for per-page user color customization feature.
+
+**Key decisions recorded:**
+- `UserSettings` table: `OwnerId` (unique index) + `ThemeJson` (JSON blob) — one row per user
+- JSON blob chosen over per-column schema — avoids migrations for each new color token
+- CSS custom properties: `--page-{pageName}-bg-primary` / `--page-{pageName}-bg-card` on `:root`
+- `ThemeService` singleton applies vars on app init + after save
+- `UserSettingsController` GET/PUT at `/api/user-settings`; OwnerId from claims (existing 4-tier fallback)
+- `UserSettings` does NOT need soft delete — missing row = default theme
+
+**ADR filed at:** `.squad/decisions/inbox/danny-user-color-settings.md`

@@ -450,3 +450,89 @@
 - Inline dialog components (same file, standalone) work well for simple CRUD operations in event-list
 - `FormGroup` with typed `FormControl<number | null>` for optional number fields; spread conditional properties for clean API payload
 - Build: ✅ 0 errors. Pre-existing budget/CommonJS warnings unchanged.
+
+### 2026-05-24: User Theme Customization Implementation
+
+**Feature:** Per-page color customization with user settings persistence
+
+**New Files Created:**
+- `/src/app/core/services/theme.service.ts` - Manages CSS custom properties and theme state
+- `/src/app/core/services/user-settings.service.ts` - API service for user settings CRUD
+- `/src/app/features/settings/settings.component.ts` - Settings UI with color pickers
+
+**API Models Extended:**
+- Added `PageTheme`, `UserTheme`, `UserSettingsResponse`, `UpdateUserSettingsRequest` to `api.models.ts`
+
+**Component Patterns:**
+- Settings component uses signals for local state (`draftTheme`)
+- Color pickers use native `<input type="color">` with two-way binding via `(input)` events
+- Shows hex value alongside color picker for precision
+- Reset to defaults functionality with confirmation dialog
+- Loading/saving states with MatSpinner and disabled button states
+
+**Theme Application Strategy:**
+- CSS custom properties on `:root` (document.documentElement)
+- Variables: `--page-{pageName}-bg-primary`, `--page-{pageName}-bg-card`
+- Pages: events, masterFlowers, recipes, pricing
+- Defaults: `#f5f7f5` (primary), `#ffffff` (card)
+- Applied on app initialization after auth check
+- Applied immediately after settings save
+
+**Component Modifications:**
+- Updated all list components to use CSS custom properties:
+  - `event-list.component.ts`: `:host` background + table card background
+  - `master-flower-list.component.ts`: `:host` background + category cards
+  - `recipe-list.component.ts`: `:host` background + table card background
+  - `pricing-settings.component.ts`: `:host` background + mat-card backgrounds
+
+**Routing:**
+- Added `/settings` route with `authGuard`
+- Added Settings icon button to top toolbar (between Master Flowers and Logout)
+
+**Build Validation:**
+- Build succeeded with new Settings component in lazy bundle: 7.32 kB (1.98 kB gzipped)
+- No regressions, bundle size warning persists (pre-existing)
+
+**Key Decisions:**
+- Used CSS custom properties instead of Angular theme overrides for simplicity and runtime flexibility
+- Kept settings in user profile (backend `/user-settings` endpoint) instead of localStorage for cross-device sync
+- Applied theme eagerly on app load to prevent flash of default colors
+- Used native color pickers instead of third-party library (lighter weight, consistent UX)
+
+**Deviations:** None — all requirements met per task specification.
+
+### 2026-05-24: User Settings Frontend Implementation
+
+**What was built:**
+- `ThemeService`: Singleton service (`providedIn: 'root'`), loads settings on app init, applies CSS vars to `:root`
+- `UserSettingsService`: HTTP wrapper for `/api/user-settings` GET/PUT
+- Settings component + route: `/settings` with color pickers for Events, Master Flowers, Recipes, Pricing
+- CSS variables: `--page-{pageName}-bg-primary` (#f5f7f5 default), `--page-{pageName}-bg-card` (#ffffff default)
+
+**Implementation details:**
+- ThemeService loads user theme in constructor (after auth check) to prevent flash of defaults
+- Settings UI uses native `<input type="color">` elements (zero dependencies)
+- Color pickers show hex values for precision
+- "Reset to Defaults" button clears overrides
+- Save button calls PUT endpoint and refreshes theme via ThemeService
+
+**Component pattern:**
+- All themed components reference CSS variables: `background: var(--page-events-bg-primary, #f5f7f5)`
+- Variables cascade automatically, no component change needed for new pages
+
+**Files created/modified:**
+- Created: `core/services/theme.service.ts`, `core/services/user-settings.service.ts`, `features/settings/settings.component.ts`, `features/settings/settings.component.scss`
+- Modified: `app.html` (added Settings nav button), `app.routes.ts` (added /settings route)
+
+**Build status:** ✅ Clean (settings bundle 1.98 kB)
+
+**CSS Implementation:**
+- CSS variables applied to `:root` in ThemeService.applyTheme()
+- Fallback values in all components prevent blank/invisible elements if theme fails to load
+- Runtime flexibility — no CSS rebuild needed to add new pages or colors
+
+**Key decisions:**
+- CSS custom properties over Angular Material theme for simplicity and runtime flexibility
+- Backend persistence over localStorage for cross-device sync
+- Eager theme load to prevent visual flicker on page load
+- Native color input (no third-party color library needed)

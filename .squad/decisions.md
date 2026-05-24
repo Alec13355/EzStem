@@ -1048,3 +1048,79 @@ Extended `WasteSummary` DTO with `OptimizationSuggestions: IEnumerable<string>` 
 ### Waste Optimization Suggestions UI (Rusty — 2026-04-16)
 
 "💡 Optimization Tips" card appears inline in order-detail waste result section after waste is recorded. Style: `#e3f2fd` background + `#1976d2` left border — matches existing pricing-settings info card pattern. Card hidden when `optimizationSuggestions.length === 0`. Multiplier hint suppressed when `recommendedQuantityMultiplier === 1.0`. Avoided `?.` optional chain on non-optional interface fields inside `@if` blocks — Angular template type narrowing requires direct property access to prevent NG8107/TS2532.
+
+---
+
+## User Settings & Theme Customization (2026-05-24)
+
+### ADR: User Color Customization — Per-Page Theme Settings (Danny — 2026-05-24)
+
+**Status:** Accepted
+
+**Decision:** Implement per-page background color customization via server-persisted JSON theme blob.
+
+**Approach:**
+- **Database:** `UserSettings` table (`OwnerId` unique index, `ThemeJson` JSON blob)
+- **Backend:** `UserSettingsService` + `UserSettingsController` (GET/PUT `/api/user-settings`)
+- **OwnerId Resolution:** 4-tier auth claim fallback (oid → objectidentifier → NameIdentifier → sub)
+- **Frontend:** CSS custom properties (`--page-{pageName}-bg-primary`, `--page-{pageName}-bg-card`)
+- **Upsert Pattern:** Single endpoint for create + update
+
+**Why JSON Blob:** Flexible schema — new color tokens require no DB migration, only frontend CSS changes.
+
+**Why Single Fetch:** Load on app init, apply via CSS vars (no per-page network requests).
+
+**Schema Notes:**
+- `UserSettings` has no soft delete — missing row equals default theme
+- `ThemeJson` stores complete `{ "pages": { "events": { "primaryBackground": "...", "cardBackground": "..." }, ... } }` object
+
+---
+
+### Backend: User Settings Implementation (Linus — 2026-05-24)
+
+**Status:** Implemented ✅ Build clean
+
+**Delivered:**
+- **Domain:** `UserSettings` entity (Id, OwnerId, ThemeJson, UpdatedAt)
+- **Application:** `IUserSettingsService` interface + DTOs (`PageTheme`, `UserTheme`, `UserSettingsResponse`, `UpdateUserSettingsRequest`)
+- **Infrastructure:** `UserSettingsService` (JSON serialization via `System.Text.Json`), DbContext with unique index on OwnerId
+- **Migration:** `20260524035250_AddUserSettings`
+- **API:** `UserSettingsController` (GET/PUT both `[Authorize]`)
+
+**Default Behavior:** `GetSettingsAsync` returns default empty theme (Guid.Empty) if no record exists — simplifies frontend logic.
+
+**Pages Dictionary Keys:** `recipes`, `events`, `masterFlowers`, `pricing`
+
+---
+
+### Frontend: Theme Customization via CSS Custom Properties (Rusty — 2026-05-24)
+
+**Status:** Implemented ✅ Build clean (1.98 kB settings bundle)
+
+**Delivered:**
+- **ThemeService:** Singleton, loads settings on app init, applies CSS vars to `:root`
+- **UserSettingsService:** HTTP wrapper for GET/PUT
+- **Settings Component:** `/settings` route with color pickers for 4 pages (native `<input type="color">` elements)
+- **CSS Variables:** `--page-{pageName}-bg-primary` (#f5f7f5 default), `--page-{pageName}-bg-card` (#ffffff default)
+
+**Initialization:** Theme loads in ThemeService constructor after auth check (prevents flash of defaults).
+
+**Component Pattern:** Components reference theme variables with fallback defaults in CSS.
+
+---
+
+### Allow Zero-Cost Items (Linus — 2026-05-24)
+
+**Status:** Implemented ✅ Both builds clean
+
+**Decision:** Relax item cost validation to allow `CostPerStem = $0` (free/complimentary items).
+
+**Changes:**
+- **Backend:** `ItemService.cs` — validation changed from `CostPerStem <= 0` to `CostPerStem < 0`
+- **Frontend:** `item-form.component.ts` — Validators changed from `min(0.01)` to `min(0)`; HTML input `min` attribute updated
+
+**Rationale:** Free/comp items are valid in floral arrangements; removing artificial minimum enables use case without introducing data integrity risks.
+
+**Other Cost Rules Unchanged:** `BundleSize` minimum remains 1 (quantities must be positive). Other cost/price fields (`LaborCost`, `MarkupPercentage`) already allowed 0.
+
+**5 Items Updated** across system to reflect zero-cost legitimacy. No database migration needed (backward compatible).
