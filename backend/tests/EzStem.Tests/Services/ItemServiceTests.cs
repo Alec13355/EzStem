@@ -52,12 +52,25 @@ public class ItemServiceTests
     }
 
     [Fact]
-    public async Task CreateItem_ValidatesCostGreaterThanZero()
+    public async Task CreateItem_AllowsZeroCost()
     {
         using var context = CreateInMemoryContext();
         var service = new ItemService(context);
 
         var request = new CreateItemRequest("Rose", null, 0m, 25, null, null, null);
+
+        var result = await service.CreateItemAsync(request, TestOwnerId);
+        Assert.NotNull(result);
+        Assert.Equal(0m, result.CostPerStem);
+    }
+
+    [Fact]
+    public async Task CreateItem_RejectsNegativeCost()
+    {
+        using var context = CreateInMemoryContext();
+        var service = new ItemService(context);
+
+        var request = new CreateItemRequest("Rose", null, -1m, 25, null, null, null);
 
         await Assert.ThrowsAsync<ArgumentException>(async () =>
             await service.CreateItemAsync(request, TestOwnerId));

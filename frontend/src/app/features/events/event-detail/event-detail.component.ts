@@ -422,9 +422,16 @@ import {
                 </div>
               } @else {
                 @if (recipeSummary()) {
-                  @for (itemSummary of recipeSummary()!.items; track itemSummary.eventItemId) {
+                  @for (itemSummary of recipeSummary()!.items; track itemSummary.eventItemId; let i = $index) {
                     <mat-card class="recipe-card">
                       <mat-card-header>
+                        <div class="budget-status-bar" [class.over-budget]="getRunningTotal(i) > (recipeSummary()?.flowerBudget ?? 0)">
+                          <span class="budget-label">💰 Budget: {{ formatCurrency(recipeSummary()!.flowerBudget) }}</span>
+                          <span class="budget-divider">|</span>
+                          <span class="running-label">Running: {{ formatCurrency(getRunningTotal(i)) }}</span>
+                          <span class="budget-divider">|</span>
+                          <span class="status-label">{{ getRunningTotal(i) > (recipeSummary()?.flowerBudget ?? 0) ? '❌ Over Budget' : '✅ In Budget' }}</span>
+                        </div>
                         <mat-card-title>{{ itemSummary.itemName }}</mat-card-title>
                         <mat-card-subtitle>
                           Customer Price: {{ formatCurrency(itemSummary.customerPrice) }} × {{ itemSummary.quantity }} = {{ formatCurrency(itemSummary.totalRevenue) }}
@@ -446,16 +453,6 @@ import {
                             <ng-container matColumnDef="totalStems">
                               <th mat-header-cell *matHeaderCellDef>Total Stems</th>
                               <td mat-cell *matCellDef="let line">{{ line.totalStemsNeeded }}</td>
-                            </ng-container>
-
-                            <ng-container matColumnDef="bunchSize">
-                              <th mat-header-cell *matHeaderCellDef>Bunch Size</th>
-                              <td mat-cell *matCellDef="let line">{{ line.bunchSize }}</td>
-                            </ng-container>
-
-                            <ng-container matColumnDef="bunchesNeeded">
-                              <th mat-header-cell *matHeaderCellDef>Bunches Needed</th>
-                              <td mat-cell *matCellDef="let line">{{ line.bunchesNeeded }}</td>
                             </ng-container>
 
                             <ng-container matColumnDef="costPerBunch">
@@ -513,6 +510,42 @@ import {
                             </button>
                           }
                         </div>
+                      </mat-card-content>
+                    </mat-card>
+                  }
+
+                  <!-- Amount to Order -->
+                  @if (recipeSummary()?.flowerProcurement?.length) {
+                    <mat-card class="order-summary-card">
+                      <mat-card-header>
+                        <mat-card-title>🌸 Amount to Order</mat-card-title>
+                        <mat-card-subtitle>Total stems and bunches needed across all arrangements</mat-card-subtitle>
+                      </mat-card-header>
+                      <mat-card-content>
+                        <table mat-table [dataSource]="recipeSummary()!.flowerProcurement!" class="order-summary-table mat-elevation-z1">
+                          <ng-container matColumnDef="flowerName">
+                            <th mat-header-cell *matHeaderCellDef>Flower</th>
+                            <td mat-cell *matCellDef="let line"><strong>{{ line.flowerName }}</strong></td>
+                          </ng-container>
+
+                          <ng-container matColumnDef="totalStems">
+                            <th mat-header-cell *matHeaderCellDef>Total Stems</th>
+                            <td mat-cell *matCellDef="let line">{{ line.totalStemsNeeded }}</td>
+                          </ng-container>
+
+                          <ng-container matColumnDef="bunchesNeeded">
+                            <th mat-header-cell *matHeaderCellDef>Bunches to Order</th>
+                            <td mat-cell *matCellDef="let line">{{ line.bunchesNeeded }}</td>
+                          </ng-container>
+
+                          <ng-container matColumnDef="totalCost">
+                            <th mat-header-cell *matHeaderCellDef>Total Cost</th>
+                            <td mat-cell *matCellDef="let line">{{ formatCurrency(line.totalCost) }}</td>
+                          </ng-container>
+
+                          <tr mat-header-row *matHeaderRowDef="orderSummaryColumns"></tr>
+                          <tr mat-row *matRowDef="let row; columns: orderSummaryColumns;"></tr>
+                        </table>
                       </mat-card-content>
                     </mat-card>
                   }
@@ -733,6 +766,39 @@ import {
     .sync-checkbox {
       margin-right: 8px;
     }
+
+    .budget-status-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      background: #e8f5e9;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+      width: 100%;
+    }
+
+    .budget-status-bar.over-budget {
+      background: #ffebee;
+      color: #c62828;
+    }
+
+    .budget-divider {
+      opacity: 0.4;
+    }
+
+    .order-summary-card {
+      margin-top: 24px;
+      margin-bottom: 24px;
+      border-left: 4px solid #43a047;
+    }
+
+    .order-summary-table {
+      width: 100%;
+    }
   `]
 })
 export class EventDetailComponent implements OnInit {
@@ -773,7 +839,8 @@ export class EventDetailComponent implements OnInit {
   // Table columns
   itemColumns = ['name', 'price', 'quantity', 'actions'];
   flowerColumns = ['name', 'pricePerStem', 'bunchSize', 'actions'];
-  recipeColumns = ['flower', 'stemsPerUnit', 'totalStems', 'bunchSize', 'bunchesNeeded', 'costPerBunch', 'lineCost', 'actions'];
+  recipeColumns = ['flower', 'stemsPerUnit', 'totalStems', 'costPerBunch', 'lineCost', 'actions'];
+  orderSummaryColumns = ['flowerName', 'totalStems', 'bunchesNeeded', 'totalCost'];
   masterPickerColumns = ['select', 'name', 'unit', 'cost', 'priceOverride'];
 
   // Form data
@@ -1234,6 +1301,11 @@ export class EventDetailComponent implements OnInit {
   }
 
   // Utility methods
+  getRunningTotal(upToIndex: number): number {
+    const items = this.recipeSummary()?.items || [];
+    return items.slice(0, upToIndex + 1).reduce((sum, item) => sum + (item.totalRawCost || 0), 0);
+  }
+
   formatCurrency(value: number): string {
     return '$' + value.toFixed(2);
   }

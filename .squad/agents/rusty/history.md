@@ -575,3 +575,31 @@
 - Font size applies globally via CSS custom property
 - Slider uses native HTML `<input type="range">` with custom Material styling
 - Compatible with existing color customization workflow
+
+### 2026-05-24: Recipe Tab Improvements
+
+**Features Added:**
+- Budget tracking per recipe card — cumulative running total display with visual status indicator
+- Streamlined recipe table — removed `bunchSize` and `bunchesNeeded` columns to reduce clutter
+- "Amount to Order" procurement section — aggregated flower ordering data above Event Totals card
+
+**UX Enhancements:**
+- Budget status pill on each recipe card header (green = in budget, red = over budget)
+- Running total calculation shows cumulative flower cost up to each item
+- Visual feedback: 💰 Budget | Running Total | ✅ In Budget (or ❌ Over Budget)
+- New table showing aggregated flower procurement needs (stems, bunches, total cost)
+
+**Implementation Details:**
+- Added `getRunningTotal(upToIndex: number): number` method to calculate cumulative costs
+- Template now uses `@for` with `$index` to track position for running total calculation
+- New `orderSummaryColumns` array: `['flowerName', 'totalStems', 'bunchesNeeded', 'totalCost']`
+- Updated `recipeColumns`: removed `bunchSize`, `bunchesNeeded`; kept `costPerBunch`
+- "Amount to Order" card uses `recipeSummary()!.flowerProcurement` data (FlowerProcurementLine[])
+
+**Styles Added:**
+- `.budget-status-bar` — pill-style indicator with green/red states
+- `.budget-status-bar.over-budget` — red background for over-budget warnings
+- `.order-summary-card` — green left border to highlight procurement section
+- `.order-summary-table` — full-width table for flower ordering data
+
+**Build Status:** Production build passing. Budget warning (862KB initial bundle vs 500KB target) — non-blocking, consistent with previous builds.
