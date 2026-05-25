@@ -16,24 +16,38 @@ public class DatabaseMigrationService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await RunMigrationsAsync(_serviceProvider, _logger);
+        await RunMigrationsAsync(_serviceProvider, _logger, stoppingToken);
     }
 
-    public static async Task RunMigrationsAsync(IServiceProvider serviceProvider, ILogger logger)
+    public static async Task RunMigrationsAsync(IServiceProvider serviceProvider, ILogger logger, CancellationToken ct = default)
     {
-        try
-        {
-            logger.LogInformation("DatabaseMigrationService starting...");
-            using var scope = serviceProvider.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<EzStemDbContext>();
+        const int maxAttempts = 6;
+        var delay = TimeSpan.FromSeconds(5);
 
-            await db.Database.MigrateAsync(CancellationToken.None);
-            await EnsureOwnerIdSchemaAsync(db);
-            logger.LogInformation("Database migrations completed successfully.");
-        }
-        catch (Exception ex)
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            logger.LogError(ex, "Database migration failed: {Message}", ex.Message);
+            try
+            {
+                logger.LogInformation("DatabaseMigrationService starting (attempt {Attempt}/{Max})...", attempt, maxAttempts);
+                using var scope = serviceProvider.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<EzStemDbContext>();
+
+                await db.Database.MigrateAsync(ct);
+                await EnsureOwnerIdSchemaAsync(db);
+                logger.LogInformation("Database migrations completed successfully.");
+                return;
+            }
+            catch (Exception ex) when (attempt < maxAttempts)
+            {
+                logger.LogWarning(ex, "Database migration attempt {Attempt} failed, retrying in {Delay}s: {Message}",
+                    attempt, delay.TotalSeconds, ex.Message);
+                await Task.Delay(delay, ct);
+                delay = TimeSpan.FromSeconds(Math.Min(delay.TotalSeconds * 2, 60));
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Database migration failed after {Max} attempts: {Message}", maxAttempts, ex.Message);
+            }
         }
     }
 
