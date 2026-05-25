@@ -38,6 +38,12 @@ import { OrgPreviewResponse } from '../../shared/models/api.models';
               <p class="invite-desc">You've been invited to join this team. Once you join, you'll have full access to their events, flowers, and recipes.</p>
               @if (joining()) {
                 <mat-spinner diameter="36"></mat-spinner>
+              } @else if (!authService.isAuthenticated()) {
+                <p class="signin-note">You need to be signed in to join a team.</p>
+                <button mat-raised-button color="primary" (click)="signInToJoin()">
+                  <mat-icon>login</mat-icon>
+                  Sign in to Join
+                </button>
               } @else {
                 <button mat-raised-button color="primary" (click)="joinOrg()">
                   <mat-icon>group_add</mat-icon>
@@ -75,6 +81,7 @@ import { OrgPreviewResponse } from '../../shared/models/api.models';
     .error-icon { font-size: 48px; color: #e53935; width: 48px; height: 48px; }
     .org-name { font-size: 22px; font-weight: 700; color: #2e7d32; margin: 0; }
     .invite-desc { color: #555; margin: 0; }
+    .signin-note { color: #888; font-size: 13px; margin: 0; }
     h2 { margin: 0; }
   `]
 })
@@ -110,6 +117,11 @@ export class JoinOrgComponent implements OnInit {
         this.loading.set(false);
       }
     });
+  }
+
+  signInToJoin() {
+    sessionStorage.setItem('pending_join_url', window.location.href);
+    this.authService.signIn();
   }
 
   joinOrg() {

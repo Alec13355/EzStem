@@ -1,5 +1,5 @@
 import { Component, inject } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatListModule } from '@angular/material/list';
@@ -30,9 +30,22 @@ export class App {
   readonly orgService = inject(OrgService);
   private themeService = inject(ThemeService);
   private userSettingsService = inject(UserSettingsService);
+  private router = inject(Router);
+
   constructor() {
-    // Load and apply user theme on app init
-    this.authService.isAuthenticated() && this.loadUserTheme();
+    if (this.authService.isAuthenticated()) {
+      this.loadUserTheme();
+      this.redirectPendingJoin();
+    }
+  }
+
+  private redirectPendingJoin() {
+    const pending = sessionStorage.getItem('pending_join_url');
+    if (pending) {
+      sessionStorage.removeItem('pending_join_url');
+      const url = new URL(pending);
+      this.router.navigateByUrl(url.pathname + url.search);
+    }
   }
 
   private loadUserTheme() {
