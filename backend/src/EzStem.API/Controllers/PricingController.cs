@@ -2,14 +2,13 @@ using EzStem.Application.DTOs;
 using EzStem.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace EzStem.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class PricingController : ControllerBase
+public class PricingController : ApiControllerBase
 {
     private readonly IPricingService _pricingService;
 
@@ -18,17 +17,11 @@ public class PricingController : ControllerBase
         _pricingService = pricingService;
     }
 
-    private string GetUserId() =>
-        User.FindFirstValue("oid")
-        ?? User.FindFirstValue("http://schemas.microsoft.com/identity/claims/objectidentifier")
-        ?? User.FindFirstValue(ClaimTypes.NameIdentifier)
-        ?? User.FindFirstValue("sub")
-        ?? throw new UnauthorizedAccessException("User identifier not found in token");
 
     [HttpGet("config")]
     public async Task<ActionResult<PricingConfigResponse>> GetConfig(CancellationToken ct = default)
     {
-        var config = await _pricingService.GetPricingConfigAsync(GetUserId(), ct);
+        var config = await _pricingService.GetPricingConfigAsync(GetEffectiveScopeId(), ct);
         return Ok(config);
     }
 
@@ -37,7 +30,7 @@ public class PricingController : ControllerBase
         [FromBody] PricingConfigRequest request,
         CancellationToken ct = default)
     {
-        var config = await _pricingService.UpdatePricingConfigAsync(request, GetUserId(), ct);
+        var config = await _pricingService.UpdatePricingConfigAsync(request, GetEffectiveScopeId(), ct);
         return Ok(config);
     }
 

@@ -3,14 +3,13 @@ using EzStem.Application.Exceptions;
 using EzStem.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace EzStem.API.Controllers;
 
 [ApiController]
 [Route("api/events/{eventId}/event-flowers")]
 [Authorize]
-public class EventFlowersController : ControllerBase
+public class EventFlowersController : ApiControllerBase
 {
     private readonly IEventFlowerService _eventFlowerService;
     private readonly IOcrService _ocrService;
@@ -21,12 +20,6 @@ public class EventFlowersController : ControllerBase
         _ocrService = ocrService;
     }
 
-    private string GetUserId() =>
-        User.FindFirstValue("oid")
-        ?? User.FindFirstValue("http://schemas.microsoft.com/identity/claims/objectidentifier")
-        ?? User.FindFirstValue(ClaimTypes.NameIdentifier)
-        ?? User.FindFirstValue("sub")
-        ?? throw new UnauthorizedAccessException("User identifier not found in token");
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<EventFlowerResponse>>> GetFlowers(
@@ -34,7 +27,7 @@ public class EventFlowersController : ControllerBase
     {
         try
         {
-            var flowers = await _eventFlowerService.GetFlowersAsync(eventId, GetUserId(), ct);
+            var flowers = await _eventFlowerService.GetFlowersAsync(eventId, GetEffectiveScopeId(), ct);
             return Ok(flowers);
         }
         catch (KeyNotFoundException)
@@ -47,7 +40,7 @@ public class EventFlowersController : ControllerBase
     public async Task<ActionResult<EventFlowerResponse>> GetFlower(
         Guid eventId, Guid flowerId, CancellationToken ct = default)
     {
-        var flower = await _eventFlowerService.GetFlowerAsync(eventId, flowerId, GetUserId(), ct);
+        var flower = await _eventFlowerService.GetFlowerAsync(eventId, flowerId, GetEffectiveScopeId(), ct);
         if (flower == null) return NotFound();
         return Ok(flower);
     }
@@ -60,7 +53,7 @@ public class EventFlowersController : ControllerBase
     {
         try
         {
-            var flower = await _eventFlowerService.CreateFlowerAsync(eventId, request, GetUserId(), ct);
+            var flower = await _eventFlowerService.CreateFlowerAsync(eventId, request, GetEffectiveScopeId(), ct);
             return CreatedAtAction(nameof(GetFlower), new { eventId, flowerId = flower.Id }, flower);
         }
         catch (KeyNotFoundException)
@@ -82,7 +75,7 @@ public class EventFlowersController : ControllerBase
     {
         try
         {
-            var flower = await _eventFlowerService.UpdateFlowerAsync(eventId, flowerId, request, GetUserId(), ct);
+            var flower = await _eventFlowerService.UpdateFlowerAsync(eventId, flowerId, request, GetEffectiveScopeId(), ct);
             if (flower == null) return NotFound();
             return Ok(flower);
         }
@@ -100,7 +93,7 @@ public class EventFlowersController : ControllerBase
     {
         try
         {
-            var deleted = await _eventFlowerService.DeleteFlowerAsync(eventId, flowerId, GetUserId(), ct);
+            var deleted = await _eventFlowerService.DeleteFlowerAsync(eventId, flowerId, GetEffectiveScopeId(), ct);
             if (!deleted) return NotFound();
             return NoContent();
         }
@@ -118,7 +111,7 @@ public class EventFlowersController : ControllerBase
     {
         try
         {
-            var results = await _eventFlowerService.AddFlowersFromMasterAsync(eventId, request, GetUserId(), ct);
+            var results = await _eventFlowerService.AddFlowersFromMasterAsync(eventId, request, GetEffectiveScopeId(), ct);
             return Ok(results);
         }
         catch (KeyNotFoundException)
@@ -142,7 +135,7 @@ public class EventFlowersController : ControllerBase
         try
         {
             using var stream = file.OpenReadStream();
-            var result = await _eventFlowerService.ImportFromPdfAsync(eventId, stream, GetUserId(), _ocrService, ct);
+            var result = await _eventFlowerService.ImportFromPdfAsync(eventId, stream, GetEffectiveScopeId(), _ocrService, ct);
             return Ok(result);
         }
         catch (KeyNotFoundException)

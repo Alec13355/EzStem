@@ -2,14 +2,13 @@ using EzStem.Application.DTOs;
 using EzStem.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace EzStem.API.Controllers;
 
 [ApiController]
 [Route("api/events/{eventId}/event-items")]
 [Authorize]
-public class EventItemsController : ControllerBase
+public class EventItemsController : ApiControllerBase
 {
     private readonly IEventItemService _eventItemService;
 
@@ -18,12 +17,6 @@ public class EventItemsController : ControllerBase
         _eventItemService = eventItemService;
     }
 
-    private string GetUserId() =>
-        User.FindFirstValue("oid")
-        ?? User.FindFirstValue("http://schemas.microsoft.com/identity/claims/objectidentifier")
-        ?? User.FindFirstValue(ClaimTypes.NameIdentifier)
-        ?? User.FindFirstValue("sub")
-        ?? throw new UnauthorizedAccessException("User identifier not found in token");
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<EventItemResponse>>> GetItems(
@@ -31,7 +24,7 @@ public class EventItemsController : ControllerBase
     {
         try
         {
-            var items = await _eventItemService.GetItemsAsync(eventId, GetUserId(), ct);
+            var items = await _eventItemService.GetItemsAsync(eventId, GetEffectiveScopeId(), ct);
             return Ok(items);
         }
         catch (KeyNotFoundException)
@@ -46,7 +39,7 @@ public class EventItemsController : ControllerBase
     {
         try
         {
-            var items = await _eventItemService.GetItemsFromLastEventAsync(eventId, GetUserId(), ct);
+            var items = await _eventItemService.GetItemsFromLastEventAsync(eventId, GetEffectiveScopeId(), ct);
             return Ok(items);
         }
         catch (KeyNotFoundException)
@@ -59,7 +52,7 @@ public class EventItemsController : ControllerBase
     public async Task<ActionResult<EventItemResponse>> GetItem(
         Guid eventId, Guid itemId, CancellationToken ct = default)
     {
-        var item = await _eventItemService.GetItemAsync(eventId, itemId, GetUserId(), ct);
+        var item = await _eventItemService.GetItemAsync(eventId, itemId, GetEffectiveScopeId(), ct);
         if (item == null) return NotFound();
         return Ok(item);
     }
@@ -72,7 +65,7 @@ public class EventItemsController : ControllerBase
     {
         try
         {
-            var item = await _eventItemService.CreateItemAsync(eventId, request, GetUserId(), ct);
+            var item = await _eventItemService.CreateItemAsync(eventId, request, GetEffectiveScopeId(), ct);
             return CreatedAtAction(nameof(GetItem), new { eventId, itemId = item.Id }, item);
         }
         catch (KeyNotFoundException)
@@ -94,7 +87,7 @@ public class EventItemsController : ControllerBase
     {
         try
         {
-            var item = await _eventItemService.UpdateItemAsync(eventId, itemId, request, GetUserId(), ct);
+            var item = await _eventItemService.UpdateItemAsync(eventId, itemId, request, GetEffectiveScopeId(), ct);
             if (item == null) return NotFound();
             return Ok(item);
         }
@@ -110,7 +103,7 @@ public class EventItemsController : ControllerBase
         Guid itemId,
         CancellationToken ct = default)
     {
-        var deleted = await _eventItemService.DeleteItemAsync(eventId, itemId, GetUserId(), ct);
+        var deleted = await _eventItemService.DeleteItemAsync(eventId, itemId, GetEffectiveScopeId(), ct);
         if (!deleted) return NotFound();
         return NoContent();
     }

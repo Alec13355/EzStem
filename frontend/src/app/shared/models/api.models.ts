@@ -446,9 +446,44 @@ export interface UserTheme {
 export interface UserSettingsResponse {
   id: string;
   theme: UserTheme;
+  defaultOrganizationId?: string;
   updatedAt: string;
 }
 
 export interface UpdateUserSettingsRequest {
   theme: UserTheme;
+  defaultOrganizationId?: string;
+}
+
+export interface OrgResponse {
+  id: string;
+  name: string;
+  founderUserId: string;
+  createdAt: string;
+  isOwner: boolean;
+}
+
+export interface OrgMemberResponse {
+  id: string;
+  userId?: string;
+  role: 'Owner' | 'Member';
+  status: 'Pending' | 'Active';
+  invitedAt: string;
+  joinedAt?: string;
+}
+
+export interface OrgInviteResponse {
+  inviteToken: string;
+  inviteUrl: string;
+}
+
+export interface OrgPreviewResponse {
+  orgId: string;
+  orgName: string;
+  founderUserId: string;
+}
+
+export interface AcceptInviteResponse {
+  orgId: string;
+  orgName: string;
 }

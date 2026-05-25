@@ -24,13 +24,13 @@ public class UserSettingsService : IUserSettingsService
         if (settings == null)
         {
             var defaultTheme = new UserTheme(new Dictionary<string, PageTheme>());
-            return new UserSettingsResponse(Guid.Empty, defaultTheme, DateTime.UtcNow);
+            return new UserSettingsResponse(Guid.Empty, defaultTheme, null, DateTime.UtcNow);
         }
 
         var theme = JsonSerializer.Deserialize<UserTheme>(settings.ThemeJson)
             ?? new UserTheme(new Dictionary<string, PageTheme>());
 
-        return new UserSettingsResponse(settings.Id, theme, settings.UpdatedAt);
+        return new UserSettingsResponse(settings.Id, theme, settings.DefaultOrganizationId, settings.UpdatedAt);
     }
 
     public async Task<UserSettingsResponse> UpsertSettingsAsync(string ownerId, UpdateUserSettingsRequest request, CancellationToken ct = default)
@@ -47,6 +47,7 @@ public class UserSettingsService : IUserSettingsService
                 Id = Guid.NewGuid(),
                 OwnerId = ownerId,
                 ThemeJson = themeJson,
+                DefaultOrganizationId = request.DefaultOrganizationId,
                 UpdatedAt = DateTime.UtcNow
             };
             _context.UserSettings.Add(settings);
@@ -54,11 +55,13 @@ public class UserSettingsService : IUserSettingsService
         else
         {
             settings.ThemeJson = themeJson;
+            if (request.DefaultOrganizationId.HasValue)
+                settings.DefaultOrganizationId = request.DefaultOrganizationId;
             settings.UpdatedAt = DateTime.UtcNow;
         }
 
         await _context.SaveChangesAsync(ct);
 
-        return new UserSettingsResponse(settings.Id, request.Theme, settings.UpdatedAt);
+        return new UserSettingsResponse(settings.Id, request.Theme, settings.DefaultOrganizationId, settings.UpdatedAt);
     }
 }

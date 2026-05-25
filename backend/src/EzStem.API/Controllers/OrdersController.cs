@@ -2,14 +2,13 @@ using EzStem.Application.DTOs;
 using EzStem.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace EzStem.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class OrdersController : ControllerBase
+public class OrdersController : ApiControllerBase
 {
     private readonly IOrderService _orderService;
 
@@ -18,12 +17,6 @@ public class OrdersController : ControllerBase
         _orderService = orderService;
     }
 
-    private string GetUserId() =>
-        User.FindFirstValue("oid")
-        ?? User.FindFirstValue("http://schemas.microsoft.com/identity/claims/objectidentifier")
-        ?? User.FindFirstValue(ClaimTypes.NameIdentifier)
-        ?? User.FindFirstValue("sub")
-        ?? throw new UnauthorizedAccessException("User identifier not found in token");
 
     [HttpGet]
     public async Task<ActionResult<PagedResponse<OrderResponse>>> GetOrders(
@@ -32,14 +25,14 @@ public class OrdersController : ControllerBase
         [FromQuery] Guid? eventId = null,
         CancellationToken ct = default)
     {
-        var result = await _orderService.GetOrdersAsync(page, pageSize, GetUserId(), eventId, ct);
+        var result = await _orderService.GetOrdersAsync(page, pageSize, GetEffectiveScopeId(), eventId, ct);
         return Ok(result);
     }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<OrderResponse>> GetOrder(Guid id, CancellationToken ct = default)
     {
-        var order = await _orderService.GetOrderAsync(id, GetUserId(), ct);
+        var order = await _orderService.GetOrderAsync(id, GetEffectiveScopeId(), ct);
         if (order == null) return NotFound();
         return Ok(order);
     }
@@ -52,7 +45,7 @@ public class OrdersController : ControllerBase
     {
         try
         {
-            var summary = await _orderService.CalculateWasteAsync(id, GetUserId(), request.ActualStemsUsed, ct);
+            var summary = await _orderService.CalculateWasteAsync(id, GetEffectiveScopeId(), request.ActualStemsUsed, ct);
             return Ok(summary);
         }
         catch (ArgumentException ex)
@@ -64,7 +57,7 @@ public class OrdersController : ControllerBase
     [HttpGet("{id}/waste")]
     public async Task<ActionResult<WasteSummary>> GetWaste(Guid id, CancellationToken ct = default)
     {
-        var waste = await _orderService.GetWasteAsync(id, GetUserId(), ct);
+        var waste = await _orderService.GetWasteAsync(id, GetEffectiveScopeId(), ct);
         if (waste == null) return NotFound();
         return Ok(waste);
     }
@@ -74,10 +67,10 @@ public class OrdersController : ControllerBase
     {
         try
         {
-            var order = await _orderService.GetOrderAsync(id, GetUserId(), ct);
+            var order = await _orderService.GetOrderAsync(id, GetEffectiveScopeId(), ct);
             if (order == null) return NotFound();
 
-            var csv = await _orderService.GenerateOrderCsvAsync(id, GetUserId(), ct);
+            var csv = await _orderService.GenerateOrderCsvAsync(id, GetEffectiveScopeId(), ct);
             var bytes = System.Text.Encoding.UTF8.GetBytes(csv);
             var eventDate = order.CreatedAt.ToString("yyyy-MM-dd");
             var fileName = $"order-{eventDate}.csv";

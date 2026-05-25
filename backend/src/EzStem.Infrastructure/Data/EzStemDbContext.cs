@@ -22,6 +22,8 @@ public class EzStemDbContext : DbContext
     public DbSet<EventItemFlower> EventItemFlowers => Set<EventItemFlower>();
     public DbSet<MasterFlower> MasterFlowers => Set<MasterFlower>();
     public DbSet<UserSettings> UserSettings => Set<UserSettings>();
+    public DbSet<Organization> Organizations => Set<Organization>();
+    public DbSet<OrganizationMember> OrganizationMembers => Set<OrganizationMember>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -162,6 +164,24 @@ public class EzStemDbContext : DbContext
         modelBuilder.Entity<UserSettings>(entity =>
         {
             entity.HasIndex(u => u.OwnerId).IsUnique();
+        });
+
+        // Organization configuration
+        modelBuilder.Entity<Organization>(entity =>
+        {
+            entity.HasIndex(o => o.FounderUserId);
+        });
+
+        // OrganizationMember configuration
+        modelBuilder.Entity<OrganizationMember>(entity =>
+        {
+            entity.HasOne(m => m.Organization)
+                .WithMany(o => o.Members)
+                .HasForeignKey(m => m.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(m => m.OrganizationId);
+            entity.HasIndex(m => m.UserId);
+            entity.HasIndex(m => m.InviteToken).IsUnique();
         });
     }
 }

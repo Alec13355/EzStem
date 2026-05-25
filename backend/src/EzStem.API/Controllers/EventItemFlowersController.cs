@@ -2,14 +2,13 @@ using EzStem.Application.DTOs;
 using EzStem.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace EzStem.API.Controllers;
 
 [ApiController]
 [Route("api/events/{eventId}/event-items/{itemId}/recipe")]
 [Authorize]
-public class EventItemFlowersController : ControllerBase
+public class EventItemFlowersController : ApiControllerBase
 {
     private readonly IEventItemFlowerService _eventItemFlowerService;
 
@@ -18,12 +17,6 @@ public class EventItemFlowersController : ControllerBase
         _eventItemFlowerService = eventItemFlowerService;
     }
 
-    private string GetUserId() =>
-        User.FindFirstValue("oid")
-        ?? User.FindFirstValue("http://schemas.microsoft.com/identity/claims/objectidentifier")
-        ?? User.FindFirstValue(ClaimTypes.NameIdentifier)
-        ?? User.FindFirstValue("sub")
-        ?? throw new UnauthorizedAccessException("User identifier not found in token");
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<EventItemFlowerResponse>>> GetRecipeEntries(
@@ -31,7 +24,7 @@ public class EventItemFlowersController : ControllerBase
     {
         try
         {
-            var entries = await _eventItemFlowerService.GetRecipeAsync(eventId, itemId, GetUserId(), ct);
+            var entries = await _eventItemFlowerService.GetRecipeAsync(eventId, itemId, GetEffectiveScopeId(), ct);
             return Ok(entries);
         }
         catch (KeyNotFoundException)
@@ -49,7 +42,7 @@ public class EventItemFlowersController : ControllerBase
     {
         try
         {
-            var entry = await _eventItemFlowerService.AddFlowerToRecipeAsync(eventId, itemId, request, GetUserId(), ct);
+            var entry = await _eventItemFlowerService.AddFlowerToRecipeAsync(eventId, itemId, request, GetEffectiveScopeId(), ct);
             return CreatedAtAction(nameof(GetRecipeEntries), new { eventId, itemId }, entry);
         }
         catch (KeyNotFoundException)
@@ -72,7 +65,7 @@ public class EventItemFlowersController : ControllerBase
     {
         try
         {
-            var entry = await _eventItemFlowerService.UpdateRecipeEntryAsync(eventId, itemId, entryId, request, GetUserId(), ct);
+            var entry = await _eventItemFlowerService.UpdateRecipeEntryAsync(eventId, itemId, entryId, request, GetEffectiveScopeId(), ct);
             if (entry == null) return NotFound();
             return Ok(entry);
         }
@@ -89,7 +82,7 @@ public class EventItemFlowersController : ControllerBase
         Guid entryId,
         CancellationToken ct = default)
     {
-        var deleted = await _eventItemFlowerService.DeleteRecipeEntryAsync(eventId, itemId, entryId, GetUserId(), ct);
+        var deleted = await _eventItemFlowerService.DeleteRecipeEntryAsync(eventId, itemId, entryId, GetEffectiveScopeId(), ct);
         if (!deleted) return NotFound();
         return NoContent();
     }

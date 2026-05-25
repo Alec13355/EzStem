@@ -33,6 +33,10 @@ export const routes: Routes = [
     loadComponent: () => import('./features/pnl/pnl.component').then(m => m.PnlComponent)
   },
   {
+    path: 'join',
+    loadComponent: () => import('./features/join-org/join-org.component').then(m => m.JoinOrgComponent)
+  },
+  {
     path: '**',
     redirectTo: ''
   }

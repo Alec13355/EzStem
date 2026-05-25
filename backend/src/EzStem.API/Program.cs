@@ -34,6 +34,7 @@ builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IFlexItemService, FlexItemService>();
 builder.Services.AddScoped<IImageStorageService, AzureImageStorageService>();
 builder.Services.AddScoped<IUserSettingsService, UserSettingsService>();
+builder.Services.AddScoped<IOrganizationService, OrganizationService>();
 
 builder.Services.AddAuthentication()
     .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"));
@@ -68,6 +69,7 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async ctx =>
 app.UseCors("AllowAngular");
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<OrgScopeMiddleware>();
 app.MapControllers();
 
 app.Run();

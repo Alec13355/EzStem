@@ -2,14 +2,13 @@ using EzStem.Application.DTOs;
 using EzStem.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace EzStem.API.Controllers;
 
 [ApiController]
 [Route("api/user-settings")]
 [Authorize]
-public class UserSettingsController : ControllerBase
+public class UserSettingsController : ApiControllerBase
 {
     private readonly IUserSettingsService _userSettingsService;
 
@@ -17,13 +16,6 @@ public class UserSettingsController : ControllerBase
     {
         _userSettingsService = userSettingsService;
     }
-
-    private string GetUserId() =>
-        User.FindFirstValue("oid")
-        ?? User.FindFirstValue("http://schemas.microsoft.com/identity/claims/objectidentifier")
-        ?? User.FindFirstValue(ClaimTypes.NameIdentifier)
-        ?? User.FindFirstValue("sub")
-        ?? throw new InvalidOperationException("User ID not found");
 
     [HttpGet]
     public async Task<ActionResult<UserSettingsResponse>> GetSettings(CancellationToken ct = default)

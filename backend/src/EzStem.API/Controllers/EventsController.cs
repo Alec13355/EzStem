@@ -2,14 +2,13 @@ using EzStem.Application.DTOs;
 using EzStem.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace EzStem.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class EventsController : ControllerBase
+public class EventsController : ApiControllerBase
 {
     private readonly IEventService _eventService;
     private readonly IOrderService _orderService;
@@ -24,12 +23,6 @@ public class EventsController : ControllerBase
         _imageStorageService = imageStorageService;
     }
 
-    private string GetUserId() =>
-        User.FindFirstValue("oid")
-        ?? User.FindFirstValue("http://schemas.microsoft.com/identity/claims/objectidentifier")
-        ?? User.FindFirstValue(ClaimTypes.NameIdentifier)
-        ?? User.FindFirstValue("sub")
-        ?? throw new UnauthorizedAccessException("User identifier not found in token");
 
     [HttpGet]
     public async Task<ActionResult<PagedResponse<EventResponse>>> GetEvents(
@@ -38,14 +31,14 @@ public class EventsController : ControllerBase
         [FromQuery] string? search = null,
         CancellationToken ct = default)
     {
-        var result = await _eventService.GetEventsAsync(page, pageSize, search, GetUserId(), ct);
+        var result = await _eventService.GetEventsAsync(page, pageSize, search, GetEffectiveScopeId(), ct);
         return Ok(result);
     }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<EventResponse>> GetEvent(Guid id, CancellationToken ct = default)
     {
-        var evt = await _eventService.GetEventByIdAsync(id, GetUserId(), ct);
+        var evt = await _eventService.GetEventByIdAsync(id, GetEffectiveScopeId(), ct);
         if (evt == null) return NotFound();
         return Ok(evt);
     }
@@ -57,7 +50,7 @@ public class EventsController : ControllerBase
     {
         try
         {
-            var evt = await _eventService.CreateEventAsync(request, GetUserId(), ct);
+            var evt = await _eventService.CreateEventAsync(request, GetEffectiveScopeId(), ct);
             return CreatedAtAction(nameof(GetEvent), new { id = evt.Id }, evt);
         }
         catch (ArgumentException ex)
@@ -74,7 +67,7 @@ public class EventsController : ControllerBase
     {
         try
         {
-            var evt = await _eventService.UpdateEventAsync(id, request, GetUserId(), ct);
+            var evt = await _eventService.UpdateEventAsync(id, request, GetEffectiveScopeId(), ct);
             if (evt == null) return NotFound();
             return Ok(evt);
         }
@@ -87,7 +80,7 @@ public class EventsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteEvent(Guid id, CancellationToken ct = default)
     {
-        var deleted = await _eventService.DeleteEventAsync(id, GetUserId(), ct);
+        var deleted = await _eventService.DeleteEventAsync(id, GetEffectiveScopeId(), ct);
         if (!deleted) return NotFound();
         return NoContent();
     }
@@ -95,7 +88,7 @@ public class EventsController : ControllerBase
     [HttpGet("{id}/summary")]
     public async Task<ActionResult<EventSummaryResponse>> GetEventSummary(Guid id, CancellationToken ct = default)
     {
-        var summary = await _eventService.GetEventSummaryAsync(id, GetUserId(), ct);
+        var summary = await _eventService.GetEventSummaryAsync(id, GetEffectiveScopeId(), ct);
         if (summary == null) return NotFound();
         return Ok(summary);
     }
@@ -103,7 +96,7 @@ public class EventsController : ControllerBase
     [HttpGet("{id}/production-sheet")]
     public async Task<ActionResult<ProductionSheetResponse>> GetProductionSheet(Guid id, CancellationToken ct = default)
     {
-        var sheet = await _eventService.GetProductionSheetAsync(id, GetUserId(), ct);
+        var sheet = await _eventService.GetProductionSheetAsync(id, GetEffectiveScopeId(), ct);
         if (sheet == null) return NotFound();
         return Ok(sheet);
     }
@@ -113,7 +106,7 @@ public class EventsController : ControllerBase
     {
         try
         {
-            var summary = await _eventItemFlowerService.GetEventRecipeSummaryAsync(id, GetUserId(), ct);
+            var summary = await _eventItemFlowerService.GetEventRecipeSummaryAsync(id, GetEffectiveScopeId(), ct);
             return Ok(summary);
         }
         catch (KeyNotFoundException)
@@ -130,7 +123,7 @@ public class EventsController : ControllerBase
     {
         try
         {
-            var eventRecipe = await _eventService.AddRecipeToEventAsync(id, request, GetUserId(), ct);
+            var eventRecipe = await _eventService.AddRecipeToEventAsync(id, request, GetEffectiveScopeId(), ct);
             if (eventRecipe == null) return NotFound();
             return CreatedAtAction(nameof(GetEvent), new { id }, eventRecipe);
         }
@@ -147,7 +140,7 @@ public class EventsController : ControllerBase
         [FromBody] UpdateEventRecipeRequest request,
         CancellationToken ct = default)
     {
-        var eventRecipe = await _eventService.UpdateEventRecipeAsync(id, recipeId, request, GetUserId(), ct);
+        var eventRecipe = await _eventService.UpdateEventRecipeAsync(id, recipeId, request, GetEffectiveScopeId(), ct);
         if (eventRecipe == null) return NotFound();
         return Ok(eventRecipe);
     }
@@ -158,7 +151,7 @@ public class EventsController : ControllerBase
         Guid recipeId,
         CancellationToken ct = default)
     {
-        var deleted = await _eventService.RemoveRecipeFromEventAsync(id, recipeId, GetUserId(), ct);
+        var deleted = await _eventService.RemoveRecipeFromEventAsync(id, recipeId, GetEffectiveScopeId(), ct);
         if (!deleted) return NotFound();
         return NoContent();
     }
@@ -168,7 +161,7 @@ public class EventsController : ControllerBase
     {
         try
         {
-            var order = await _orderService.GenerateOrderAsync(id, GetUserId(), ct);
+            var order = await _orderService.GenerateOrderAsync(id, GetEffectiveScopeId(), ct);
             return CreatedAtAction("GetOrder", "Orders", new { id = order.Id }, order);
         }
         catch (ArgumentException ex)
@@ -180,7 +173,7 @@ public class EventsController : ControllerBase
     [HttpPost("{id}/complete")]
     public async Task<ActionResult<EventResponse>> CompleteEvent(Guid id, [FromBody] CompleteEventRequest request, CancellationToken ct = default)
     {
-        var evt = await _eventService.CompleteEventAsync(id, request, GetUserId(), ct);
+        var evt = await _eventService.CompleteEventAsync(id, request, GetEffectiveScopeId(), ct);
         if (evt == null) return NotFound();
         return Ok(evt);
     }
@@ -202,7 +195,7 @@ public class EventsController : ControllerBase
     [HttpGet("pnl")]
     public async Task<ActionResult<PnlResponse>> GetPnl(CancellationToken ct = default)
     {
-        var pnl = await _eventService.GetPnlAsync(GetUserId(), ct);
+        var pnl = await _eventService.GetPnlAsync(GetEffectiveScopeId(), ct);
         return Ok(pnl);
     }
 }

@@ -8,6 +8,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { AuthService } from './core/services/auth.service';
 import { ThemeService } from './core/services/theme.service';
 import { UserSettingsService } from './core/services/user-settings.service';
+import { OrgService } from './core/services/org.service';
 
 @Component({
   selector: 'app-root',
@@ -26,9 +27,9 @@ import { UserSettingsService } from './core/services/user-settings.service';
 })
 export class App {
   readonly authService = inject(AuthService);
+  readonly orgService = inject(OrgService);
   private themeService = inject(ThemeService);
   private userSettingsService = inject(UserSettingsService);
-
   constructor() {
     // Load and apply user theme on app init
     this.authService.isAuthenticated() && this.loadUserTheme();
