@@ -59,4 +59,8 @@ export class OrgService {
   removeMember(orgId: string, memberId: string): Observable<void> {
     return this.api.delete<void>(`organizations/${orgId}/members/${memberId}`);
   }
+
+  deleteOrg(orgId: string): Observable<void> {
+    return this.api.delete<void>(`organizations/${orgId}`);
+  }
 }

@@ -226,6 +226,9 @@ import { UserTheme, PageTheme, OrgResponse, OrgMemberResponse } from '../../shar
                               <mat-icon>link</mat-icon>
                               Invite Link
                             </button>
+                            <button mat-icon-button color="warn" (click)="deleteOrg(org)" title="Delete team">
+                              <mat-icon>delete</mat-icon>
+                            </button>
                           }
                         </div>
                       </div>
@@ -634,6 +637,20 @@ export class SettingsComponent implements OnInit {
         setTimeout(() => this.copied.set(false), 2000);
       });
     }
+  }
+
+  deleteOrg(org: OrgResponse) {
+    if (!confirm(`Delete team "${org.name}"? This will remove all members and cannot be undone.`)) return;
+    this.orgService.deleteOrg(org.id).subscribe({
+      next: () => {
+        if (this.orgService.activeOrgId() === org.id) this.orgService.setActiveOrg(null);
+        this.loadOrgs();
+        this.snackBar.open(`Team "${org.name}" deleted.`, 'Dismiss', { duration: 3000 });
+      },
+      error: () => {
+        this.snackBar.open('Failed to delete team.', 'Dismiss', { duration: 4000 });
+      }
+    });
   }
 
   removeMember(org: OrgResponse, member: OrgMemberResponse) {

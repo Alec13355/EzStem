@@ -2,6 +2,7 @@ using EzStem.Application.DTOs;
 using EzStem.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 
 namespace EzStem.API.Controllers;
 
@@ -11,10 +12,12 @@ namespace EzStem.API.Controllers;
 public class OrganizationsController : ApiControllerBase
 {
     private readonly IOrganizationService _orgService;
+    private readonly string _frontendUrl;
 
-    public OrganizationsController(IOrganizationService orgService)
+    public OrganizationsController(IOrganizationService orgService, IConfiguration config)
     {
         _orgService = orgService;
+        _frontendUrl = config["FrontendUrl"] ?? "https://ezstem.net";
     }
 
     [HttpPost]
@@ -36,10 +39,9 @@ public class OrganizationsController : ApiControllerBase
     [HttpPost("{id}/invite")]
     public async Task<ActionResult<OrgInviteResponse>> CreateInvite(Guid id, CancellationToken ct = default)
     {
-        var baseUrl = $"{Request.Scheme}://{Request.Host}";
         try
         {
-            var invite = await _orgService.CreateInviteAsync(id, GetUserId(), baseUrl, ct);
+            var invite = await _orgService.CreateInviteAsync(id, GetUserId(), _frontendUrl, ct);
             return Ok(invite);
         }
         catch (UnauthorizedAccessException ex)
@@ -90,6 +92,24 @@ public class OrganizationsController : ApiControllerBase
         catch (UnauthorizedAccessException)
         {
             return Forbid();
+        }
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<ActionResult> DeleteOrg(Guid id, CancellationToken ct = default)
+    {
+        try
+        {
+            await _orgService.DeleteOrgAsync(id, GetUserId(), ct);
+            return NoContent();
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid(ex.Message);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
         }
     }
 

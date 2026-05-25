@@ -11,4 +11,5 @@ public interface IOrganizationService
     Task<AcceptInviteResponse> AcceptInviteAsync(string token, string userId, CancellationToken ct = default);
     Task<IEnumerable<OrgMemberResponse>> GetMembersAsync(Guid orgId, string requestingUserId, CancellationToken ct = default);
     Task RemoveMemberAsync(Guid orgId, Guid memberId, string requestingUserId, CancellationToken ct = default);
+    Task DeleteOrgAsync(Guid orgId, string requestingUserId, CancellationToken ct = default);
 }

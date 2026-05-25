@@ -149,6 +149,18 @@ public class OrganizationService : IOrganizationService
         await _context.SaveChangesAsync(ct);
     }
 
+    public async Task DeleteOrgAsync(Guid orgId, string requestingUserId, CancellationToken ct = default)
+    {
+        var org = await _context.Organizations.FindAsync([orgId], ct)
+            ?? throw new KeyNotFoundException("Organization not found");
+
+        if (org.FounderUserId != requestingUserId)
+            throw new UnauthorizedAccessException("Only the org owner can delete the team");
+
+        _context.Organizations.Remove(org);
+        await _context.SaveChangesAsync(ct);
+    }
+
     private static OrgResponse MapOrg(Organization org, string userId) =>
         new(org.Id, org.Name, org.FounderUserId, org.CreatedAt, org.FounderUserId == userId);
 }
