@@ -17,16 +17,19 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { EventService } from '../../../core/services/event.service';
 import { MatDividerModule } from '@angular/material/divider';
 import { EventItemService } from '../../../core/services/event-item.service';
+import { EventItemSupplyService } from '../../../core/services/event-item-supply.service';
 import { EventFlowerService } from '../../../core/services/event-flower.service';
 import { EventRecipeService } from '../../../core/services/event-recipe.service';
 import { MasterFlowerService } from '../../../core/services/master-flower.service';
-import { 
-  FloristEvent, 
-  EventItem, 
+import {
+  FloristEvent,
+  EventItem,
+  EventItemSupply,
   EventFlower,
   MasterFlower,
   CreateEventItemRequest,
   UpdateEventItemRequest,
+  CreateEventItemSupplyRequest,
   CreateEventFlowerRequest,
   UpdateEventFlowerRequest,
   CreateEventItemFlowerRequest,
@@ -158,64 +161,119 @@ import {
                 </mat-card>
               }
 
-              <table mat-table [dataSource]="items()" class="items-table">
-                <ng-container matColumnDef="name">
-                  <th mat-header-cell *matHeaderCellDef>Name</th>
-                  <td mat-cell *matCellDef="let item">
-                    @if (editingItemId() === item.id) {
-                      <input matInput [(ngModel)]="editItem.name" class="inline-edit">
-                    } @else {
-                      {{ item.name }}
-                    }
-                  </td>
-                </ng-container>
+              @for (item of items(); track item.id) {
+                <mat-expansion-panel class="item-panel" [expanded]="expandedItemId() === item.id" (opened)="onItemExpanded(item.id)" (closed)="onItemCollapsed(item.id)">
+                  <mat-expansion-panel-header>
+                    <mat-panel-title>
+                      @if (editingItemId() === item.id) {
+                        <input matInput [(ngModel)]="editItem.name" class="inline-edit" (click)="$event.stopPropagation()">
+                      } @else {
+                        <span class="item-panel-name">{{ item.name }}</span>
+                      }
+                    </mat-panel-title>
+                    <mat-panel-description>
+                      @if (editingItemId() === item.id) {
+                        <input matInput [(ngModel)]="editItem.price" type="number" step="0.01" class="inline-edit inline-edit--sm" (click)="$event.stopPropagation()">
+                        &nbsp;×&nbsp;
+                        <input matInput [(ngModel)]="editItem.quantity" type="number" class="inline-edit inline-edit--xs" (click)="$event.stopPropagation()">
+                      } @else {
+                        {{ formatCurrency(item.price) }} × {{ item.quantity }}
+                        @if (item.totalSupplyCost > 0) {
+                          <span class="supply-badge">+{{ formatCurrency(item.totalSupplyCost) }} supplies</span>
+                        }
+                      }
+                      <span class="panel-actions" (click)="$event.stopPropagation()">
+                        @if (editingItemId() === item.id) {
+                          <button mat-icon-button (click)="saveItemEdit(item.id)" title="Save">
+                            <mat-icon>save</mat-icon>
+                          </button>
+                          <button mat-icon-button (click)="cancelItemEdit()" title="Cancel">
+                            <mat-icon>cancel</mat-icon>
+                          </button>
+                        } @else {
+                          <button mat-icon-button (click)="startEditItem(item)" title="Edit">
+                            <mat-icon>edit</mat-icon>
+                          </button>
+                          <button mat-icon-button (click)="deleteItem(item.id)" title="Delete">
+                            <mat-icon>delete</mat-icon>
+                          </button>
+                        }
+                      </span>
+                    </mat-panel-description>
+                  </mat-expansion-panel-header>
 
-                <ng-container matColumnDef="price">
-                  <th mat-header-cell *matHeaderCellDef>Price</th>
-                  <td mat-cell *matCellDef="let item">
-                    @if (editingItemId() === item.id) {
-                      <input matInput [(ngModel)]="editItem.price" type="number" step="0.01" class="inline-edit">
-                    } @else {
-                      {{ formatCurrency(item.price) }}
-                    }
-                  </td>
-                </ng-container>
+                  <!-- Supplies section inside the expanded panel -->
+                  <div class="supplies-section">
+                    <div class="supplies-header">
+                      <span class="supplies-title">Supplies</span>
+                      <button mat-stroked-button (click)="showAddSupplyFor(item.id)">
+                        <mat-icon>add</mat-icon> Add Supply
+                      </button>
+                    </div>
 
-                <ng-container matColumnDef="quantity">
-                  <th mat-header-cell *matHeaderCellDef>Quantity</th>
-                  <td mat-cell *matCellDef="let item">
-                    @if (editingItemId() === item.id) {
-                      <input matInput [(ngModel)]="editItem.quantity" type="number" class="inline-edit">
-                    } @else {
-                      {{ item.quantity }}
+                    @if (addingSupplyForItemId() === item.id) {
+                      <div class="supply-add-row">
+                        <mat-form-field class="supply-field">
+                          <mat-label>Supply Name</mat-label>
+                          <input matInput [(ngModel)]="newSupply.name" placeholder="e.g. Vases, Ribbon">
+                        </mat-form-field>
+                        <mat-form-field class="supply-field supply-field--sm">
+                          <mat-label>Cost/Unit</mat-label>
+                          <input matInput [(ngModel)]="newSupply.costPerUnit" type="number" step="0.01">
+                          <span matSuffix>$</span>
+                        </mat-form-field>
+                        <mat-form-field class="supply-field supply-field--xs">
+                          <mat-label>Qty per item</mat-label>
+                          <input matInput [(ngModel)]="newSupply.quantity" type="number">
+                        </mat-form-field>
+                        <button mat-raised-button color="primary" (click)="createSupply(item.id)">Add</button>
+                        <button mat-button (click)="cancelAddSupply()">Cancel</button>
+                      </div>
                     }
-                  </td>
-                </ng-container>
 
-                <ng-container matColumnDef="actions">
-                  <th mat-header-cell *matHeaderCellDef>Actions</th>
-                  <td mat-cell *matCellDef="let item">
-                    @if (editingItemId() === item.id) {
-                      <button mat-icon-button (click)="saveItemEdit(item.id)">
-                        <mat-icon>save</mat-icon>
-                      </button>
-                      <button mat-icon-button (click)="cancelItemEdit()">
-                        <mat-icon>cancel</mat-icon>
-                      </button>
-                    } @else {
-                      <button mat-icon-button (click)="startEditItem(item)">
-                        <mat-icon>edit</mat-icon>
-                      </button>
-                      <button mat-icon-button (click)="deleteItem(item.id)">
-                        <mat-icon>delete</mat-icon>
-                      </button>
+                    @if (item.supplies && item.supplies.length > 0) {
+                      <table mat-table [dataSource]="item.supplies" class="supplies-table">
+                        <ng-container matColumnDef="name">
+                          <th mat-header-cell *matHeaderCellDef>Supply</th>
+                          <td mat-cell *matCellDef="let supply">{{ supply.name }}</td>
+                        </ng-container>
+                        <ng-container matColumnDef="costPerUnit">
+                          <th mat-header-cell *matHeaderCellDef>Cost/Unit</th>
+                          <td mat-cell *matCellDef="let supply">{{ formatCurrency(supply.costPerUnit) }}</td>
+                        </ng-container>
+                        <ng-container matColumnDef="qty">
+                          <th mat-header-cell *matHeaderCellDef>Qty per Item</th>
+                          <td mat-cell *matCellDef="let supply">{{ supply.quantity }}</td>
+                        </ng-container>
+                        <ng-container matColumnDef="lineTotal">
+                          <th mat-header-cell *matHeaderCellDef>Per Item Total</th>
+                          <td mat-cell *matCellDef="let supply">{{ formatCurrency(supply.lineTotalCost) }}</td>
+                        </ng-container>
+                        <ng-container matColumnDef="grandTotal">
+                          <th mat-header-cell *matHeaderCellDef>Event Total</th>
+                          <td mat-cell *matCellDef="let supply"><strong>{{ formatCurrency(supply.lineTotalCost * item.quantity) }}</strong></td>
+                        </ng-container>
+                        <ng-container matColumnDef="supplyActions">
+                          <th mat-header-cell *matHeaderCellDef></th>
+                          <td mat-cell *matCellDef="let supply">
+                            <button mat-icon-button (click)="deleteSupply(item.id, supply.id)" title="Remove">
+                              <mat-icon>delete</mat-icon>
+                            </button>
+                          </td>
+                        </ng-container>
+                        <tr mat-header-row *matHeaderRowDef="supplyColumns"></tr>
+                        <tr mat-row *matRowDef="let row; columns: supplyColumns;"></tr>
+                      </table>
+                      <div class="supplies-total">
+                        Total supplies for all {{ item.quantity }} × {{ item.name }}:
+                        <strong>{{ formatCurrency(item.totalSupplyCost * item.quantity) }}</strong>
+                      </div>
+                    } @else if (addingSupplyForItemId() !== item.id) {
+                      <p class="supplies-empty">No supplies yet. Add vases, ribbon, or any non-flower cost.</p>
                     }
-                  </td>
-                </ng-container>
-
-                <tr mat-header-row *matHeaderRowDef="itemColumns"></tr>
-                <tr mat-row *matRowDef="let row; columns: itemColumns;"></tr>
-              </table>
+                  </div>
+                </mat-expansion-panel>
+              }
 
               @if (items().length === 0) {
                 <div class="empty-state">No items yet. Add your first item!</div>
@@ -728,6 +786,90 @@ import {
       margin-right: 16px;
     }
 
+    .item-panel {
+      margin-bottom: 8px;
+    }
+
+    .item-panel-name {
+      font-weight: 500;
+    }
+
+    mat-panel-description {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+    }
+
+    .supply-badge {
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: #fff3e0;
+      color: #e65100;
+      font-weight: 500;
+    }
+
+    .panel-actions {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+    }
+
+    .supplies-section {
+      padding: 8px 0;
+    }
+
+    .supplies-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .supplies-title {
+      font-weight: 600;
+      font-size: 14px;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .supply-add-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+      padding: 12px;
+      background: #fafafa;
+      border-radius: 4px;
+      margin-bottom: 12px;
+    }
+
+    .supply-field { width: 180px; }
+    .supply-field--sm { width: 120px; }
+    .supply-field--xs { width: 90px; }
+
+    .supplies-table {
+      width: 100%;
+    }
+
+    .supplies-total {
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: #fff3e0;
+      border-radius: 4px;
+      font-size: 14px;
+      text-align: right;
+    }
+
+    .supplies-empty {
+      color: #888;
+      font-style: italic;
+      font-size: 14px;
+      margin: 0;
+    }
+
     .items-table, .flowers-table, .recipe-flowers-table {
       width: 100%;
       margin-top: 16px;
@@ -950,6 +1092,8 @@ export class EventDetailComponent implements OnInit {
   editingItemId = signal<string | null>(null);
   editingFlowerId = signal<string | null>(null);
   showingAddFlowerForItem = signal<string | null>(null);
+  expandedItemId = signal<string | null>(null);
+  addingSupplyForItemId = signal<string | null>(null);
 
   // Complete tab state
   actualCost: number = 0;
@@ -977,6 +1121,7 @@ export class EventDetailComponent implements OnInit {
 
   // Table columns
   itemColumns = ['name', 'price', 'quantity', 'actions'];
+  supplyColumns = ['name', 'costPerUnit', 'qty', 'lineTotal', 'grandTotal', 'supplyActions'];
   flowerColumns = ['name', 'pricePerStem', 'bunchSize', 'actions'];
   recipeColumns = ['flower', 'stemsPerUnit', 'totalStems', 'costPerBunch', 'lineCost', 'actions'];
   orderSummaryColumns = ['flowerName', 'totalStems', 'bunchesNeeded', 'totalCost'];
@@ -991,9 +1136,10 @@ export class EventDetailComponent implements OnInit {
   profitMultiple: number = 2.5;
 
   newItem: CreateEventItemRequest = { name: '', price: 0, quantity: 1 };
+  newSupply: CreateEventItemSupplyRequest = { name: '', costPerUnit: 0, quantity: 1 };
   newFlower: CreateEventFlowerRequest = { name: '', pricePerStem: 0, bunchSize: 10 };
   newRecipeEntry: CreateEventItemFlowerRequest = { eventFlowerId: '', stemsNeeded: 0 };
-  
+
   editItem: UpdateEventItemRequest = {};
   editFlower: UpdateEventFlowerRequest = {};
 
@@ -1002,6 +1148,7 @@ export class EventDetailComponent implements OnInit {
     private router: Router,
     private eventService: EventService,
     private eventItemService: EventItemService,
+    private eventItemSupplyService: EventItemSupplyService,
     private eventFlowerService: EventFlowerService,
     private eventRecipeService: EventRecipeService,
     private masterFlowerService: MasterFlowerService,
@@ -1133,7 +1280,11 @@ export class EventDetailComponent implements OnInit {
   saveItemEdit(itemId: string) {
     this.eventItemService.updateItem(this.eventId, itemId, this.editItem).subscribe({
       next: (updatedItem) => {
-        this.items.set(this.items().map(i => i.id === itemId ? updatedItem : i));
+        this.items.update(items => items.map(i => {
+          if (i.id !== itemId) return i;
+          // Preserve existing supplies from local state since backend returns them too
+          return { ...updatedItem, supplies: updatedItem.supplies ?? i.supplies };
+        }));
         this.showSuccess('Item updated successfully');
         this.editingItemId.set(null);
       },
@@ -1146,6 +1297,66 @@ export class EventDetailComponent implements OnInit {
   cancelItemEdit() {
     this.editingItemId.set(null);
     this.editItem = {};
+  }
+
+  // Item panel expand/collapse
+  onItemExpanded(itemId: string) {
+    this.expandedItemId.set(itemId);
+  }
+
+  onItemCollapsed(itemId: string) {
+    if (this.expandedItemId() === itemId) {
+      this.expandedItemId.set(null);
+    }
+    if (this.addingSupplyForItemId() === itemId) {
+      this.addingSupplyForItemId.set(null);
+    }
+  }
+
+  // Supply methods
+  showAddSupplyFor(itemId: string) {
+    this.addingSupplyForItemId.set(itemId);
+    this.newSupply = { name: '', costPerUnit: 0, quantity: 1 };
+  }
+
+  cancelAddSupply() {
+    this.addingSupplyForItemId.set(null);
+    this.newSupply = { name: '', costPerUnit: 0, quantity: 1 };
+  }
+
+  createSupply(itemId: string) {
+    if (!this.newSupply.name || this.newSupply.costPerUnit <= 0 || this.newSupply.quantity <= 0) {
+      this.showError('Please fill all supply fields with valid values');
+      return;
+    }
+    this.eventItemSupplyService.createSupply(this.eventId, itemId, this.newSupply).subscribe({
+      next: (supply) => {
+        this.items.update(items => items.map(i => {
+          if (i.id !== itemId) return i;
+          const supplies = [...(i.supplies ?? []), supply];
+          const totalSupplyCost = supplies.reduce((sum, s) => sum + s.lineTotalCost, 0);
+          return { ...i, supplies, totalSupplyCost };
+        }));
+        this.cancelAddSupply();
+        this.showSuccess('Supply added');
+      },
+      error: () => this.showError('Failed to add supply')
+    });
+  }
+
+  deleteSupply(itemId: string, supplyId: string) {
+    this.eventItemSupplyService.deleteSupply(this.eventId, itemId, supplyId).subscribe({
+      next: () => {
+        this.items.update(items => items.map(i => {
+          if (i.id !== itemId) return i;
+          const supplies = (i.supplies ?? []).filter(s => s.id !== supplyId);
+          const totalSupplyCost = supplies.reduce((sum, s) => sum + s.lineTotalCost, 0);
+          return { ...i, supplies, totalSupplyCost };
+        }));
+        this.showSuccess('Supply removed');
+      },
+      error: () => this.showError('Failed to remove supply')
+    });
   }
 
   deleteItem(itemId: string) {

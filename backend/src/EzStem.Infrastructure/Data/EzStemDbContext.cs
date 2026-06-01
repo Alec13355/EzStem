@@ -20,6 +20,7 @@ public class EzStemDbContext : DbContext
     public DbSet<EventItem> EventItems => Set<EventItem>();
     public DbSet<EventFlower> EventFlowers => Set<EventFlower>();
     public DbSet<EventItemFlower> EventItemFlowers => Set<EventItemFlower>();
+    public DbSet<EventItemSupply> EventItemSupplies => Set<EventItemSupply>();
     public DbSet<MasterFlower> MasterFlowers => Set<MasterFlower>();
     public DbSet<UserSettings> UserSettings => Set<UserSettings>();
     public DbSet<Organization> Organizations => Set<Organization>();
@@ -121,6 +122,17 @@ public class EzStemDbContext : DbContext
                 .HasForeignKey(e => e.EventId)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(e => e.EventId);
+        });
+
+        // EventItemSupply configuration
+        modelBuilder.Entity<EventItemSupply>(entity =>
+        {
+            entity.Property(s => s.CostPerUnit).HasPrecision(18, 4);
+            entity.HasOne(s => s.EventItem)
+                .WithMany(i => i.Supplies)
+                .HasForeignKey(s => s.EventItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(s => s.EventItemId);
         });
 
         // EventFlower configuration

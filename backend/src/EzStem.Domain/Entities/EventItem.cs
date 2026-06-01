@@ -11,4 +11,5 @@ public class EventItem
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public ICollection<EventItemFlower> RecipeFlowers { get; set; } = new List<EventItemFlower>();
+    public ICollection<EventItemSupply> Supplies { get; set; } = new List<EventItemSupply>();
 }

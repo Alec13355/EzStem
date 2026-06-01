@@ -84,6 +84,7 @@ export interface PnlEventItem {
   actualProfit?: number;
   receiptUrl?: string;
   completedAt?: string;
+  totalSupplyCost: number;
 }
 
 export interface PnlSummary {
@@ -269,6 +270,29 @@ export interface UpdateEventRequest {
   profitMultiple?: number;
 }
 
+export interface EventItemSupply {
+  id: string;
+  eventItemId: string;
+  name: string;
+  costPerUnit: number;
+  quantity: number;
+  lineTotalCost: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateEventItemSupplyRequest {
+  name: string;
+  costPerUnit: number;
+  quantity: number;
+}
+
+export interface UpdateEventItemSupplyRequest {
+  name?: string;
+  costPerUnit?: number;
+  quantity?: number;
+}
+
 // New event-centric models
 export interface EventItem {
   id: string;
@@ -276,8 +300,10 @@ export interface EventItem {
   name: string;
   price: number;
   quantity: number;
+  totalSupplyCost: number;
   createdAt: string;
   updatedAt: string;
+  supplies?: EventItemSupply[];
   recipeFlowers?: EventItemFlower[];
 }
 

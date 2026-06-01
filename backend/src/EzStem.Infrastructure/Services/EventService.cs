@@ -272,27 +272,38 @@ public class EventService : IEventService
             .OrderByDescending(e => e.EventDate)
             .ToListAsync(ct);
 
-        // Load revenue for all events from EventItems
+        // Load revenue and supply costs for all events from EventItems
         var eventIds = events.Select(e => e.Id).ToList();
-        var revenueByEvent = await _context.EventItems
+        var itemsByEvent = await _context.EventItems
+            .Include(i => i.Supplies)
             .Where(i => eventIds.Contains(i.EventId))
+            .ToListAsync(ct);
+
+        var revenueByEvent = itemsByEvent
             .GroupBy(i => i.EventId)
-            .Select(g => new { EventId = g.Key, Revenue = g.Sum(i => (decimal)i.Price * i.Quantity) })
-            .ToDictionaryAsync(x => x.EventId, x => x.Revenue, ct);
+            .ToDictionary(g => g.Key, g => g.Sum(i => i.Price * i.Quantity));
+
+        // Supply cost per item is costPerUnit * supplyQty (per unit) * itemQuantity
+        var supplyCostByEvent = itemsByEvent
+            .GroupBy(i => i.EventId)
+            .ToDictionary(g => g.Key, g => g.Sum(i =>
+                i.Supplies.Sum(s => s.CostPerUnit * s.Quantity) * i.Quantity));
 
         var allItems = events.Select(evt =>
         {
             var revenue = revenueByEvent.TryGetValue(evt.Id, out var r) ? r : 0m;
+            var supplyCost = supplyCostByEvent.TryGetValue(evt.Id, out var sc) ? sc : 0m;
             var multiple = evt.ProfitMultiple > 0 ? evt.ProfitMultiple : 2.5m;
             var expectedFlowerCost = revenue / multiple;
-            var expectedProfit = revenue - expectedFlowerCost;
+            var expectedProfit = revenue - expectedFlowerCost - supplyCost;
             decimal? actualProfit = evt.IsCompleted && evt.ActualCost.HasValue
                 ? revenue - evt.ActualCost.Value : null;
 
             return new PnlEventItem(
                 evt.Id, evt.Name, evt.EventDate, evt.Status.ToString(),
                 revenue, expectedFlowerCost, expectedProfit,
-                evt.IsCompleted, evt.ActualCost, actualProfit, evt.ReceiptUrl, evt.CompletedAt);
+                evt.IsCompleted, evt.ActualCost, actualProfit, evt.ReceiptUrl, evt.CompletedAt,
+                supplyCost);
         }).ToList();
 
         var completedItems = allItems.Where(i => i.IsCompleted).ToList();

@@ -92,6 +92,17 @@ import { PnlEventItem, PnlResponse } from '../../shared/models/api.models';
                     <td mat-cell *matCellDef="let row">{{ fmt(row.expectedFlowerCost) }}</td>
                   </ng-container>
 
+                  <ng-container matColumnDef="supplyCost">
+                    <th mat-header-cell *matHeaderCellDef>Supplies</th>
+                    <td mat-cell *matCellDef="let row">
+                      @if (row.totalSupplyCost > 0) {
+                        <span class="supply-cost">{{ fmt(row.totalSupplyCost) }}</span>
+                      } @else {
+                        <span style="color:#bbb">—</span>
+                      }
+                    </td>
+                  </ng-container>
+
                   <ng-container matColumnDef="expectedProfit">
                     <th mat-header-cell *matHeaderCellDef>Expected Profit</th>
                     <td mat-cell *matCellDef="let row" [class.profit-positive]="row.expectedProfit >= 0" [class.profit-negative]="row.expectedProfit < 0">
@@ -137,6 +148,17 @@ import { PnlEventItem, PnlResponse } from '../../shared/models/api.models';
                   <ng-container matColumnDef="actualCost">
                     <th mat-header-cell *matHeaderCellDef>Actual Cost</th>
                     <td mat-cell *matCellDef="let row">{{ fmt(row.actualCost ?? 0) }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="actualSupplyCost">
+                    <th mat-header-cell *matHeaderCellDef>Supplies</th>
+                    <td mat-cell *matCellDef="let row">
+                      @if (row.totalSupplyCost > 0) {
+                        <span class="supply-cost">{{ fmt(row.totalSupplyCost) }}</span>
+                      } @else {
+                        <span style="color:#bbb">—</span>
+                      }
+                    </td>
                   </ng-container>
 
                   <ng-container matColumnDef="actualProfit">
@@ -265,6 +287,8 @@ import { PnlEventItem, PnlResponse } from '../../shared/models/api.models';
     .profit-positive { color: #2e7d32; font-weight: 600; }
     .profit-negative { color: #c62828; font-weight: 600; }
 
+    .supply-cost { color: #e65100; font-weight: 500; }
+
     .row-completed td { opacity: 0.75; }
 
     .empty {
@@ -282,8 +306,8 @@ export class PnlComponent implements OnInit {
   pnl = signal<PnlResponse | null>(null);
   error = signal<string | null>(null);
 
-  expectedColumns = ['event', 'revenue', 'flowerCost', 'expectedProfit', 'status'];
-  actualColumns = ['event', 'revenue', 'actualCost', 'actualProfit', 'margin', 'receipt'];
+  expectedColumns = ['event', 'revenue', 'flowerCost', 'supplyCost', 'expectedProfit', 'status'];
+  actualColumns = ['event', 'revenue', 'actualCost', 'actualSupplyCost', 'actualProfit', 'margin', 'receipt'];
 
   constructor(private eventService: EventService) {}
 

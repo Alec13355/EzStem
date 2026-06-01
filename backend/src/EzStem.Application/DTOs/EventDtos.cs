@@ -26,7 +26,8 @@ public record EventResponse(
 public record PnlEventItem(
     Guid EventId, string EventName, DateTime EventDate, string Status,
     decimal TotalRevenue, decimal ExpectedFlowerCost, decimal ExpectedProfit,
-    bool IsCompleted, decimal? ActualCost, decimal? ActualProfit, string? ReceiptUrl, DateTime? CompletedAt);
+    bool IsCompleted, decimal? ActualCost, decimal? ActualProfit, string? ReceiptUrl, DateTime? CompletedAt,
+    decimal TotalSupplyCost = 0m);
 
 public record PnlSummary(
     decimal TotalExpectedRevenue, decimal TotalExpectedProfit,
@@ -38,7 +39,20 @@ public record CreateEventItemRequest(string Name, decimal Price, int Quantity);
 public record UpdateEventItemRequest(string? Name, decimal? Price, int? Quantity);
 public record EventItemResponse(
     Guid Id, Guid EventId, string Name, decimal Price, int Quantity,
-    DateTime CreatedAt, DateTime UpdatedAt);
+    DateTime CreatedAt, DateTime UpdatedAt,
+    IEnumerable<EventItemSupplyResponse>? Supplies = null)
+{
+    public decimal TotalSupplyCost => Supplies?.Sum(s => s.LineTotalCost) ?? 0m;
+}
+
+public record CreateEventItemSupplyRequest(string Name, decimal CostPerUnit, int Quantity);
+public record UpdateEventItemSupplyRequest(string? Name, decimal? CostPerUnit, int? Quantity);
+public record EventItemSupplyResponse(
+    Guid Id, Guid EventItemId, string Name, decimal CostPerUnit, int Quantity,
+    DateTime CreatedAt, DateTime UpdatedAt)
+{
+    public decimal LineTotalCost => CostPerUnit * Quantity;
+}
 
 public record CreateEventFlowerRequest(string Name, decimal PricePerStem, int BunchSize);
 public record UpdateEventFlowerRequest(string? Name, decimal? PricePerStem, int? BunchSize);

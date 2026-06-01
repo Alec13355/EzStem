@@ -26,6 +26,7 @@ builder.Services.AddScoped<IRecipeService, RecipeService>();
 builder.Services.AddScoped<IPricingService, PricingService>();
 builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddScoped<IEventItemService, EventItemService>();
+builder.Services.AddScoped<IEventItemSupplyService, EventItemSupplyService>();
 builder.Services.AddScoped<IEventFlowerService, EventFlowerService>();
 builder.Services.AddScoped<IEventItemFlowerService, EventItemFlowerService>();
 builder.Services.AddScoped<IMasterFlowerService, MasterFlowerService>();

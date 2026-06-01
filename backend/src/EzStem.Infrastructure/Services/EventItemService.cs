@@ -21,6 +21,7 @@ public class EventItemService : IEventItemService
         if (!eventExists) throw new KeyNotFoundException("Event not found");
 
         var items = await _context.EventItems
+            .Include(i => i.Supplies)
             .Where(i => i.EventId == eventId)
             .OrderBy(i => i.CreatedAt)
             .ToListAsync(ct);
@@ -32,6 +33,7 @@ public class EventItemService : IEventItemService
     {
         var item = await _context.EventItems
             .Include(i => i.Event)
+            .Include(i => i.Supplies)
             .FirstOrDefaultAsync(i => i.Id == itemId && i.EventId == eventId && i.Event.OwnerId == ownerId, ct);
 
         return item == null ? null : MapToResponse(item);
@@ -72,6 +74,7 @@ public class EventItemService : IEventItemService
     {
         var item = await _context.EventItems
             .Include(i => i.Event)
+            .Include(i => i.Supplies)
             .FirstOrDefaultAsync(i => i.Id == itemId && i.EventId == eventId && i.Event.OwnerId == ownerId, ct);
 
         if (item == null) return null;
@@ -129,6 +132,7 @@ public class EventItemService : IEventItemService
         if (lastEvent == null) return Enumerable.Empty<EventItemResponse>();
 
         var items = await _context.EventItems
+            .Include(i => i.Supplies)
             .Where(i => i.EventId == lastEvent.Id)
             .OrderBy(i => i.CreatedAt)
             .ToListAsync(ct);
@@ -143,5 +147,7 @@ public class EventItemService : IEventItemService
         item.Price,
         item.Quantity,
         item.CreatedAt,
-        item.UpdatedAt);
+        item.UpdatedAt,
+        item.Supplies.Select(s => new EventItemSupplyResponse(
+            s.Id, s.EventItemId, s.Name, s.CostPerUnit, s.Quantity, s.CreatedAt, s.UpdatedAt)));
 }
