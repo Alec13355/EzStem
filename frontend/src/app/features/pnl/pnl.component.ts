@@ -1,10 +1,16 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+import { MatInputModule } from '@angular/material/input';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatDividerModule } from '@angular/material/divider';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { EventService } from '../../core/services/event.service';
 import { PnlEventItem, PnlResponse } from '../../shared/models/api.models';
 
@@ -13,11 +19,17 @@ import { PnlEventItem, PnlResponse } from '../../shared/models/api.models';
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     MatTabsModule,
     MatCardModule,
     MatTableModule,
     MatProgressSpinnerModule,
-    MatIconModule
+    MatIconModule,
+    MatButtonModule,
+    MatInputModule,
+    MatFormFieldModule,
+    MatDividerModule,
+    MatSnackBarModule
   ],
   template: `
     <div class="pnl-container">
@@ -39,7 +51,7 @@ import { PnlEventItem, PnlResponse } from '../../shared/models/api.models';
             <mat-card-content>
               <div class="summary-label">Expected Profit</div>
               <div class="summary-value">{{ fmt(pnl()!.summary.totalExpectedProfit) }}</div>
-              <div class="summary-sub">Revenue minus flower budget</div>
+              <div class="summary-sub">Revenue minus flower budget &amp; supplies</div>
             </mat-card-content>
           </mat-card>
           <mat-card class="summary-card">
@@ -53,7 +65,7 @@ import { PnlEventItem, PnlResponse } from '../../shared/models/api.models';
             <mat-card-content>
               <div class="summary-label">Realized Profit</div>
               <div class="summary-value">{{ fmt(pnl()!.summary.totalActualProfit) }}</div>
-              <div class="summary-sub">Completed events only</div>
+              <div class="summary-sub">Revenue − actual costs − supplies</div>
             </mat-card-content>
           </mat-card>
         </div>
@@ -115,9 +127,69 @@ import { PnlEventItem, PnlResponse } from '../../shared/models/api.models';
                     <td mat-cell *matCellDef="let row">{{ row.status }}</td>
                   </ng-container>
 
+                  <ng-container matColumnDef="complete">
+                    <th mat-header-cell *matHeaderCellDef></th>
+                    <td mat-cell *matCellDef="let row">
+                      @if (!row.isCompleted) {
+                        <button mat-stroked-button (click)="startComplete(row)">
+                          <mat-icon>check_circle</mat-icon> Complete
+                        </button>
+                      }
+                    </td>
+                  </ng-container>
+
                   <tr mat-header-row *matHeaderRowDef="expectedColumns"></tr>
                   <tr mat-row *matRowDef="let row; columns: expectedColumns;" [class.row-completed]="row.isCompleted"></tr>
                 </table>
+              }
+
+              <!-- Inline complete form -->
+              @if (completingRow()) {
+                <mat-card class="complete-form-card">
+                  <mat-card-header>
+                    <mat-card-title>Mark "{{ completingRow()!.eventName }}" as Complete</mat-card-title>
+                    <mat-card-subtitle>Profit = Revenue − Actual Cost − Supplies ({{ fmt(completingRow()!.totalSupplyCost) }})</mat-card-subtitle>
+                  </mat-card-header>
+                  <mat-card-content>
+                    <mat-form-field style="margin-top:12px">
+                      <mat-label>Actual Cost Paid (flowers &amp; materials)</mat-label>
+                      <input matInput type="number" step="0.01" min="0" [(ngModel)]="completeActualCost">
+                      <span matSuffix>$</span>
+                    </mat-form-field>
+
+                    <div class="receipt-row">
+                      <input #receiptInput type="file" style="display:none"
+                        accept=".pdf,.jpg,.jpeg,.png,.webp"
+                        (change)="onReceiptSelected($event)">
+                      <button mat-stroked-button (click)="receiptInput.click()" [disabled]="uploadingReceipt()">
+                        <mat-icon>upload_file</mat-icon>
+                        {{ uploadingReceipt() ? 'Uploading...' : (completeReceiptUrl() ? 'Replace Receipt' : 'Upload Receipt (optional)') }}
+                      </button>
+                      @if (completeReceiptUrl()) {
+                        <span class="receipt-ok">
+                          <mat-icon style="font-size:16px;height:16px;width:16px;vertical-align:middle;color:#388e3c">check_circle</mat-icon>
+                          Receipt uploaded
+                        </span>
+                      }
+                    </div>
+
+                    @if (completeActualCost > 0) {
+                      <div class="profit-preview">
+                        Profit preview: {{ fmt(completingRow()!.totalRevenue - completeActualCost - completingRow()!.totalSupplyCost) }}
+                      </div>
+                    }
+
+                    <mat-divider style="margin: 16px 0"></mat-divider>
+                    <div class="complete-actions">
+                      <button mat-raised-button color="primary"
+                        [disabled]="!completeActualCost || completeActualCost <= 0 || savingComplete()"
+                        (click)="submitComplete()">
+                        {{ savingComplete() ? 'Saving...' : 'Mark as Complete' }}
+                      </button>
+                      <button mat-button (click)="cancelComplete()">Cancel</button>
+                    </div>
+                  </mat-card-content>
+                </mat-card>
               }
             </div>
           </mat-tab>
@@ -126,10 +198,10 @@ import { PnlEventItem, PnlResponse } from '../../shared/models/api.models';
           <mat-tab label="Actual Realized Profits">
             <div class="tab-content">
               <p class="tab-desc">
-                Only events you have manually marked as complete, using the actual costs you entered.
+                Completed events only. Profit = Revenue − Actual Cost − Supplies.
               </p>
               @if (pnl()!.completed.length === 0) {
-                <p class="empty">No completed events yet. Mark an event as complete from its event page.</p>
+                <p class="empty">No completed events yet. Use the Expected tab to mark an event complete.</p>
               } @else {
                 <table mat-table [dataSource]="pnl()!.completed" class="pnl-table mat-elevation-z1">
                   <ng-container matColumnDef="event">
@@ -299,6 +371,43 @@ import { PnlEventItem, PnlResponse } from '../../shared/models/api.models';
     }
 
     .error { color: #c62828; padding: 16px; }
+
+    .complete-form-card {
+      margin-top: 24px;
+      max-width: 560px;
+      border-left: 4px solid #1976d2;
+    }
+
+    .receipt-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 4px;
+      flex-wrap: wrap;
+    }
+
+    .receipt-ok {
+      color: #388e3c;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .profit-preview {
+      margin-top: 12px;
+      padding: 10px 14px;
+      background: #e3f2fd;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .complete-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
   `]
 })
 export class PnlComponent implements OnInit {
@@ -306,12 +415,23 @@ export class PnlComponent implements OnInit {
   pnl = signal<PnlResponse | null>(null);
   error = signal<string | null>(null);
 
-  expectedColumns = ['event', 'revenue', 'flowerCost', 'supplyCost', 'expectedProfit', 'status'];
+  // Complete-event state
+  completingRow = signal<PnlEventItem | null>(null);
+  completeActualCost: number = 0;
+  completeReceiptUrl = signal<string | null>(null);
+  uploadingReceipt = signal(false);
+  savingComplete = signal(false);
+
+  expectedColumns = ['event', 'revenue', 'flowerCost', 'supplyCost', 'expectedProfit', 'status', 'complete'];
   actualColumns = ['event', 'revenue', 'actualCost', 'actualSupplyCost', 'actualProfit', 'margin', 'receipt'];
 
-  constructor(private eventService: EventService) {}
+  constructor(private eventService: EventService, private snackBar: MatSnackBar) {}
 
   ngOnInit() {
+    this.loadPnl();
+  }
+
+  loadPnl() {
     this.loading.set(true);
     this.eventService.getPnl().subscribe({
       next: (data) => {
@@ -321,6 +441,53 @@ export class PnlComponent implements OnInit {
       error: () => {
         this.error.set('Failed to load P&L data.');
         this.loading.set(false);
+      }
+    });
+  }
+
+  startComplete(row: PnlEventItem) {
+    this.completingRow.set(row);
+    this.completeActualCost = 0;
+    this.completeReceiptUrl.set(null);
+  }
+
+  cancelComplete() {
+    this.completingRow.set(null);
+    this.completeActualCost = 0;
+    this.completeReceiptUrl.set(null);
+  }
+
+  onReceiptSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (!input.files?.[0]) return;
+    this.uploadingReceipt.set(true);
+    this.eventService.uploadReceipt(this.completingRow()!.eventId, input.files[0]).subscribe({
+      next: (res) => {
+        this.completeReceiptUrl.set(res.url);
+        this.uploadingReceipt.set(false);
+      },
+      error: () => {
+        this.snackBar.open('Receipt upload failed', 'Close', { duration: 4000 });
+        this.uploadingReceipt.set(false);
+        input.value = '';
+      }
+    });
+  }
+
+  submitComplete() {
+    const row = this.completingRow();
+    if (!row || !this.completeActualCost || this.completeActualCost <= 0) return;
+    this.savingComplete.set(true);
+    this.eventService.completeEvent(row.eventId, this.completeActualCost, this.completeReceiptUrl() ?? undefined).subscribe({
+      next: () => {
+        this.savingComplete.set(false);
+        this.cancelComplete();
+        this.loadPnl();
+        this.snackBar.open('Event marked as complete', 'Close', { duration: 3000 });
+      },
+      error: () => {
+        this.snackBar.open('Failed to complete event', 'Close', { duration: 4000 });
+        this.savingComplete.set(false);
       }
     });
   }

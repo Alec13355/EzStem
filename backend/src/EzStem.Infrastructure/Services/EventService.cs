@@ -297,7 +297,7 @@ public class EventService : IEventService
             var expectedFlowerCost = revenue / multiple;
             var expectedProfit = revenue - expectedFlowerCost - supplyCost;
             decimal? actualProfit = evt.IsCompleted && evt.ActualCost.HasValue
-                ? revenue - evt.ActualCost.Value : null;
+                ? revenue - evt.ActualCost.Value - supplyCost : null;
 
             return new PnlEventItem(
                 evt.Id, evt.Name, evt.EventDate, evt.Status.ToString(),
