@@ -131,6 +131,8 @@ public class AzureOcrService : IOcrService
                 // Parse unit and determine UnitsPerBunch
                 var (unit, unitsPerBunch) = ParseUnit(unitText);
 
+                // CostPerUnit is the rate for the listed unit (e.g. per bunch of 10, or 25 for roses) —
+                // consumers that need a per-stem price are responsible for dividing by UnitsPerBunch.
                 rows.Add(new ParsedFlowerRow(nameText, unit, price, unitsPerBunch, currentCategory));
             }
         }

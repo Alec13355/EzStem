@@ -33,6 +33,7 @@ import {
   CreateEventFlowerRequest,
   UpdateEventFlowerRequest,
   CreateEventItemFlowerRequest,
+  UpdateEventItemFlowerRequest,
   EventRecipeSummaryResponse,
   RecipeItemSummary,
   RecipeLineItem,
@@ -421,20 +422,22 @@ import {
             <div class="tab-content">
               <h2>Recipe Summary</h2>
 
-              @if (loadingRecipeSummary()) {
+              @if (loadingRecipeSummary() && !recipeSummary()) {
                 <div class="loading-container">
                   <p>Loading recipe summary...</p>
                 </div>
               } @else {
                 @if (recipeSummary()) {
                   @for (itemSummary of recipeSummary()!.items; track itemSummary.eventItemId; let i = $index) {
-                    <mat-card class="recipe-card">
+                    <mat-card class="recipe-card" [attr.id]="'recipe-item-' + itemSummary.eventItemId">
                       <mat-card-header>
                         @if (itemSummary.flowers.length > 0) {
                           <div class="budget-status-bar" [class.over-budget]="itemSummary.totalRawCost > getItemBudget(itemSummary)">
                             <span class="budget-label">💰 Budget: {{ formatCurrency(getItemBudget(itemSummary)) }}</span>
                             <span class="budget-divider">|</span>
-                            <span class="running-label">Running: {{ formatCurrency(itemSummary.totalRawCost) }}</span>
+                            <span class="running-label">Total: {{ formatCurrency(itemSummary.totalRawCost) }}</span>
+                            <span class="budget-divider">|</span>
+                            <span class="remaining-label">Remaining: {{ formatCurrency(getItemBudget(itemSummary) - itemSummary.totalRawCost) }}</span>
                             <span class="budget-divider">|</span>
                             <span class="status-label">{{ itemSummary.totalRawCost > getItemBudget(itemSummary) ? '❌ Over Budget' : '✅ In Budget' }}</span>
                           </div>
@@ -454,7 +457,16 @@ import {
 
                             <ng-container matColumnDef="stemsPerUnit">
                               <th mat-header-cell *matHeaderCellDef>Stems/Unit</th>
-                              <td mat-cell *matCellDef="let line">{{ line.isTotal ? (line.stemsPerUnit + ' (total)') : line.stemsPerUnit }}</td>
+                              <td mat-cell *matCellDef="let line">
+                                @if (editingEntryId() === line.eventItemFlowerId) {
+                                  <mat-form-field class="edit-stems-field">
+                                    <input matInput [(ngModel)]="editRecipeEntry.stemsNeeded" type="number">
+                                  </mat-form-field>
+                                  <mat-checkbox [(ngModel)]="editRecipeEntry.isTotal">Total</mat-checkbox>
+                                } @else {
+                                  {{ line.isTotal ? (line.stemsPerUnit + ' (total)') : line.stemsPerUnit }}
+                                }
+                              </td>
                             </ng-container>
 
                             <ng-container matColumnDef="totalStems">
@@ -475,9 +487,21 @@ import {
                             <ng-container matColumnDef="actions">
                               <th mat-header-cell *matHeaderCellDef>Actions</th>
                               <td mat-cell *matCellDef="let line">
-                                <button mat-icon-button (click)="deleteRecipeEntry(itemSummary.eventItemId, line.eventItemFlowerId)">
-                                  <mat-icon>delete</mat-icon>
-                                </button>
+                                @if (editingEntryId() === line.eventItemFlowerId) {
+                                  <button mat-icon-button (click)="saveEditRecipeEntry(itemSummary.eventItemId, line.eventItemFlowerId)">
+                                    <mat-icon>check</mat-icon>
+                                  </button>
+                                  <button mat-icon-button (click)="cancelEditRecipeEntry()">
+                                    <mat-icon>close</mat-icon>
+                                  </button>
+                                } @else {
+                                  <button mat-icon-button (click)="startEditRecipeEntry(line)">
+                                    <mat-icon>edit</mat-icon>
+                                  </button>
+                                  <button mat-icon-button (click)="deleteRecipeEntry(itemSummary.eventItemId, line.eventItemFlowerId)">
+                                    <mat-icon>delete</mat-icon>
+                                  </button>
+                                }
                               </td>
                             </ng-container>
 
@@ -574,6 +598,10 @@ import {
                         <div class="total-item">
                           <span>Total Flower Cost:</span>
                           <strong>{{ formatCurrency(recipeSummary()!.totalFlowerCost) }}</strong>
+                        </div>
+                        <div class="total-item" [class.over]="recipeSummary()!.isOverBudget" [class.under]="!recipeSummary()!.isOverBudget">
+                          <span>Remaining:</span>
+                          <strong>{{ formatCurrency(recipeSummary()!.flowerBudget - recipeSummary()!.totalFlowerCost) }}</strong>
                         </div>
                         <div class="total-item" [class.over]="recipeSummary()!.isOverBudget" [class.under]="!recipeSummary()!.isOverBudget">
                           <span>Budget Status:</span>
@@ -836,6 +864,11 @@ import {
       border-radius: 4px;
     }
 
+    .edit-stems-field {
+      width: 80px;
+      margin-right: 8px;
+    }
+
     .totals-card {
       margin-top: 24px;
     }
@@ -961,6 +994,7 @@ export class EventDetailComponent implements OnInit {
   editingItemId = signal<string | null>(null);
   editingFlowerId = signal<string | null>(null);
   showingAddFlowerForItem = signal<string | null>(null);
+  editingEntryId = signal<string | null>(null);
   addingSupplyForItemId = signal<string | null>(null);
 
   totalEventSupplyCost = computed(() =>
@@ -1005,10 +1039,11 @@ export class EventDetailComponent implements OnInit {
   newItem: CreateEventItemRequest = { name: '', price: 0, quantity: 1 };
   newSupply: CreateEventItemSupplyRequest = { name: '', costPerUnit: 0, quantity: 1 };
   newFlower: CreateEventFlowerRequest = { name: '', pricePerStem: 0, bunchSize: 10 };
-  newRecipeEntry: CreateEventItemFlowerRequest = { eventFlowerId: '', stemsNeeded: 0, isTotal: false };
+  newRecipeEntry: CreateEventItemFlowerRequest = { eventFlowerId: '', stemsNeeded: 0, isTotal: true };
 
   editItem: UpdateEventItemRequest = {};
   editFlower: UpdateEventFlowerRequest = {};
+  editRecipeEntry: UpdateEventItemFlowerRequest = { stemsNeeded: 0, isTotal: true };
 
   constructor(
     private route: ActivatedRoute,
@@ -1072,12 +1107,17 @@ export class EventDetailComponent implements OnInit {
     });
   }
 
-  loadRecipeSummary() {
+  loadRecipeSummary(scrollToItemId?: string) {
     this.loadingRecipeSummary.set(true);
     this.eventRecipeService.getEventRecipeSummary(this.eventId).subscribe({
       next: (summary) => {
         this.recipeSummary.set(summary);
         this.loadingRecipeSummary.set(false);
+        if (scrollToItemId) {
+          setTimeout(() => {
+            document.getElementById('recipe-item-' + scrollToItemId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
+        }
       },
       error: (err) => {
         this.showError('Failed to load recipe summary');
@@ -1390,12 +1430,12 @@ export class EventDetailComponent implements OnInit {
 
   showAddFlowerToRecipe(itemId: string) {
     this.showingAddFlowerForItem.set(itemId);
-    this.newRecipeEntry = { eventFlowerId: '', stemsNeeded: 0, isTotal: false };
+    this.newRecipeEntry = { eventFlowerId: '', stemsNeeded: 0, isTotal: true };
   }
 
   cancelAddFlowerToRecipe() {
     this.showingAddFlowerForItem.set(null);
-    this.newRecipeEntry = { eventFlowerId: '', stemsNeeded: 0, isTotal: false };
+    this.newRecipeEntry = { eventFlowerId: '', stemsNeeded: 0, isTotal: true };
   }
 
   addFlowerToRecipe(itemId: string) {
@@ -1408,10 +1448,37 @@ export class EventDetailComponent implements OnInit {
       next: () => {
         this.showSuccess('Flower added to recipe');
         this.cancelAddFlowerToRecipe();
-        this.loadRecipeSummary();
+        this.loadRecipeSummary(itemId);
       },
       error: (err) => {
         this.showError('Failed to add flower to recipe');
+      }
+    });
+  }
+
+  startEditRecipeEntry(line: RecipeLineItem) {
+    this.editingEntryId.set(line.eventItemFlowerId);
+    this.editRecipeEntry = { stemsNeeded: line.stemsPerUnit, isTotal: line.isTotal };
+  }
+
+  cancelEditRecipeEntry() {
+    this.editingEntryId.set(null);
+  }
+
+  saveEditRecipeEntry(itemId: string, entryId: string) {
+    if (this.editRecipeEntry.stemsNeeded <= 0) {
+      this.showError('Please enter stems needed');
+      return;
+    }
+
+    this.eventRecipeService.updateRecipeEntry(this.eventId, itemId, entryId, this.editRecipeEntry).subscribe({
+      next: () => {
+        this.showSuccess('Recipe entry updated');
+        this.cancelEditRecipeEntry();
+        this.loadRecipeSummary(itemId);
+      },
+      error: (err) => {
+        this.showError('Failed to update recipe entry');
       }
     });
   }
@@ -1422,7 +1489,7 @@ export class EventDetailComponent implements OnInit {
     this.eventRecipeService.deleteRecipeEntry(this.eventId, itemId, entryId).subscribe({
       next: () => {
         this.showSuccess('Flower removed from recipe');
-        this.loadRecipeSummary();
+        this.loadRecipeSummary(itemId);
       },
       error: (err) => {
         this.showError('Failed to remove flower from recipe');
