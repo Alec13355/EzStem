@@ -101,7 +101,14 @@ public class AzureOcrService : IOcrService
                 // Strip leading item codes (e.g. "608617 Rose Name" → "Rose Name") and take first line only
                 var nameText = System.Text.RegularExpressions.Regex.Replace(rawName, @"^\d+\s+", "");
                 var newlineIdx = nameText.IndexOfAny(new[] { '\n', '\r' });
-                if (newlineIdx > 0) nameText = nameText[..newlineIdx].Trim();
+                if (newlineIdx > 0) nameText = nameText[..newlineIdx];
+                nameText = nameText.Trim();
+
+                // Some invoices repeat the name on the same line (e.g. "Rose White Rose White")
+                // instead of a separate line below the bold heading. Collapse exact repeats.
+                var dedupMatch = System.Text.RegularExpressions.Regex.Match(
+                    nameText, @"^(.+?)\s+\1$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (dedupMatch.Success) nameText = dedupMatch.Groups[1].Value.Trim();
 
                 var unitText = cells.ElementAtOrDefault(unitCol)?.Content?.Trim() ?? "";
                 var priceText = cells.ElementAtOrDefault(priceCol)?.Content?.Trim() ?? "";

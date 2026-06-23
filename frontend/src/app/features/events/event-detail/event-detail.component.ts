@@ -454,7 +454,7 @@ import {
 
                             <ng-container matColumnDef="stemsPerUnit">
                               <th mat-header-cell *matHeaderCellDef>Stems/Unit</th>
-                              <td mat-cell *matCellDef="let line">{{ line.stemsPerUnit }}</td>
+                              <td mat-cell *matCellDef="let line">{{ line.isTotal ? (line.stemsPerUnit + ' (total)') : line.stemsPerUnit }}</td>
                             </ng-container>
 
                             <ng-container matColumnDef="totalStems">
@@ -504,9 +504,10 @@ import {
                                 </mat-select>
                               </mat-form-field>
                               <mat-form-field>
-                                <mat-label>Stems Needed</mat-label>
+                                <mat-label>{{ newRecipeEntry.isTotal ? 'Total Stems Needed' : 'Stems Needed Per Unit' }}</mat-label>
                                 <input matInput [(ngModel)]="newRecipeEntry.stemsNeeded" type="number">
                               </mat-form-field>
+                              <mat-checkbox [(ngModel)]="newRecipeEntry.isTotal">This is the total quantity (don't multiply by item quantity)</mat-checkbox>
                               <button mat-raised-button color="primary" (click)="addFlowerToRecipe(itemSummary.eventItemId)">Add</button>
                               <button mat-button (click)="cancelAddFlowerToRecipe()">Cancel</button>
                             </div>
@@ -1004,7 +1005,7 @@ export class EventDetailComponent implements OnInit {
   newItem: CreateEventItemRequest = { name: '', price: 0, quantity: 1 };
   newSupply: CreateEventItemSupplyRequest = { name: '', costPerUnit: 0, quantity: 1 };
   newFlower: CreateEventFlowerRequest = { name: '', pricePerStem: 0, bunchSize: 10 };
-  newRecipeEntry: CreateEventItemFlowerRequest = { eventFlowerId: '', stemsNeeded: 0 };
+  newRecipeEntry: CreateEventItemFlowerRequest = { eventFlowerId: '', stemsNeeded: 0, isTotal: false };
 
   editItem: UpdateEventItemRequest = {};
   editFlower: UpdateEventFlowerRequest = {};
@@ -1389,12 +1390,12 @@ export class EventDetailComponent implements OnInit {
 
   showAddFlowerToRecipe(itemId: string) {
     this.showingAddFlowerForItem.set(itemId);
-    this.newRecipeEntry = { eventFlowerId: '', stemsNeeded: 0 };
+    this.newRecipeEntry = { eventFlowerId: '', stemsNeeded: 0, isTotal: false };
   }
 
   cancelAddFlowerToRecipe() {
     this.showingAddFlowerForItem.set(null);
-    this.newRecipeEntry = { eventFlowerId: '', stemsNeeded: 0 };
+    this.newRecipeEntry = { eventFlowerId: '', stemsNeeded: 0, isTotal: false };
   }
 
   addFlowerToRecipe(itemId: string) {

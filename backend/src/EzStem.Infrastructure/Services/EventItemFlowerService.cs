@@ -54,6 +54,7 @@ public class EventItemFlowerService : IEventItemFlowerService
             EventItemId = itemId,
             EventFlowerId = flower.Id,
             StemsNeeded = request.StemsNeeded,
+            IsTotal = request.IsTotal,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -68,6 +69,7 @@ public class EventItemFlowerService : IEventItemFlowerService
             flower.PricePerStem,
             flower.BunchSize,
             entry.StemsNeeded,
+            entry.IsTotal,
             entry.CreatedAt);
     }
 
@@ -85,6 +87,7 @@ public class EventItemFlowerService : IEventItemFlowerService
             throw new ArgumentException("StemsNeeded must be greater than zero", nameof(request.StemsNeeded));
 
         entry.StemsNeeded = request.StemsNeeded;
+        entry.IsTotal = request.IsTotal;
         await _context.SaveChangesAsync(ct);
 
         return MapToResponse(entry);
@@ -131,7 +134,7 @@ public class EventItemFlowerService : IEventItemFlowerService
                 var flower = entry.EventFlower;
                 if (flower == null) continue;
 
-                var totalStemsNeeded = entry.StemsNeeded * item.Quantity;
+                var totalStemsNeeded = entry.IsTotal ? entry.StemsNeeded : entry.StemsNeeded * item.Quantity;
                 var bunchesNeeded = flower.BunchSize > 0
                     ? (int)Math.Ceiling((decimal)totalStemsNeeded / flower.BunchSize)
                     : 0;
@@ -145,6 +148,7 @@ public class EventItemFlowerService : IEventItemFlowerService
                     flower.BunchSize,
                     entry.StemsNeeded,
                     item.Quantity,
+                    entry.IsTotal,
                     totalStemsNeeded,
                     bunchesNeeded,
                     totalCost));
@@ -172,7 +176,7 @@ public class EventItemFlowerService : IEventItemFlowerService
             .Select(group =>
             {
                 var flower = group.First().Entry.EventFlower;
-                var totalStemsNeeded = group.Sum(x => x.Entry.StemsNeeded * x.Item.Quantity);
+                var totalStemsNeeded = group.Sum(x => x.Entry.IsTotal ? x.Entry.StemsNeeded : x.Entry.StemsNeeded * x.Item.Quantity);
                 var bunchesNeeded = flower.BunchSize > 0
                     ? (int)Math.Ceiling((decimal)totalStemsNeeded / flower.BunchSize)
                     : 0;
@@ -213,5 +217,6 @@ public class EventItemFlowerService : IEventItemFlowerService
         entry.EventFlower.PricePerStem,
         entry.EventFlower.BunchSize,
         entry.StemsNeeded,
+        entry.IsTotal,
         entry.CreatedAt);
 }

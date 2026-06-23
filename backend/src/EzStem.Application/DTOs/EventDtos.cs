@@ -60,16 +60,16 @@ public record EventFlowerResponse(
     Guid Id, Guid EventId, string Name, decimal PricePerStem, int BunchSize,
     DateTime CreatedAt);
 
-public record CreateEventItemFlowerRequest(Guid EventFlowerId, int StemsNeeded);
-public record UpdateEventItemFlowerRequest(int StemsNeeded);
+public record CreateEventItemFlowerRequest(Guid EventFlowerId, int StemsNeeded, bool IsTotal = false);
+public record UpdateEventItemFlowerRequest(int StemsNeeded, bool IsTotal = false);
 public record EventItemFlowerResponse(
     Guid Id, Guid EventItemId, Guid EventFlowerId, string EventFlowerName,
-    decimal PricePerStem, int BunchSize, int StemsNeeded, DateTime CreatedAt);
+    decimal PricePerStem, int BunchSize, int StemsNeeded, bool IsTotal, DateTime CreatedAt);
 
 public record RecipeLineItem(
     Guid EventItemFlowerId, Guid EventFlowerId, string FlowerName,
     decimal PricePerStem, int BunchSize, int StemsPerUnit, int ItemQuantity,
-    int TotalStemsNeeded, int BunchesNeeded, decimal TotalCost);
+    bool IsTotal, int TotalStemsNeeded, int BunchesNeeded, decimal TotalCost);
 
 public record FlowerProcurementLine(
     Guid EventFlowerId, string FlowerName,

@@ -325,6 +325,7 @@ export interface EventItemFlower {
   pricePerStem?: number;
   bunchSize?: number;
   stemsNeeded: number;
+  isTotal: boolean;
   createdAt: string;
 }
 
@@ -355,10 +356,12 @@ export interface UpdateEventFlowerRequest {
 export interface CreateEventItemFlowerRequest {
   eventFlowerId: string;
   stemsNeeded: number;
+  isTotal?: boolean;
 }
 
 export interface UpdateEventItemFlowerRequest {
   stemsNeeded: number;
+  isTotal?: boolean;
 }
 
 export interface RecipeLineItem {
@@ -369,6 +372,7 @@ export interface RecipeLineItem {
   bunchSize: number;
   stemsPerUnit: number;
   itemQuantity: number;
+  isTotal: boolean;
   totalStemsNeeded: number;
   bunchesNeeded: number;
   totalCost: number;
