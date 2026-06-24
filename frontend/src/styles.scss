@@ -1,9 +1,52 @@
 @use '@angular/material' as mat;
+@use 'sass:color';
 
 @include mat.core();
 
-$ezstem-primary: mat.m2-define-palette(mat.$m2-green-palette, 600);
-$ezstem-accent: mat.m2-define-palette(mat.$m2-light-green-palette, A200);
+// Palette generated from the DahliaDough logo: dusty rose petals as primary,
+// sage leaf green as accent.
+@function dahlia-palette($base, $contrast-light: rgba(black, 0.87), $contrast-dark: white) {
+  @return (
+    50: color.mix(white, $base, 90%),
+    100: color.mix(white, $base, 80%),
+    200: color.mix(white, $base, 60%),
+    300: color.mix(white, $base, 40%),
+    400: color.mix(white, $base, 20%),
+    500: $base,
+    600: color.mix(black, $base, 10%),
+    700: color.mix(black, $base, 20%),
+    800: color.mix(black, $base, 30%),
+    900: color.mix(black, $base, 40%),
+    A100: color.mix(white, $base, 50%),
+    A200: color.mix(white, $base, 30%),
+    A400: color.mix(black, $base, 5%),
+    A700: color.mix(black, $base, 15%),
+    contrast: (
+      50: $contrast-light,
+      100: $contrast-light,
+      200: $contrast-light,
+      300: $contrast-light,
+      400: $contrast-light,
+      500: $contrast-dark,
+      600: $contrast-dark,
+      700: $contrast-dark,
+      800: $contrast-dark,
+      900: $contrast-dark,
+      A100: $contrast-light,
+      A200: $contrast-light,
+      A400: $contrast-dark,
+      A700: $contrast-dark,
+    )
+  );
+}
+
+$dahlia-rose: #D96C80;
+$dahlia-sage: #6F8F73;
+$dahlia-rose-palette: dahlia-palette($dahlia-rose);
+$dahlia-sage-palette: dahlia-palette($dahlia-sage);
+
+$ezstem-primary: mat.m2-define-palette($dahlia-rose-palette, 500);
+$ezstem-accent: mat.m2-define-palette($dahlia-sage-palette, 500);
 $ezstem-warn: mat.m2-define-palette(mat.$m2-red-palette);
 
 $ezstem-theme: mat.m2-define-light-theme((
@@ -31,7 +74,7 @@ html, body {
 
 body {
   margin: 0;
-  background-color: #fafafa;
+  background-color: #faf7f5;
   font-size: var(--app-font-size, 16px);
 }
 

@@ -20,8 +20,8 @@ import { AuthService } from '../../core/services/auth.service';
 
         <div class="hero-content">
           <div class="brand-row">
-            <span class="brand-emoji">🌿</span>
-            <h1 class="app-title">EzStem</h1>
+            <img class="brand-emoji" src="dahliadough-icon.svg" alt="" aria-hidden="true">
+            <h1 class="app-title">Dahlia Dough</h1>
           </div>
           <p class="tagline">Your floral business, beautifully organized</p>
           <p class="description">
@@ -141,14 +141,15 @@ import { AuthService } from '../../core/services/auth.service';
     }
 
     .brand-emoji {
-      font-size: 3.5rem;
+      height: 3.5rem;
+      width: 3.5rem;
       filter: drop-shadow(0 4px 10px rgba(0,0,0,0.15));
     }
 
     .app-title {
       font-size: 4.2rem;
       font-weight: 800;
-      color: #2d4a2d;
+      color: #2F2A28;
       margin: 0;
       letter-spacing: -2px;
       line-height: 1;
@@ -237,7 +238,7 @@ import { AuthService } from '../../core/services/auth.service';
       text-align: center;
       font-size: 2rem;
       font-weight: 700;
-      color: #2d4a2d;
+      color: #2F2A28;
       margin: 0 0 56px;
       letter-spacing: -0.5px;
     }
@@ -284,7 +285,7 @@ import { AuthService } from '../../core/services/auth.service';
     .feature-card h3 {
       font-size: 1.2rem;
       font-weight: 700;
-      color: #2d4a2d;
+      color: #2F2A28;
       margin: 0;
     }
 
@@ -297,7 +298,7 @@ import { AuthService } from '../../core/services/auth.service';
 
     /* ── Footer ── */
     .footer {
-      background: #2d4a2d;
+      background: #2F2A28;
       padding: 72px 24px;
       text-align: center;
       display: flex;
@@ -309,7 +310,7 @@ import { AuthService } from '../../core/services/auth.service';
     .footer-text {
       font-size: 1.5rem;
       font-weight: 700;
-      color: #e8f5e9;
+      color: #F6A6B2;
       margin: 0;
     }
 

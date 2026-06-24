@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="8 14 61 61" role="img" aria-labelledby="title">
+  <title id="title">DahliaDough flower icon</title>
+
+  <defs>
+    <linearGradient id="petalGradient" x1="13" y1="10" x2="46" y2="54" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F6A6B2"/>
+      <stop offset="1" stop-color="#D96C80"/>
+    </linearGradient>
+    <linearGradient id="leafGradient" x1="26" y1="46" x2="55" y2="65" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A7BFA3"/>
+      <stop offset="1" stop-color="#6F8F73"/>
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(8 8)">
+    <path d="M36 46C44 44 52 48 56 56C47 58 39 55 36 46Z" fill="url(#leafGradient)"/>
+    <path d="M28 44C22 51 14 55 5 53C8 45 17 40 28 44Z" fill="#B8C7A5"/>
+    <path d="M31 35C28 48 23 58 17 62" stroke="#6F8F73" stroke-width="3" stroke-linecap="round"/>
+
+    <g transform="translate(30 27)">
+      <ellipse rx="6" ry="16" transform="rotate(0)" fill="url(#petalGradient)"/>
+      <ellipse rx="6" ry="16" transform="rotate(30)" fill="url(#petalGradient)"/>
+      <ellipse rx="6" ry="16" transform="rotate(60)" fill="url(#petalGradient)"/>
+      <ellipse rx="6" ry="16" transform="rotate(90)" fill="url(#petalGradient)"/>
+      <ellipse rx="6" ry="16" transform="rotate(120)" fill="url(#petalGradient)"/>
+      <ellipse rx="6" ry="16" transform="rotate(150)" fill="url(#petalGradient)"/>
+      <circle r="8" fill="#F8D06A"/>
+      <circle r="3.5" fill="#B96A42" opacity="0.75"/>
+    </g>
+  </g>
+</svg>
