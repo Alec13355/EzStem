@@ -190,7 +190,8 @@ public class EventFlowerService : IEventFlowerService
             {
                 // row.CostPerUnit is the rate for the listed unit (e.g. per bunch of 10, or 25 for
                 // roses) — PricePerStem must always be the cost of a single stem.
-                var bunchSize = row.UnitsPerBunch > 0 ? row.UnitsPerBunch : 1;
+                var defaultBunchSize = row.Name.Contains("rose", StringComparison.OrdinalIgnoreCase) ? 25 : 10;
+                var bunchSize = row.UnitsPerBunch > 0 ? row.UnitsPerBunch : defaultBunchSize;
                 var pricePerStem = row.Unit == "Stem" ? row.CostPerUnit : row.CostPerUnit / bunchSize;
 
                 var existing = await _context.EventFlowers
@@ -199,7 +200,7 @@ public class EventFlowerService : IEventFlowerService
                 if (existing != null)
                 {
                     existing.PricePerStem = pricePerStem;
-                    existing.BunchSize = row.UnitsPerBunch > 0 ? row.UnitsPerBunch : existing.BunchSize;
+                    existing.BunchSize = row.UnitsPerBunch > 0 ? row.UnitsPerBunch : defaultBunchSize;
                     await _context.SaveChangesAsync(ct);
                     resultFlowers.Add(MapToResponse(existing));
                     imported++;
@@ -212,7 +213,7 @@ public class EventFlowerService : IEventFlowerService
                         EventId = eventId,
                         Name = row.Name,
                         PricePerStem = pricePerStem,
-                        BunchSize = row.UnitsPerBunch > 0 ? row.UnitsPerBunch : 10,
+                        BunchSize = row.UnitsPerBunch > 0 ? row.UnitsPerBunch : defaultBunchSize,
                         CreatedAt = DateTime.UtcNow
                     };
                     _context.EventFlowers.Add(flower);
