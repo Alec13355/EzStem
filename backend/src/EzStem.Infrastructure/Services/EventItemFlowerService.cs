@@ -193,6 +193,17 @@ public class EventItemFlowerService : IEventItemFlowerService
             })
             .ToList();
 
+        var usedFlowerIds = flowerProcurement.Select(f => f.EventFlowerId).ToHashSet();
+        var allEventFlowers = await _context.EventFlowers
+            .Where(f => f.EventId == eventId)
+            .ToListAsync(ct);
+
+        var unusedFlowers = allEventFlowers
+            .Where(f => !usedFlowerIds.Contains(f.Id))
+            .Select(f => new FlowerProcurementLine(f.Id, f.Name, f.PricePerStem, f.BunchSize, 0, 0, 0m));
+
+        flowerProcurement.AddRange(unusedFlowers);
+
         var totalFlowerCost = flowerProcurement.Sum(line => line.TotalCost);
         var flowerBudget = evt.ProfitMultiple > 0 ? evt.TotalBudget / evt.ProfitMultiple : 0m;
 

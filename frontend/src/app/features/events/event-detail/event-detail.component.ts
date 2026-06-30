@@ -825,6 +825,14 @@ import {
       margin-top: 16px;
     }
 
+    .recipe-flowers-table tr.mat-mdc-row {
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .recipe-flowers-table tr.mat-mdc-row:last-child {
+      border-bottom: none;
+    }
+
     .inline-edit {
       width: 100%;
       border: 1px solid #ccc;
