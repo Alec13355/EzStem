@@ -190,7 +190,7 @@ public class EventFlowerService : IEventFlowerService
             {
                 // row.CostPerUnit is the rate for the listed unit (e.g. per bunch of 10, or 25 for
                 // roses) — PricePerStem must always be the cost of a single stem.
-                var defaultBunchSize = row.Name.Contains("rose", StringComparison.OrdinalIgnoreCase) ? 25 : 10;
+                var defaultBunchSize = row.Name.Equals("rose", StringComparison.OrdinalIgnoreCase) ? 25 : 10;
                 var bunchSize = row.UnitsPerBunch > 0 ? row.UnitsPerBunch : defaultBunchSize;
                 var pricePerStem = row.Unit == "Stem" ? row.CostPerUnit : row.CostPerUnit / bunchSize;
 
