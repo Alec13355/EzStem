@@ -521,7 +521,7 @@ import {
                             <div class="inline-add-form">
                               <mat-form-field>
                                 <mat-label>Select Flower</mat-label>
-                                <mat-select [(ngModel)]="newRecipeEntry.eventFlowerId">
+                                <mat-select [(ngModel)]="newRecipeEntry.eventFlowerId" panelClass="flower-select-panel">
                                   @for (flower of flowers(); track flower.id) {
                                     <mat-option [value]="flower.id">{{ flower.name }}</mat-option>
                                   }
@@ -830,6 +830,14 @@ import {
     }
 
     .recipe-flowers-table tr.mat-mdc-row:last-child {
+      border-bottom: none;
+    }
+
+    ::ng-deep .flower-select-panel .mat-mdc-option {
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    ::ng-deep .flower-select-panel .mat-mdc-option:last-child {
       border-bottom: none;
     }
 
