@@ -169,14 +169,26 @@ public class EventItemFlowerService : IEventItemFlowerService
                 lineItems));
         }
 
-        var flowerProcurement = items
+        var stemsNeededByFlowerId = items
             .SelectMany(item => item.RecipeFlowers.Select(entry => new { Item = item, Entry = entry }))
             .Where(x => x.Entry.EventFlower != null)
             .GroupBy(x => x.Entry.EventFlowerId)
-            .Select(group =>
+            .ToDictionary(
+                group => group.Key,
+                group => group.Sum(x => x.Entry.IsTotal ? x.Entry.StemsNeeded : x.Entry.StemsNeeded * x.Item.Quantity));
+
+        // Ordered by CreatedAt so the procurement list matches invoice order, with
+        // unused (0-count) flowers staying in their original position instead of being
+        // appended at the end.
+        var allEventFlowers = await _context.EventFlowers
+            .Where(f => f.EventId == eventId)
+            .OrderBy(f => f.CreatedAt)
+            .ToListAsync(ct);
+
+        var flowerProcurement = allEventFlowers
+            .Select(flower =>
             {
-                var flower = group.First().Entry.EventFlower;
-                var totalStemsNeeded = group.Sum(x => x.Entry.IsTotal ? x.Entry.StemsNeeded : x.Entry.StemsNeeded * x.Item.Quantity);
+                var totalStemsNeeded = stemsNeededByFlowerId.TryGetValue(flower.Id, out var stems) ? stems : 0;
                 var bunchesNeeded = flower.BunchSize > 0
                     ? (int)Math.Ceiling((decimal)totalStemsNeeded / flower.BunchSize)
                     : 0;
@@ -192,17 +204,6 @@ public class EventItemFlowerService : IEventItemFlowerService
                     totalCost);
             })
             .ToList();
-
-        var usedFlowerIds = flowerProcurement.Select(f => f.EventFlowerId).ToHashSet();
-        var allEventFlowers = await _context.EventFlowers
-            .Where(f => f.EventId == eventId)
-            .ToListAsync(ct);
-
-        var unusedFlowers = allEventFlowers
-            .Where(f => !usedFlowerIds.Contains(f.Id))
-            .Select(f => new FlowerProcurementLine(f.Id, f.Name, f.PricePerStem, f.BunchSize, 0, 0, 0m));
-
-        flowerProcurement.AddRange(unusedFlowers);
 
         var totalFlowerCost = flowerProcurement.Sum(line => line.TotalCost);
         var flowerBudget = evt.ProfitMultiple > 0 ? evt.TotalBudget / evt.ProfitMultiple : 0m;
