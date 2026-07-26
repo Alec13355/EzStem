@@ -58,7 +58,7 @@ public record CreateEventFlowerRequest(string Name, decimal PricePerStem, int Bu
 public record UpdateEventFlowerRequest(string? Name, decimal? PricePerStem, int? BunchSize);
 public record EventFlowerResponse(
     Guid Id, Guid EventId, string Name, decimal PricePerStem, int BunchSize,
-    DateTime CreatedAt);
+    DateTime CreatedAt, Guid? MasterFlowerId = null);
 
 public record CreateEventItemFlowerRequest(Guid EventFlowerId, int StemsNeeded, bool IsTotal = false);
 public record UpdateEventItemFlowerRequest(int StemsNeeded, bool IsTotal = false);

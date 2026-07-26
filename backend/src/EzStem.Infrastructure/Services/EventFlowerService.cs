@@ -63,10 +63,45 @@ public class EventFlowerService : IEventFlowerService
             CreatedAt = DateTime.UtcNow
         };
 
+        flower.MasterFlowerId = await UpsertMasterFlowerAsync(request.Name, request.PricePerStem, request.BunchSize, ownerId, ct);
+
         _context.EventFlowers.Add(flower);
         await _context.SaveChangesAsync(ct);
 
         return MapToResponse(flower);
+    }
+
+    // Mirrors the dedup/upsert behavior used by invoice imports so a manually-added
+    // flower shows up in the historical master list the same way an imported one does.
+    private async Task<Guid> UpsertMasterFlowerAsync(string name, decimal pricePerStem, int bunchSize, string ownerId, CancellationToken ct)
+    {
+        var existing = await _context.MasterFlowers
+            .FirstOrDefaultAsync(m => m.OwnerId == ownerId && m.Name == name, ct);
+
+        if (existing != null)
+        {
+            existing.Unit = FlowerUnit.Bunch;
+            existing.CostPerUnit = pricePerStem * bunchSize;
+            existing.UnitsPerBunch = bunchSize;
+            existing.UpdatedAt = DateTime.UtcNow;
+            return existing.Id;
+        }
+
+        var master = new MasterFlower
+        {
+            Id = Guid.NewGuid(),
+            OwnerId = ownerId,
+            Name = name,
+            Unit = FlowerUnit.Bunch,
+            CostPerUnit = pricePerStem * bunchSize,
+            UnitsPerBunch = bunchSize,
+            Category = "Uncategorized",
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        _context.MasterFlowers.Add(master);
+        return master.Id;
     }
 
     public async Task<EventFlowerResponse?> UpdateFlowerAsync(Guid eventId, Guid flowerId, UpdateEventFlowerRequest request, string ownerId, CancellationToken ct = default)
@@ -169,7 +204,8 @@ public class EventFlowerService : IEventFlowerService
         flower.Name,
         flower.PricePerStem,
         flower.BunchSize,
-        flower.CreatedAt);
+        flower.CreatedAt,
+        flower.MasterFlowerId);
 
     public async Task<EventFlowerImportResult> ImportFromPdfAsync(
         Guid eventId, Stream pdfStream, string ownerId, IOcrService ocrService, CancellationToken ct = default)

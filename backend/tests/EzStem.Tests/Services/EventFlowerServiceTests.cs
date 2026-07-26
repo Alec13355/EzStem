@@ -1,5 +1,6 @@
 using EzStem.Application.DTOs;
 using EzStem.Domain.Entities;
+using EzStem.Domain.Enums;
 using EzStem.Infrastructure.Data;
 using EzStem.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
@@ -111,6 +112,72 @@ public class EventFlowerServiceTests
         Assert.Equal("Rose", response.Name);
         Assert.Equal(2.25m, response.PricePerStem);
         Assert.Equal(12, response.BunchSize);
+    }
+
+    [Fact]
+    public async Task CreateFlowerAsync_AddsNewMasterFlower_WhenNoneExists()
+    {
+        using var context = CreateInMemoryContext();
+        var service = new EventFlowerService(context);
+
+        var floristEvent = CreateEvent(TestOwnerId);
+        context.Events.Add(floristEvent);
+        await context.SaveChangesAsync();
+
+        var response = await service.CreateFlowerAsync(
+            floristEvent.Id,
+            new CreateEventFlowerRequest("Rose", 2.25m, 12),
+            TestOwnerId);
+
+        Assert.NotNull(response.MasterFlowerId);
+
+        var master = await context.MasterFlowers.SingleAsync(m => m.OwnerId == TestOwnerId);
+        Assert.Equal(response.MasterFlowerId, master.Id);
+        Assert.Equal("Rose", master.Name);
+        Assert.Equal("Uncategorized", master.Category);
+        Assert.Equal(FlowerUnit.Bunch, master.Unit);
+        Assert.Equal(12, master.UnitsPerBunch);
+        Assert.Equal(2.25m * 12, master.CostPerUnit);
+        Assert.True(master.IsActive);
+    }
+
+    [Fact]
+    public async Task CreateFlowerAsync_UpdatesExistingMasterFlower_WhenNameAlreadyInMasterList()
+    {
+        using var context = CreateInMemoryContext();
+        var service = new EventFlowerService(context);
+
+        var floristEvent = CreateEvent(TestOwnerId);
+        context.Events.Add(floristEvent);
+        var existingMaster = new MasterFlower
+        {
+            Id = Guid.NewGuid(),
+            OwnerId = TestOwnerId,
+            Name = "Rose",
+            Unit = FlowerUnit.Bunch,
+            CostPerUnit = 20m,
+            UnitsPerBunch = 10,
+            Category = "Roses",
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        context.MasterFlowers.Add(existingMaster);
+        await context.SaveChangesAsync();
+
+        var response = await service.CreateFlowerAsync(
+            floristEvent.Id,
+            new CreateEventFlowerRequest("Rose", 3m, 25),
+            TestOwnerId);
+
+        Assert.Equal(existingMaster.Id, response.MasterFlowerId);
+
+        var masters = await context.MasterFlowers.Where(m => m.OwnerId == TestOwnerId).ToListAsync();
+        Assert.Single(masters);
+        var updated = masters[0];
+        Assert.Equal("Roses", updated.Category); // untouched by manual add
+        Assert.Equal(25, updated.UnitsPerBunch);
+        Assert.Equal(3m * 25, updated.CostPerUnit);
     }
 
     [Fact]
