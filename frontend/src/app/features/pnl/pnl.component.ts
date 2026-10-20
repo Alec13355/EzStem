@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatTabsModule } from '@angular/material/tabs';
@@ -10,6 +10,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { EventService } from '../../core/services/event.service';
 import { PnlEventItem, PnlResponse } from '../../shared/models/api.models';
@@ -29,11 +30,24 @@ import { PnlEventItem, PnlResponse } from '../../shared/models/api.models';
     MatInputModule,
     MatFormFieldModule,
     MatDividerModule,
+    MatSelectModule,
     MatSnackBarModule
   ],
   template: `
     <div class="pnl-container">
-      <h1>Profit & Loss</h1>
+      <div class="pnl-header">
+        <h1>Profit & Loss</h1>
+        @if (years().length) {
+          <mat-form-field class="year-select" subscriptSizing="dynamic">
+            <mat-label>Year</mat-label>
+            <mat-select [value]="selectedYear()" (selectionChange)="selectedYear.set($event.value)">
+              @for (y of years(); track y) {
+                <mat-option [value]="y">{{ y }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        }
+      </div>
 
       @if (loading()) {
         <div class="loading"><mat-spinner></mat-spinner></div>
@@ -43,28 +57,28 @@ import { PnlEventItem, PnlResponse } from '../../shared/models/api.models';
           <mat-card class="summary-card">
             <mat-card-content>
               <div class="summary-label">Expected Revenue</div>
-              <div class="summary-value">{{ fmt(pnl()!.summary.totalExpectedRevenue) }}</div>
-              <div class="summary-sub">All active events</div>
+              <div class="summary-value">{{ fmt(view().summary.totalExpectedRevenue) }}</div>
+              <div class="summary-sub">All {{ selectedYear() }} events</div>
             </mat-card-content>
           </mat-card>
           <mat-card class="summary-card accent">
             <mat-card-content>
               <div class="summary-label">Expected Profit</div>
-              <div class="summary-value">{{ fmt(pnl()!.summary.totalExpectedProfit) }}</div>
+              <div class="summary-value">{{ fmt(view().summary.totalExpectedProfit) }}</div>
               <div class="summary-sub">Revenue minus flower budget &amp; supplies</div>
             </mat-card-content>
           </mat-card>
           <mat-card class="summary-card">
             <mat-card-content>
               <div class="summary-label">Realized Revenue</div>
-              <div class="summary-value">{{ fmt(pnl()!.summary.totalActualRevenue) }}</div>
-              <div class="summary-sub">{{ pnl()!.summary.completedEventsCount }} completed event(s)</div>
+              <div class="summary-value">{{ fmt(view().summary.totalActualRevenue) }}</div>
+              <div class="summary-sub">{{ view().summary.completedEventsCount }} completed event(s)</div>
             </mat-card-content>
           </mat-card>
-          <mat-card class="summary-card" [class.accent]="pnl()!.summary.totalActualProfit >= 0" [class.warn]="pnl()!.summary.totalActualProfit < 0">
+          <mat-card class="summary-card" [class.accent]="view().summary.totalActualProfit >= 0" [class.warn]="view().summary.totalActualProfit < 0">
             <mat-card-content>
               <div class="summary-label">Realized Profit</div>
-              <div class="summary-value">{{ fmt(pnl()!.summary.totalActualProfit) }}</div>
+              <div class="summary-value">{{ fmt(view().summary.totalActualProfit) }}</div>
               <div class="summary-sub">Revenue − actual costs − supplies</div>
             </mat-card-content>
           </mat-card>
@@ -78,10 +92,10 @@ import { PnlEventItem, PnlResponse } from '../../shared/models/api.models';
                 All events, assuming the profit multiple is met on goods costs.
                 Completed events are included so you can compare expected vs. actual.
               </p>
-              @if (pnl()!.all.length === 0) {
+              @if (view().all.length === 0) {
                 <p class="empty">No events yet.</p>
               } @else {
-                <table mat-table [dataSource]="pnl()!.all" class="pnl-table mat-elevation-z1">
+                <table mat-table [dataSource]="view().all" class="pnl-table mat-elevation-z1">
                   <ng-container matColumnDef="event">
                     <th mat-header-cell *matHeaderCellDef>Event</th>
                     <td mat-cell *matCellDef="let row">
@@ -200,10 +214,10 @@ import { PnlEventItem, PnlResponse } from '../../shared/models/api.models';
               <p class="tab-desc">
                 Completed events only. Profit = Revenue − Actual Cost − Supplies.
               </p>
-              @if (pnl()!.completed.length === 0) {
+              @if (view().completed.length === 0) {
                 <p class="empty">No completed events yet. Use the Expected tab to mark an event complete.</p>
               } @else {
-                <table mat-table [dataSource]="pnl()!.completed" class="pnl-table mat-elevation-z1">
+                <table mat-table [dataSource]="view().completed" class="pnl-table mat-elevation-z1">
                   <ng-container matColumnDef="event">
                     <th mat-header-cell *matHeaderCellDef>Event</th>
                     <td mat-cell *matCellDef="let row">
@@ -279,7 +293,17 @@ import { PnlEventItem, PnlResponse } from '../../shared/models/api.models';
       padding: 24px;
     }
 
-    h1 { margin-bottom: 24px; }
+    .pnl-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .pnl-header h1 { margin: 0; }
+
+    .year-select { width: 120px; }
 
     .loading {
       display: flex;
@@ -415,6 +439,31 @@ export class PnlComponent implements OnInit {
   pnl = signal<PnlResponse | null>(null);
   error = signal<string | null>(null);
 
+  selectedYear = signal<number | null>(null);
+
+  // eventDate is ISO; slice the year to avoid timezone shifts around Jan 1
+  years = computed(() =>
+    [...new Set((this.pnl()?.all ?? []).map(e => +e.eventDate.slice(0, 4)))].sort((a, b) => b - a));
+
+  view = computed(() => {
+    const year = this.selectedYear();
+    const inYear = (e: PnlEventItem) => +e.eventDate.slice(0, 4) === year;
+    const all = (this.pnl()?.all ?? []).filter(inYear);
+    const completed = (this.pnl()?.completed ?? []).filter(inYear);
+    const sum = (items: PnlEventItem[], f: (e: PnlEventItem) => number) => items.reduce((t, e) => t + f(e), 0);
+    return {
+      all,
+      completed,
+      summary: {
+        totalExpectedRevenue: sum(all, e => e.totalRevenue),
+        totalExpectedProfit: sum(all, e => e.expectedProfit),
+        totalActualRevenue: sum(completed, e => e.totalRevenue),
+        totalActualProfit: sum(completed, e => e.actualProfit ?? 0),
+        completedEventsCount: completed.length
+      }
+    };
+  });
+
   // Complete-event state
   completingRow = signal<PnlEventItem | null>(null);
   completeActualCost: number = 0;
@@ -436,6 +485,7 @@ export class PnlComponent implements OnInit {
     this.eventService.getPnl().subscribe({
       next: (data) => {
         this.pnl.set(data);
+        if (!this.years().includes(this.selectedYear()!)) this.selectedYear.set(this.closestYear());
         this.loading.set(false);
       },
       error: () => {
@@ -443,6 +493,13 @@ export class PnlComponent implements OnInit {
         this.loading.set(false);
       }
     });
+  }
+
+  // Current year if present, else nearest (ties go to the later year)
+  closestYear(): number | null {
+    const now = new Date().getFullYear();
+    return this.years().reduce<number | null>((best, y) =>
+      best === null || Math.abs(y - now) < Math.abs(best - now) ? y : best, null);
   }
 
   startComplete(row: PnlEventItem) {
