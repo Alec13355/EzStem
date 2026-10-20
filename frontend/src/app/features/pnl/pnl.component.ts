@@ -550,6 +550,6 @@ export class PnlComponent implements OnInit {
   }
 
   fmt(value: number): string {
-    return '$' + (value ?? 0).toFixed(2);
+    return (value ?? 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
   }
 }
